@@ -3,7 +3,7 @@ id: FEATURE-REGISTRY
 title: Feature Registry
 status: active
 owner: Developer
-last_updated: 2026-09-18
+last_updated: 2026-10-05
 ---
 
 # Feature Registry
@@ -23,6 +23,10 @@ Mutable execution status, active task, blockers, and commits belong in `docs/con
 | `F-007` | Fitur Klinis & Administrasi Pasien | `docs/specs/F-007-fitur-klinis-administrasi-pasien/` | P2 | implemented | Post-MVP Extension |
 | `F-008` | RM Baru, RBAC 2 Role, Laporan Kesehatan, Piutang | `docs/specs/F-008-rm-rbac-kesehatan-piutang/` | P1 | implemented | Change Request |
 | `F-009` | Kelengkapan Data, Pemantauan Rujukan Bidan, Filter Periode, Laporan Puskesmas | `docs/specs/F-009-kelengkapan-data-pemantauan-bidan/` | P1 | in_progress | Change Request |
+| `F-010` | Sumber Identitas No RM dari DATAPASIEN | `docs/specs/F-010-sumber-identitas-rm-datapasien/` | P1 | draft | Change Request |
+| `F-011` | Hak Akses dan Alur Kategorisasi Program | `docs/specs/F-011-hak-akses-alur-kategorisasi/` | P1 | draft | Change Request |
+| `F-012` | Paket Terapi | `docs/specs/F-012-paket-terapi/` | P2 | pending | Post-MVP Extension (ditahan) |
+| `F-013` | Surat Keterangan Sakit - Alamat Tambahan | `docs/specs/F-013-surat-keterangan-sakit/` | P2 | draft | Change Request |
 
 ## Lifecycle gate meaning
 
