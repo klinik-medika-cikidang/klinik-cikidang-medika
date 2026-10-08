@@ -349,7 +349,13 @@ async function mergeIdentities() {
   }
 }
 
-await mergeIdentities();
+// F-010: identity is owned by the audit-based rebuild, so the leading-zero merge is
+// opt-in only. Running it by default would re-introduce the F-009 mis-merges.
+if (process.argv.includes('--legacy-merge')) {
+  await mergeIdentities();
+} else {
+  console.log('mergeIdentities dilewati: identitas pasien dikelola rebuild F-010.');
+}
 
 // Pad standalone 8-digit numbers so the leading zero is restored. Two values that pad
 // to the same string are by definition the same merge group, so this cannot collide.
