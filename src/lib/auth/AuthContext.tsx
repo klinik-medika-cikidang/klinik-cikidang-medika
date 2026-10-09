@@ -4,6 +4,9 @@ import React, { createContext, useContext, useEffect, useState, useMemo, useCall
 import { User, Session } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import { UserRole, UserProfile } from '@/types/database';
+import { roleCanAccessRoute, roleDefaultRoute } from '@/lib/auth/permissions';
+
+export { ROLE_PERMISSIONS, ROLE_DEFAULT_ROUTES } from '@/lib/auth/permissions';
 
 interface AuthContextType {
   user: User | null;
@@ -17,18 +20,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// F-011 BR-001: Dokter/Admin runs the daily flow from registration to payment and
-// expense recording. The dashboard and cost monitoring stay owner-only.
-export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
-  owner: ['/', '/pendaftaran', '/rekam-medis', '/program-khusus', '/buku-kas', '/laporan'],
-  dokter_admin: ['/pendaftaran', '/rekam-medis', '/program-khusus', '/buku-kas', '/laporan'],
-};
-
-export const ROLE_DEFAULT_ROUTES: Record<UserRole, string> = {
-  owner: '/',
-  dokter_admin: '/rekam-medis',
-};
 
 export const ROLE_LABELS: Record<UserRole, { label: string; badge: string; color: string }> = {
   owner: {
@@ -155,27 +146,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   const canAccessRoute = useCallback(
-    (pathname: string): boolean => {
-      if (pathname === '/login') return true;
-      if (!profile || !profile.role) return false;
-
-      const allowedRoutes = ROLE_PERMISSIONS[profile.role] || [];
-      // Normalize pathname
-      const cleanPath = pathname === '' ? '/' : pathname;
-      return allowedRoutes.some((route) => {
-        if (route === '/') {
-          return cleanPath === '/';
-        }
-        return cleanPath === route || cleanPath.startsWith(`${route}/`);
-      });
-    },
+    (pathname: string): boolean => roleCanAccessRoute(profile?.role ?? null, pathname),
     [profile]
   );
 
-  const getDefaultRoute = useCallback((userRole: UserRole | null): string => {
-    if (!userRole) return '/login';
-    return ROLE_DEFAULT_ROUTES[userRole] || '/login';
-  }, []);
+  const getDefaultRoute = useCallback(
+    (userRole: UserRole | null): string => roleDefaultRoute(userRole),
+    []
+  );
 
   const value = useMemo(
     () => ({

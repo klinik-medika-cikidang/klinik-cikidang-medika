@@ -14,7 +14,8 @@ related:
 # Tasks: F-011 Hak Akses dan Alur Kategorisasi Program
 
 Status: dikerjakan bertahap di staging. OQ-001 ditafsirkan sementara lewat BR-002 dan perlu
-konfirmasi klinik. Belum dipromosikan ke produksi.
+konfirmasi klinik. Belum dipromosikan ke produksi. Dev dependency `vitest@2.1.9` ditambahkan
+untuk unit test matriks izin (perintah `npm test`).
 
 ## Fase A - Izin dan rute
 
@@ -27,8 +28,8 @@ konfirmasi klinik. Belum dipromosikan ke produksi.
   Dokter/Admin kini `/rekam-medis`.)
   _Requirements: FR-002, ERR-001, NFR-SEC-001_
 
-- [ ] **TASK-011-3**: Tambah unit test matriks izin untuk kedua peran dan seluruh rute.
-  Terhambat: menambah Vitest berarti dependensi baru, butuh persetujuan pemilik.
+- [x] **TASK-011-3**: Unit test matriks izin untuk kedua peran dan seluruh rute
+  (`src/lib/auth/permissions.test.ts`, via Vitest). `npm test` lulus 6 test.
   _Requirements: BR-003, INV-003_
 
 ## Fase B - Batas pemantauan biaya
