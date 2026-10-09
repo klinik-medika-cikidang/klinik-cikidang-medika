@@ -1,7 +1,7 @@
 ---
 id: F-013-TSK
 feature: F-013
-status: in_progress
+status: implemented
 owner: "Developer"
 last_updated: "2026-10-08"
 last_verified_commit: unverified

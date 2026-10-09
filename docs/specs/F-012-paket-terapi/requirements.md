@@ -5,8 +5,8 @@ title: "Paket Terapi"
 status: approved
 owner: "Developer"
 created: "2026-10-08"
-last_updated: "2026-10-08"
-last_verified_commit: unverified
+last_updated: "2026-10-09"
+last_verified_commit: "68c8af6"
 source_of_truth_for:
   - "Paket terapi behavior"
   - "Aturan penerapan paket terapi ke kunjungan"

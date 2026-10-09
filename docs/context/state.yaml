@@ -207,13 +207,17 @@ next_tasks:
     task: "Tawarkan pemulihan tanggal tindakan untuk 13 baris register sirkumsisi dari log kunjungan"
     detail: "13 dari 43 anak punya tepat satu kunjungan bertanda sunat di log rekam medis. Satu di antaranya kunjungan kontrol H+3 sehingga tanggalnya bukan tanggal tindakan."
     blocked_by: "Persetujuan klinik; ini mengubah isi rekam medis"
+  - id: F-012-OPEN-001
+    task: "Klinik memutuskan cakupan peran Paket Terapi dan meninjau harga paket awal"
+    detail: "F-012 diimplementasikan dan diuji di staging (migrasi tiga tabel + sepuluh paket awal dari data klinik). Menu /paket-terapi untuk saat ini hanya untuk Owner. Perlu keputusan: cukup Owner saja, atau dokter/staf lain juga (melihat saja atau turut mengelola). Harga paket awal mengacu daftar harga obat dan tarif tindakan masih perlu diisi. Produksi ditahan sampai disetujui."
+    artifact: "docs/product/Laporan_Pembaruan_Sistem_F012.pdf"
 
 handoff:
   current: "docs/handoff/current.md"
   generated_views: "PROJECT_STATE.md dan PROGRESS.md belum memiliki renderer otomatis; state.yaml adalah sumber kanonik dan PROJECT_STATE.md mengarahkan pembaca ke handoff serta Git."
 
-last_updated: "2026-10-01"
-last_verified_commit: "5a0e0ef"
+last_updated: "2026-10-09"
+last_verified_commit: "68c8af6"
 client_confirmations:
   - date: "2026-09-30"
     item: "Layout Laporan Puskesmas mengikuti sheet LAPORAN DPP sudah benar"

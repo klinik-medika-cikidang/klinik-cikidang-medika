@@ -2,7 +2,7 @@
 id: F-011-TSK
 feature: F-011
 title: "Tasks: Hak Akses dan Alur Kategorisasi Program"
-status: in_progress
+status: implemented
 owner: "Developer"
 last_updated: "2026-10-09"
 last_verified_commit: unverified

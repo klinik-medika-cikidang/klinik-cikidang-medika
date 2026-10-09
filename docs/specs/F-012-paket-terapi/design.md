@@ -2,10 +2,10 @@
 id: F-012-DESIGN
 feature: F-012
 title: "Design: Paket Terapi"
-status: in_progress
+status: implemented
 owner: "Developer"
-last_updated: "2026-10-08"
-last_verified_commit: unverified
+last_updated: "2026-10-09"
+last_verified_commit: "68c8af6"
 related:
   - "requirements.md"
   - "../../architecture/overview.md"
@@ -14,8 +14,8 @@ related:
 
 # Design: F-012 Paket Terapi
 
-> Change Request Post-MVP. Dokumen ini adalah rencana dan TIDAK BOLEH dieksekusi sebelum client
-> menyetujui F-012 (requirements Section 15, OQ-001).
+> Change Request Post-MVP. Disetujui untuk dikerjakan 2026-10-09. Fase 1 sampai Fase 4 sudah
+> diimplementasikan di staging. Produksi ditahan sampai operator menyetujui penerapan.
 
 > Dokumen ini memetakan requirements ke repositori nyata dan tidak mengulang arsitektur yang sudah
 > dimiliki `docs/architecture/overview.md`.

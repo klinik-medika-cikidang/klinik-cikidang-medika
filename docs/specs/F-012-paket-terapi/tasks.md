@@ -2,10 +2,10 @@
 id: F-012-TSK
 feature: F-012
 title: "Implementation Tasks: Paket Terapi"
-status: in_progress
+status: implemented
 owner: "Developer"
-last_updated: "2026-10-08"
-last_verified_commit: unverified
+last_updated: "2026-10-09"
+last_verified_commit: "68c8af6"
 related:
   - "requirements.md"
   - "design.md"
@@ -13,8 +13,9 @@ related:
 
 # Implementation Tasks: F-012 Paket Terapi
 
-> Change Request Post-MVP. Disetujui untuk dikerjakan 2026-10-09. Fase 1 (fondasi data) selesai; migrasi
-> sudah diterapkan di staging. Fase 2 sampai Fase 4 menyusul bertahap.
+> Change Request Post-MVP. Disetujui untuk dikerjakan 2026-10-09. Fase 1 sampai Fase 4 selesai di
+> staging. Migrasi dan data paket awal sudah diterapkan di staging. Produksi sengaja ditahan, sehingga
+> GATE-001 belum dapat ditutup sampai migrasi diterapkan ke produksi.
 
 ## Execution Rules
 
@@ -71,7 +72,7 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
 
 ## Phase 2 - Master Paket Terapi
 
-- [ ] TASK-004 - Bangun editor item paket.
+- [x] TASK-004 - Bangun editor item paket.
   Buat `src/components/paket-terapi/PackageItemsEditor.tsx` yang memungkinkan penambahan, perubahan,
   penghapusan, dan pengurutan item, serta menghitung subtotal dan harga total sebagai turunan. Gunakan
   kontrol dari `src/components/ui/`.
@@ -80,7 +81,7 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
   - Verify: `npx tsc --noEmit`; nilai total berubah otomatis saat item berubah.
   - _Requirements: FR-004, FR-005_
 
-- [ ] TASK-005 - Bangun formulir paket.
+- [x] TASK-005 - Bangun formulir paket.
   Buat `src/components/paket-terapi/PackageFormModal.tsx` untuk membuat dan mengubah paket, memakai
   `PackageItemsEditor`, dengan validasi nama, kode unik, dan minimal satu item.
   - _Design: Section 4, Section 7, Section 9_
@@ -88,7 +89,7 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
   - Verify: `npx tsc --noEmit`; validasi menolak nama kosong, kode duplikat, dan paket tanpa item.
   - _Requirements: FR-001, FR-002, FR-009_
 
-- [ ] TASK-006 - Bangun daftar paket dengan pencarian.
+- [x] TASK-006 - Bangun daftar paket dengan pencarian.
   Buat `src/components/paket-terapi/PackageList.tsx` yang menampilkan nama, kode, jumlah item, harga
   total, dan status, dengan pencarian di sisi klien serta empty state.
   - _Design: Section 4, Section 9_
@@ -96,7 +97,7 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
   - Verify: `npx tsc --noEmit`; pencarian menyaring hasil dan empty state tampil saat tidak ada hasil.
   - _Requirements: FR-006_
 
-- [ ] TASK-007 - Bangun halaman master paket dan aksi pengelolaan.
+- [x] TASK-007 - Bangun halaman master paket dan aksi pengelolaan.
   Buat `src/app/paket-terapi/page.tsx` yang memuat `therapy_packages` beserta itemnya, menghubungkan
   daftar dan formulir, serta menyediakan aksi aktifkan dan nonaktifkan. Tampilkan aksi pengelolaan hanya
   untuk `owner`. Tambahkan tautan navigasi dengan visibilitas peran pada `src/components/Sidebar.tsx`.
@@ -107,7 +108,7 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
 
 ## Phase 3 - Penerapan ke Kunjungan
 
-- [ ] TASK-008 - Bangun modal penerapan paket.
+- [x] TASK-008 - Bangun modal penerapan paket.
   Buat `src/components/paket-terapi/ApplyPackageModal.tsx` yang memuat paket aktif, menampilkan rincian
   item dan harga total, memperingatkan penerapan ganda, dan mengembalikan payload penerapan.
   - _Design: Section 3, Section 7, Section 9_
@@ -115,7 +116,7 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
   - Verify: `npx tsc --noEmit`; paket nonaktif tidak muncul dan peringatan ganda tampil.
   - _Requirements: FR-006, FR-007, FR-008_
 
-- [ ] TASK-009 - Integrasikan aksi penerapan ke panel kasir.
+- [x] TASK-009 - Integrasikan aksi penerapan ke panel kasir.
   Tambahkan aksi "Terapkan Paket Terapi" pada `src/components/pendaftaran/CashierPosPanel.tsx` tanpa
   menghapus alur penagihan manual.
   - _Design: Section 3, Section 4, Section 9_
@@ -123,7 +124,7 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
   - Verify: `npx tsc --noEmit`; alur manual tetap berfungsi ketika tidak ada paket.
   - _Requirements: FR-007_
 
-- [ ] TASK-010 - Tulis handler penerapan dan rekam jejak.
+- [x] TASK-010 - Tulis handler penerapan dan rekam jejak.
   Pada `src/app/pendaftaran/page.tsx`, tambahkan handler yang mengisi `terapi_obat`, `tindakan` /
   `keterangan_tindakan`, `pendapatan_lain`, dan `keterangan_pendapatan` tanpa mengubah `biaya_periksa`,
   lalu menulis satu baris rekam jejak append-only, dan memanggil `revalidatePath`.
@@ -134,7 +135,7 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
 
 ## Phase 4 - Verifikasi
 
-- [ ] TASK-011 - Tambah aksi cepat dan penyesuaian navigasi opsional.
+- [x] TASK-011 - Tambah aksi cepat dan penyesuaian navigasi opsional.
   Tambahkan aksi cepat menuju master paket pada `src/components/CommandMenu.tsx` dengan visibilitas
   `owner`, bila tidak mengganggu aksi cepat yang sudah ada.
   - _Design: Section 4_
@@ -142,7 +143,7 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
   - Verify: `npx tsc --noEmit`; aksi hanya tampil untuk `owner`.
   - _Requirements: FR-006, FR-009_
 
-- [ ] TASK-012 - Verifikasi dan gerbang mutu.
+- [x] TASK-012 - Verifikasi dan gerbang mutu.
   Jalankan pemeriksaan statis, pemeriksaan tipe, dan build produksi. Verifikasi manual alur buat, ubah,
   nonaktifkan, dan terapkan paket, termasuk penerapan ganda, pasien BPJS, serta tampilan pada 360 piksel,
   768 piksel, dan 1024 piksel ke atas tanpa scroll horizontal dan dengan target sentuh minimal 44 kali
@@ -154,11 +155,24 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
 
 ## Verification Gate
 
-- [ ] GATE-001 - Gerbang verifikasi akhir.
+### Bukti Verifikasi (2026-10-09)
+
+- `npx tsc --noEmit` lulus.
+- `npm test` lulus, 14 uji (matriks hak akses dan aritmetika draf paket).
+- `npm run build` lulus, rute `/paket-terapi` terbentuk.
+- Staging: 3 tabel F-012 ada; 10 paket awal dengan 21 item terpasang.
+- Staging: simulasi penerapan (tambah `pendapatan_lain`, isi keterangan, tulis rekam jejak) berhasil
+  di dalam transaksi lalu di-`rollback`; `biaya_periksa` pasien BPJS tetap nol.
+- Verifikasi manual antarmuka (klik buat, ubah, nonaktifkan, hapus, terapkan) pada 360, 768, dan
+  1024 piksel masih perlu dilakukan operator pada staging.
+
+- [!] GATE-001 - Gerbang verifikasi akhir.
   Seluruh task Fase 1 sampai Fase 4 selesai dengan bukti tercatat. Persetujuan client atas F-012
   terdokumentasi pada requirements Section 16. Migrasi sudah diterapkan pada proyek produksi. Tidak ada
   perubahan di luar lingkup F-012.
   - _Requirements: FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-008, FR-009_
+  - _Status: tertahan. Sesuai keputusan pengguna, produksi ditahan, sehingga migrasi F-012 belum
+    diterapkan ke produksi. Gate dapat ditutup setelah operator menyetujui penerapan ke produksi._
 
 ## Deferred Work
 
