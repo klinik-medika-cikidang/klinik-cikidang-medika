@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Printer, X, FileText, Calendar, User, Stethoscope } from '@phosphor-icons/react';
 import { CLINIC_PROFILE } from '@/constants/clinic';
 import { Patient, Visit, Doctor } from '@/types/database';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { Input } from '@/components/ui/Input';
 
 interface SuratSakitModalProps {
   isOpen: boolean;
@@ -31,6 +32,12 @@ export function SuratSakitModal({
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>(
     visit.dokter_id || (doctors[0]?.id ?? '')
   );
+  const [alamatTambahan, setAlamatTambahan] = useState<string>('');
+
+  // AC-004.1: the extra address never carries over from a previous patient or visit.
+  useEffect(() => {
+    if (isOpen) setAlamatTambahan('');
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -66,6 +73,9 @@ export function SuratSakitModal({
   const currentMonthRomawi = getRomawiBulan(new Date(tanggalMulai).getMonth());
   const currentYear = new Date(tanggalMulai).getFullYear();
   const nomorSurat = `SKS/CKM/${currentMonthRomawi}/${currentYear}/${patient.no_rm.slice(-4)}`;
+
+  // Trimmed once so the printed letter never shows leading or trailing spaces.
+  const alamatTambahanTrimmed = alamatTambahan.trim();
 
   const handlePrint = () => {
     window.print();
@@ -181,6 +191,18 @@ export function SuratSakitModal({
               options={doctors.map((d) => ({ value: d.id, label: d.nama }))}
             />
           </div>
+          <div className="sm:col-span-4">
+            <Input
+              id="sks-alamat-tambahan"
+              label="Alamat Tambahan"
+              type="text"
+              maxLength={120}
+              value={alamatTambahan}
+              onChange={(e) => setAlamatTambahan(e.target.value)}
+              placeholder="Contoh: alamat kos atau tempat kerja (opsional)"
+              helperText="Hanya dipakai pada surat ini, maksimum 120 karakter."
+            />
+          </div>
         </div>
 
         {/* Lembar Surat Keterangan Sakit (Format Cetak A5 / Print Preview) */}
@@ -250,6 +272,12 @@ export function SuratSakitModal({
                   <span className="col-span-1">:</span>
                   <span className="col-span-7">
                     {patient.alamat ? `${patient.alamat}, ` : ''}Desa {patient.desa}
+                    {alamatTambahanTrimmed && (
+                      <>
+                        <br />
+                        {alamatTambahanTrimmed}
+                      </>
+                    )}
                   </span>
                 </div>
               </div>

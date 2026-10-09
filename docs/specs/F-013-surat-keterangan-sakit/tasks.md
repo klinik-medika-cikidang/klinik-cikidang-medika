@@ -1,7 +1,7 @@
 ---
 id: F-013-TSK
 feature: F-013
-status: draft
+status: in_progress
 owner: "Developer"
 last_updated: "2026-10-08"
 last_verified_commit: unverified
@@ -42,7 +42,7 @@ TASK-001 -> TASK-002 -> TASK-003 -> TASK-004
 
 ## Tasks
 
-### [ ] TASK-001 - Tambah State dan Field "Alamat Tambahan"
+### [x] TASK-001 - Tambah State dan Field "Alamat Tambahan"
 
 Objective:
 
@@ -125,7 +125,7 @@ Notes:
 
 _Requirements: FR-001, AC-001.1, VAL-001_
 
-### [ ] TASK-002 - Terapkan Validasi dan Normalisasi Isi
+### [x] TASK-002 - Terapkan Validasi dan Normalisasi Isi
 
 Objective:
 
@@ -207,7 +207,7 @@ Notes:
 
 _Requirements: FR-003, AC-003.1, AC-003.2, AC-003.3, VAL-002, VAL-003_
 
-### [ ] TASK-003 - Render Alamat Tambahan pada Baris Alamat Surat
+### [x] TASK-003 - Render Alamat Tambahan pada Baris Alamat Surat
 
 Objective:
 
@@ -289,7 +289,7 @@ Notes:
 
 _Requirements: FR-002, AC-002.1, AC-002.2, AC-002.3, AC-002.4_
 
-### [ ] TASK-004 - Pastikan Reset dan Isolasi Antar Surat
+### [x] TASK-004 - Pastikan Reset dan Isolasi Antar Surat
 
 Objective:
 
@@ -368,7 +368,7 @@ Notes:
 
 _Requirements: FR-004, AC-004.1, AC-004.2, AC-004.3_
 
-### [ ] TASK-005 - Verifikasi Akhir dan Responsivitas Cetak
+### [-] TASK-005 - Verifikasi Akhir dan Responsivitas Cetak
 
 Objective:
 
@@ -458,15 +458,15 @@ _Requirements: FR-002, FR-003, NFR-RESP-001, NFR-A11Y-001_
 
 The feature is complete only when all of the following hold, with evidence recorded:
 
-- [ ] `npx tsc --noEmit` passes with no new errors.
-- [ ] `npm run lint` passes with no new warnings or errors.
-- [ ] `npm run build` succeeds.
+- [x] `npx tsc --noEmit` passes with no new errors.
+- [x] `npm run lint` passes with no new warnings or errors.
+- [x] `npm run build` succeeds.
 - [ ] Manual print verification confirms the additional address appears in the A5 output when
       filled and is absent when empty.
 - [ ] Responsive verification passes at 360 px, 768 px, and 1024 px and above with no page-level
       horizontal scroll.
 - [ ] Keyboard operation and visible focus are confirmed on the additional address field.
-- [ ] No database migration and no new dependency were introduced.
+- [x] No database migration and no new dependency were introduced.
 - [ ] No PII (address content, NIK, BPJS number, diagnosis) is logged or persisted.
 
 ## Deferred Work
