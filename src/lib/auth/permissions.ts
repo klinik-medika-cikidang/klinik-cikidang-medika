@@ -3,7 +3,7 @@ import type { UserRole } from '@/types/database';
 // F-011 BR-001: Dokter/Admin runs the daily flow from registration to payment and
 // expense recording. The dashboard and cost monitoring stay owner-only.
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
-  owner: ['/', '/pendaftaran', '/rekam-medis', '/program-khusus', '/buku-kas', '/laporan'],
+  owner: ['/', '/pendaftaran', '/rekam-medis', '/program-khusus', '/buku-kas', '/laporan', '/paket-terapi'],
   dokter_admin: ['/pendaftaran', '/rekam-medis', '/program-khusus', '/buku-kas', '/laporan'],
 };
 

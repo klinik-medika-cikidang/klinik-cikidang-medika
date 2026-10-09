@@ -11,6 +11,7 @@ import {
   FileXls,
   Scissors,
   Pill,
+  FirstAid,
   User,
   ArrowRight,
   Sparkle,
@@ -135,6 +136,15 @@ export function CommandMenu() {
         iconColor: 'text-amber-600',
         href: '/buku-kas?action=new',
         keywords: ['kas', 'buku kas', 'keuangan', 'uang', 'mutasi', 'biaya', 'keluar', 'masuk'],
+      },
+      {
+        id: 'act-paket-terapi',
+        title: 'Kelola Paket Terapi',
+        subtitle: 'Master paket tindakan dan obat untuk tagihan kunjungan',
+        icon: FirstAid,
+        iconColor: 'text-teal-600',
+        href: '/paket-terapi',
+        keywords: ['paket', 'terapi', 'tindakan', 'obat', 'master', 'bundle'],
       },
     ],
     []

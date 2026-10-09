@@ -8,7 +8,8 @@ import {
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
-import type { Patient, Visit } from '@/types/database';
+import { useAuth } from '@/lib/auth/AuthContext';
+import type { Patient, TherapyPackage, Visit } from '@/types/database';
 import { CashierKpiSummary } from '@/components/pendaftaran/CashierKpiSummary';
 import { CashierPosPanel } from '@/components/pendaftaran/CashierPosPanel';
 import { MasterPatientTable } from '@/components/pendaftaran/MasterPatientTable';
@@ -20,6 +21,7 @@ import { QueueTicketModal } from '@/components/pendaftaran/QueueTicketModal';
 import { formatRupiah } from '@/lib/utils';
 
 export default function PendaftaranKasirPage() {
+  const { role } = useAuth();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [masterPatients, setMasterPatients] = useState<Patient[]>([]);
   const [isLoadingVisits, setIsLoadingVisits] = useState(true);
@@ -245,6 +247,68 @@ export default function PendaftaranKasirPage() {
     }
   };
 
+  // Applies a therapy package to the selected visit: additive columns only, so the
+  // receipt and cash book keep one source of truth. It never touches biaya_periksa.
+  const handleApplyPackage = async (visit: Visit, pkg: TherapyPackage) => {
+    const supabase = createClient();
+    const items = pkg.items || [];
+    const obats = items.filter((item) => item.jenis_item === 'OBAT').map((item) => item.nama_item);
+    const tindakans = items.filter((item) => item.jenis_item === 'TINDAKAN').map((item) => item.nama_item);
+    const lainnya = items.filter((item) => item.jenis_item === 'LAIN').map((item) => item.nama_item);
+
+    const appendLines = (existing: string | null | undefined, lines: string[]) => {
+      const parts = [(existing || '').trim(), ...lines.map((line) => line.trim())].filter(Boolean);
+      return parts.length ? parts.join('\n') : null;
+    };
+    const appendComma = (existing: string | null | undefined, lines: string[]) => {
+      const parts = [(existing || '').trim(), ...lines.map((line) => line.trim())].filter(Boolean);
+      return parts.length ? parts.join(', ') : null;
+    };
+
+    const nextTerapi = appendLines(visit.terapi_obat, obats);
+    const nextTindakan = appendComma(visit.tindakan, tindakans);
+    const nextKeteranganTindakan = appendComma(visit.keterangan_tindakan, [...tindakans, ...lainnya]);
+    const nextPendapatanLain = Number(visit.pendapatan_lain || 0) + Number(pkg.harga_total || 0);
+    const nextKeteranganPendapatan = appendComma(visit.keterangan_pendapatan, [pkg.nama]);
+
+    const { data, error } = await supabase
+      .from('visits')
+      .update({
+        terapi_obat: nextTerapi,
+        tindakan: nextTindakan,
+        keterangan_tindakan: nextKeteranganTindakan,
+        pendapatan_lain: nextPendapatanLain,
+        keterangan_pendapatan: nextKeteranganPendapatan,
+      })
+      .eq('id', visit.id)
+      .select(`
+        *,
+        pasien:patients(*),
+        dokter:doctors(*)
+      `)
+      .single();
+
+    if (error) throw error;
+
+    const { error: auditError } = await supabase.from('visit_therapy_packages').insert({
+      visit_id: visit.id,
+      package_id: pkg.id,
+      nama_paket_snapshot: pkg.nama,
+      harga_total_snapshot: pkg.harga_total,
+      items_snapshot: items,
+      applied_by_role: role,
+    });
+
+    if (auditError) throw auditError;
+
+    toast.success('Paket terapi diterapkan.', {
+      description: `${pkg.nama} ditambahkan ke tagihan kunjungan.`,
+    });
+
+    if (data) setSelectedPosVisit(data as unknown as Visit);
+    await fetchVisits();
+  };
+
   // Actions from table
   const handleSelectForPayment = (visit: Visit) => {
     setSelectedPosVisit(visit);
@@ -361,6 +425,7 @@ export default function PendaftaranKasirPage() {
           selectedVisit={selectedPosVisit}
           onSelectVisit={setSelectedPosVisit}
           onSettlePayment={handleSettlePayment}
+          onApplyPackage={handleApplyPackage}
           isSubmitting={isSubmittingPos}
         />
       </div>

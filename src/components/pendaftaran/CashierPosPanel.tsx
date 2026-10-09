@@ -12,7 +12,9 @@ import {
   Pill,
   FirstAid,
 } from '@phosphor-icons/react';
-import type { Visit } from '@/types/database';
+import type { TherapyPackage, Visit } from '@/types/database';
+import { Button } from '@/components/ui/Button';
+import { ApplyPackageModal } from '@/components/paket-terapi/ApplyPackageModal';
 import { formatRupiah, cn } from '@/lib/utils';
 
 export interface CashierPosPanelProps {
@@ -28,6 +30,7 @@ export interface CashierPosPanelProps {
     jenisPembayaran: 'Tunai' | 'TF',
     paymentState: 'Lunas' | 'Piutang' | 'Belum Bayar'
   ) => Promise<void>;
+  onApplyPackage?: (visit: Visit, pkg: TherapyPackage) => Promise<void>;
   isSubmitting?: boolean;
 }
 
@@ -36,6 +39,7 @@ export function CashierPosPanel({
   selectedVisit,
   onSelectVisit,
   onSettlePayment,
+  onApplyPackage,
   isSubmitting = false,
 }: CashierPosPanelProps) {
   const formatRupiahInput = (value: number) => new Intl.NumberFormat('id-ID').format(Math.max(0, value || 0));
@@ -52,6 +56,7 @@ export function CashierPosPanel({
   const [paymentState, setPaymentState] = useState<'Lunas' | 'Piutang' | 'Belum Bayar'>('Lunas');
   const [uangDiterimaStr, setUangDiterimaStr] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isApplyOpen, setIsApplyOpen] = useState(false);
 
   // Sync state when selectedVisit changes
   useEffect(() => {
@@ -499,6 +504,29 @@ export function CashierPosPanel({
                   </div>
                 )}
 
+                {onApplyPackage && (
+                  <div className="p-3 bg-white border border-teal-200/80 rounded-xl space-y-2 shadow-2xs">
+                    <span className="text-[11px] font-bold text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <FirstAid className="w-3.5 h-3.5 text-teal-600" weight="bold" />
+                      Paket Terapi
+                    </span>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      Tambahkan tindakan dan obat dari paket ke tagihan kunjungan ini.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="w-full"
+                      leftIcon={<FirstAid className="w-4 h-4" weight="bold" />}
+                      onClick={() => setIsApplyOpen(true)}
+                      disabled={!selectedVisit}
+                    >
+                      Terapkan Paket Terapi
+                    </Button>
+                  </div>
+                )}
+
                 {/* 1. Rincian Komponen Biaya Box */}
                 <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1.5 text-xs shadow-2xs">
                   <div className="flex justify-between items-center text-slate-600 font-medium">
@@ -696,6 +724,15 @@ export function CashierPosPanel({
           )}
         </div>
       </div>
+
+      {onApplyPackage && (
+        <ApplyPackageModal
+          isOpen={isApplyOpen}
+          onClose={() => setIsApplyOpen(false)}
+          visit={selectedVisit}
+          onSubmit={(pkg) => onApplyPackage(selectedVisit as Visit, pkg)}
+        />
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   Heartbeat,
   Wallet,
   FileXls,
+  FirstAid,
   Buildings,
   CaretRight,
   X,
@@ -43,6 +44,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { href: '/rekam-medis', label: 'Pemeriksaan Dokter', icon: Stethoscope },
       { href: '/program-khusus', label: 'Program Khusus Medis', icon: Heartbeat },
+      { href: '/paket-terapi', label: 'Paket Terapi', icon: FirstAid },
     ],
   },
   {

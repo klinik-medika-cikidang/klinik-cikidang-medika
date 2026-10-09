@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ROLE_PERMISSIONS, roleCanAccessRoute, roleDefaultRoute } from '@/lib/auth/permissions';
 
-const ALL_ROUTES = ['/', '/pendaftaran', '/rekam-medis', '/program-khusus', '/buku-kas', '/laporan'];
+const ALL_ROUTES = ['/', '/pendaftaran', '/rekam-medis', '/program-khusus', '/buku-kas', '/laporan', '/paket-terapi'];
 const OPERATIONAL_ROUTES = ['/pendaftaran', '/rekam-medis', '/program-khusus', '/buku-kas', '/laporan'];
+const OWNER_ONLY_ROUTES = ['/', '/paket-terapi'];
 
 describe('F-011 permission matrix', () => {
   it('lets owner reach every registered route', () => {
@@ -39,5 +40,12 @@ describe('F-011 permission matrix', () => {
   it('keeps the dashboard out of the dokter_admin matrix', () => {
     expect(ROLE_PERMISSIONS.owner).toContain('/');
     expect(ROLE_PERMISSIONS.dokter_admin).not.toContain('/');
+  });
+
+  it('keeps F-012 paket terapi owner-only for now', () => {
+    OWNER_ONLY_ROUTES.forEach((route) => {
+      expect(roleCanAccessRoute('owner', route)).toBe(true);
+      expect(roleCanAccessRoute('dokter_admin', route)).toBe(false);
+    });
   });
 });
