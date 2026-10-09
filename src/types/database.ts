@@ -176,6 +176,47 @@ export type ReferralCommission = {
   visit?: Visit;
 };
 
+export type TherapyPackageItemType = 'TINDAKAN' | 'OBAT' | 'LAIN';
+
+export type TherapyPackageItem = {
+  id: string;
+  package_id: string;
+  jenis_item: TherapyPackageItemType;
+  nama_item: string;
+  qty: number;
+  harga_satuan: number;
+  subtotal: number;
+  urutan: number;
+  catatan?: string;
+  created_at?: string;
+};
+
+export type TherapyPackage = {
+  id: string;
+  kode?: string | null;
+  nama: string;
+  deskripsi?: string | null;
+  harga_total: number;
+  aktif: boolean;
+  created_by_role?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  items?: TherapyPackageItem[];
+};
+
+// Append-only audit of one package application. It never drives the bill; visits.pendapatan_lain
+// stays the single source of truth.
+export type VisitTherapyPackage = {
+  id: string;
+  visit_id: string;
+  package_id?: string | null;
+  nama_paket_snapshot: string;
+  harga_total_snapshot: number;
+  items_snapshot: TherapyPackageItem[];
+  applied_by_role?: string | null;
+  applied_at: string;
+};
+
 export type UserRole = 'owner' | 'dokter_admin';
 
 export type UserProfile = {

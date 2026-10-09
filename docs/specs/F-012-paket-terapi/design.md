@@ -2,7 +2,7 @@
 id: F-012-DESIGN
 feature: F-012
 title: "Design: Paket Terapi"
-status: draft
+status: in_progress
 owner: "Developer"
 last_updated: "2026-10-08"
 last_verified_commit: unverified

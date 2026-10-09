@@ -2,7 +2,7 @@
 id: F-012-TSK
 feature: F-012
 title: "Implementation Tasks: Paket Terapi"
-status: draft
+status: in_progress
 owner: "Developer"
 last_updated: "2026-10-08"
 last_verified_commit: unverified
@@ -13,8 +13,8 @@ related:
 
 # Implementation Tasks: F-012 Paket Terapi
 
-> Change Request Post-MVP. Seluruh task di bawah ini BELUM dimulai dan TIDAK BOLEH dikerjakan sebelum
-> client menyetujui F-012 (requirements Section 15, OQ-001).
+> Change Request Post-MVP. Disetujui untuk dikerjakan 2026-10-09. Fase 1 (fondasi data) selesai; migrasi
+> sudah diterapkan di staging. Fase 2 sampai Fase 4 menyusul bertahap.
 
 ## Execution Rules
 
@@ -43,7 +43,7 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
 
 ## Phase 1 - Fondasi Data
 
-- [ ] TASK-001 - Tambah migrasi tabel paket terapi.
+- [x] TASK-001 - Tambah migrasi tabel paket terapi.
   Buat `supabase/migrations/20261008_f012_therapy_packages.sql` berisi tabel `therapy_packages`,
   `therapy_package_items`, dan `visit_therapy_packages` beserta `CHECK`, `FOREIGN KEY`, index, dan RLS
   sesuai design Section 5 dan Section 6. Jangan mengubah kolom `visits` yang ada dan jangan mengedit
@@ -53,7 +53,7 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
   - Verify: terapkan pada SQL editor proyek development; pastikan tiga tabel, index, dan RLS terbentuk.
   - _Requirements: FR-001, FR-004, FR-008, FR-009_
 
-- [ ] TASK-002 - Perluas kontrak tipe TypeScript.
+- [x] TASK-002 - Perluas kontrak tipe TypeScript.
   Tambahkan tipe `TherapyPackage`, `TherapyPackageItem`, dan `VisitTherapyPackage` pada
   `src/types/database.ts` agar konsisten dengan skema migrasi.
   - _Design: Section 5_
@@ -61,7 +61,7 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
   - Verify: `npx tsc --noEmit`
   - _Requirements: FR-001, FR-004, FR-008_
 
-- [ ] TASK-003 - Tambah konstanta jenis item paket.
+- [x] TASK-003 - Tambah konstanta jenis item paket.
   Tambahkan `THERAPY_PACKAGE_ITEM_TYPES` beserta label tampilannya pada `src/constants/clinic.ts`.
   Jangan menaruh daftar ini di dalam komponen.
   - _Design: Section 4_
@@ -171,5 +171,5 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
 
 | ID | Description | Owner | Affected tasks | Canonical artifact to resolve | Resolution |
 |---|---|---|---|---|---|
-| BLK-001 | Persetujuan client atas F-012 sebagai Change Request Post-MVP belum ada | Client | TASK-001 s/d TASK-012 | REQUIREMENTS (Section 15 OQ-001, Section 16) | Pending |
-| BLK-002 | Penempatan menu master paket (rute baru atau tab modul) belum dikonfirmasi | Developer lalu Client | TASK-007, TASK-011 | DESIGN (Section 4, Section 14) | Pending |
+| BLK-001 | Persetujuan client atas F-012 sebagai Change Request Post-MVP belum ada | Client | TASK-001 s/d TASK-012 | REQUIREMENTS (Section 15 OQ-001, Section 16) | Resolved 2026-10-09: disetujui, implementasi di staging |
+| BLK-002 | Penempatan menu master paket (rute baru atau tab modul) belum dikonfirmasi | Developer lalu Client | TASK-007, TASK-011 | DESIGN (Section 4, Section 14) | Resolved: rute baru `/paket-terapi` khusus `owner` |

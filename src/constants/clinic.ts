@@ -3,6 +3,8 @@
  * Klinik Pratama Cikidang Medika
  */
 
+import type { TherapyPackageItemType } from '@/types/database';
+
 export const CLINIC_PROFILE = {
   name: 'Klinik Pratama Cikidang Medika',
   shortName: 'Klinik Cikidang Medika',
@@ -149,6 +151,15 @@ export const PUBLIC_HEALTH_PROGRAM_LABELS: Record<string, string> = {
 };
 
 export const PUBLIC_HEALTH_PROGRAM_ORDER = ['PTM', 'ANC', 'KB', 'ELIMINASI_3'] as const;
+
+// F-012: the kinds of line an owner can add to a therapy package.
+export const THERAPY_PACKAGE_ITEM_TYPES: TherapyPackageItemType[] = ['TINDAKAN', 'OBAT', 'LAIN'];
+
+export const THERAPY_PACKAGE_ITEM_LABELS: Record<TherapyPackageItemType, string> = {
+  TINDAKAN: 'Tindakan',
+  OBAT: 'Obat',
+  LAIN: 'Lainnya',
+};
 
 // F-011: visit-level program category. UMUM is the default so every visit carries a
 // category even when the patient is not in a special program.

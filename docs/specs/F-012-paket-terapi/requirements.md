@@ -2,7 +2,7 @@
 id: F-012-REQ
 feature: F-012
 title: "Paket Terapi"
-status: pending
+status: approved
 owner: "Developer"
 created: "2026-10-08"
 last_updated: "2026-10-08"
@@ -341,7 +341,7 @@ state `aktif`.
 
 | ID | Question | Owner | Blocking? | Resolution |
 |---|---|---|---|---|
-| OQ-001 | Apakah client menyetujui F-012 "Paket Terapi" sebagai Change Request Post-MVP untuk diimplementasikan? | Client | Yes | Pending |
+| OQ-001 | Apakah client menyetujui F-012 "Paket Terapi" sebagai Change Request Post-MVP untuk diimplementasikan? | Client | Yes | Disetujui 2026-10-09. Implementasi dimulai di staging. |
 | OQ-002 | Apakah paket boleh diterapkan pada kunjungan pasien BPJS melalui `pendapatan_lain`? | Client | No | Default ya, sesuai ASM-003 |
 | OQ-003 | Apakah harga paket boleh diubah setelah paket pernah diterapkan? | Client | No | Default ya, dengan snapshot penerapan (FR-008) |
 | OQ-004 | Apakah satu kunjungan boleh memuat lebih dari satu paket? | Client | No | Default ya, nilai dijumlahkan (BR-006) |
@@ -354,9 +354,9 @@ terselesaikan.
 ## 16. Approval
 
 - Product owner: Client (Klinik Pratama Cikidang Medika), melalui developer
-- Status: DRAFT (perlu persetujuan eksplisit sebelum implementasi)
-- Approved date: Pending
-- Notes: Fitur F-012 berada di luar lingkup resmi MVP (F-001 s/d F-006) per AGENTS.md Section 14.
-  Permintaan berasal dari pemilik klinik pada catatan rapat ("Cara buat bikin paket terapi bagaimana?").
-  Sesuai aturan MVP scope control, F-012 hanya boleh disampaikan sebagai opsi Post-MVP dan TIDAK BOLEH
-  diimplementasikan sampai pengguna secara eksplisit menyatakan SETUJU.
+- Status: APPROVED
+- Approved date: 2026-10-09
+- Notes: Disetujui untuk diimplementasikan di staging pada 2026-10-09. Keputusan yang dipakai: harga
+  paket bersifat melengkapi (paket menambah ke nilai kunjungan yang ada, bukan mengganti); paket boleh
+  diterapkan pada pasien BPJS dengan peringatan dan tanpa mengubah `biaya_periksa`; pengelolaan paket
+  dibatasi `owner` pada slice ini. Penempatan menu: rute baru `/paket-terapi` khusus `owner`.
