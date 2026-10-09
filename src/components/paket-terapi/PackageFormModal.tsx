@@ -123,8 +123,8 @@ export function PackageFormModal({
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-        <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
+      <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+        <div className="px-5 sm:px-6 py-5 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             <div className="sm:col-span-7">
               <Input
@@ -172,7 +172,7 @@ export function PackageFormModal({
 
         <div
           className={cn(
-            'shrink-0 px-5 sm:px-6 py-4 border-t border-slate-100 bg-slate-50/80',
+            'shrink-0 sticky bottom-0 z-10 px-5 sm:px-6 py-4 border-t border-slate-200 bg-white/95 backdrop-blur-xs',
             'flex flex-col-reverse sm:flex-row sm:justify-end gap-2'
           )}
         >

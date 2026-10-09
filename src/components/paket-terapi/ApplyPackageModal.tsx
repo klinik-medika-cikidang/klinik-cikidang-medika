@@ -111,8 +111,8 @@ export function ApplyPackageModal({ isOpen, onClose, visit, onSubmit }: ApplyPac
         </div>
       }
     >
-      <div className="flex flex-col flex-1 min-h-0">
-        <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-4">
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="px-5 sm:px-6 py-5 space-y-4">
           {isBpjs && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[11px] text-amber-900 font-medium">
               Pasien BPJS: biaya pemeriksaan tetap Rp 0. Nilai paket dicatat pada pendapatan lain
@@ -250,7 +250,7 @@ export function ApplyPackageModal({ isOpen, onClose, visit, onSubmit }: ApplyPac
           )}
         </div>
 
-        <div className="shrink-0 px-5 sm:px-6 py-4 border-t border-slate-100 bg-slate-50/80 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+        <div className="shrink-0 sticky bottom-0 z-10 px-5 sm:px-6 py-4 border-t border-slate-200 bg-white/95 backdrop-blur-xs flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Batal
           </Button>
