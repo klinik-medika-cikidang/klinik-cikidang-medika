@@ -18,14 +18,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// F-011 BR-001: Dokter/Admin runs the daily flow from registration to payment and
+// expense recording. The dashboard and cost monitoring stay owner-only.
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   owner: ['/', '/pendaftaran', '/rekam-medis', '/program-khusus', '/buku-kas', '/laporan'],
-  dokter_admin: ['/rekam-medis', '/program-khusus', '/laporan'],
+  dokter_admin: ['/pendaftaran', '/rekam-medis', '/program-khusus', '/buku-kas', '/laporan'],
 };
 
 export const ROLE_DEFAULT_ROUTES: Record<UserRole, string> = {
   owner: '/',
-  dokter_admin: '/program-khusus',
+  dokter_admin: '/rekam-medis',
 };
 
 export const ROLE_LABELS: Record<UserRole, { label: string; badge: string; color: string }> = {

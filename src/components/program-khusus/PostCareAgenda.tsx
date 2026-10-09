@@ -55,7 +55,7 @@ export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgenda
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Pasien berhasil ditandai telah menyelesaikan kontrol pos-rawat');
+      toast.success('Pasien berhasil ditandai telah menyelesaikan observasi');
       onRefresh();
     } catch (err) {
       console.error('Error updating post-care status:', err);
@@ -116,8 +116,8 @@ export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgenda
 
     const isOverdue = item.tanggal_kontrol_berikutnya < todayStr;
     const greeting = isOverdue
-      ? `Halo ${patientName}, kami dari Layanan Pos-Rawat Klinik Pratama Cikidang Medika menginfokan bahwa jadwal kontrol kesehatan Anda yang terjadwal pada ${dateFormatted} telah terlewat. Mohon kesediaannya untuk hadir kontrol agar proses pemulihan dapat dipantau oleh dokter. Terima kasih.`
-      : `Halo ${patientName}, kami dari Layanan Pos-Rawat Klinik Pratama Cikidang Medika mengingatkan jadwal kontrol berkala paska tindakan/rawat inap pada hari ini (${dateFormatted}). Kami tunggu kedatangannya di klinik. Terima kasih.`;
+      ? `Halo ${patientName}, kami dari Layanan Observasi Klinik Pratama Cikidang Medika menginfokan bahwa jadwal kontrol kesehatan Anda yang terjadwal pada ${dateFormatted} telah terlewat. Mohon kesediaannya untuk hadir kontrol agar proses pemulihan dapat dipantau oleh dokter. Terima kasih.`
+      : `Halo ${patientName}, kami dari Layanan Observasi Klinik Pratama Cikidang Medika mengingatkan jadwal kontrol berkala paska tindakan/rawat inap pada hari ini (${dateFormatted}). Kami tunggu kedatangannya di klinik. Terima kasih.`;
 
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(greeting)}`, '_blank');
   };
@@ -217,7 +217,7 @@ export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgenda
           </div>
           <h3 className="text-sm font-bold text-slate-800">
             {filterTab === 'today'
-              ? 'Tidak ada jadwal kontrol pos-rawat untuk hari ini'
+              ? 'Tidak ada jadwal observasi untuk hari ini'
               : filterTab === 'overdue'
               ? 'Luar biasa! Tidak ada pasien yang mangkir atau terlambat jadwal kontrol'
               : filterTab === 'upcoming'
@@ -225,7 +225,7 @@ export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgenda
               : 'Belum ada catatan riwayat kontrol yang ditandai selesai'}
           </h3>
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            Semua pasien pada kategori ini terpantau rapi. Klik &quot;+ Jadwal Pos-Rawat&quot; di atas untuk memasukkan jadwal baru.
+            Semua pasien pada kategori ini terpantau rapi. Klik &quot;+ Jadwal Observasi&quot; di atas untuk memasukkan jadwal baru.
           </p>
         </div>
       ) : (
@@ -249,7 +249,7 @@ export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgenda
                   {/* Patient Header */}
                   <div className="flex flex-wrap items-center gap-2">
                     <h4 className="text-sm font-bold text-slate-900 truncate">
-                      {item.pasien?.nama || 'Pasien Pos-Rawat'}
+                      {item.pasien?.nama || 'Pasien Observasi'}
                     </h4>
                     <span className="text-[11px] font-mono font-bold bg-teal-50 text-teal-700 px-2 py-0.5 rounded-lg border border-teal-200/80">
                       RM: {item.pasien?.no_rm}

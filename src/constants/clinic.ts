@@ -149,3 +149,30 @@ export const PUBLIC_HEALTH_PROGRAM_LABELS: Record<string, string> = {
 };
 
 export const PUBLIC_HEALTH_PROGRAM_ORDER = ['PTM', 'ANC', 'KB', 'ELIMINASI_3'] as const;
+
+// F-011: visit-level program category. UMUM is the default so every visit carries a
+// category even when the patient is not in a special program.
+export const VISIT_CATEGORY_VALUES = ['UMUM', 'ANC', 'PTM', 'KB', 'ELIMINASI_3'] as const;
+export type VisitCategory = typeof VISIT_CATEGORY_VALUES[number];
+
+export const VISIT_CATEGORY_LABELS: Record<VisitCategory, string> = {
+  UMUM: 'Umum',
+  ANC: 'ANC',
+  PTM: 'PTM',
+  KB: 'KB',
+  ELIMINASI_3: '3 Eliminasi',
+};
+
+export const VISIT_CATEGORY_DEFAULT: VisitCategory = 'UMUM';
+
+// The outpatient follow-up agenda. The 2026-10-08 revision renamed the old
+// "Pemantauan Pos Rawat" label to this one; the code keeps the PostCare data model.
+export const OBSERVASI_LABEL = 'Observasi';
+
+// Triple Eliminasi is ANC plus the three elimination labs. Completeness read from these
+// fields; a blank field is reported as missing, never guessed.
+export const TRIPLE_ELIMINASI_LABS = [
+  { key: 'hiv', label: 'HIV' },
+  { key: 'hbsag', label: 'HBsAg' },
+  { key: 'syphilis', label: 'Sipilis' },
+] as const;

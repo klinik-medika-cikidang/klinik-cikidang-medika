@@ -594,7 +594,7 @@ export default function DashboardPage() {
               <Link
                 href="/program-khusus"
                 className="p-1.5 rounded-lg text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition-colors tactile-btn"
-                title="Program Khusus (TBC, Sirkumsisi, Pos-Rawat)"
+                title="Program Khusus (TBC, Sirkumsisi, Observasi)"
               >
                 <Heartbeat className="w-4 h-4 text-rose-500" weight="duotone" />
               </Link>

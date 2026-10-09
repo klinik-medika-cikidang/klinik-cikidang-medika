@@ -60,6 +60,7 @@ export default function LaporanPage() {
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [endDate, setEndDate] = useState(defaultEndDate);
   const [jenisPasien, setJenisPasien] = useState('Semua');
+  const [kategoriProgram, setKategoriProgram] = useState('Semua');
   const [dokterId, setDokterId] = useState('Semua');
   const [doctorsList, setDoctorsList] = useState<{ id: string; nama: string }[]>([]);
 
@@ -109,6 +110,7 @@ export default function LaporanPage() {
         if (startDate) query = query.gte('tanggal_periksa', startDate);
         if (endDate) query = query.lte('tanggal_periksa', endDate);
         if (jenisPasien !== 'Semua') query = query.eq('jenis_pasien', jenisPasien);
+        if (kategoriProgram !== 'Semua') query = query.eq('kategori_program', kategoriProgram);
         if (dokterId !== 'Semua') query = query.eq('dokter_id', dokterId);
 
         const { data, error } = await query;
@@ -210,7 +212,7 @@ export default function LaporanPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [startDate, endDate, jenisPasien, dokterId, isDokterAdmin]);
+  }, [startDate, endDate, jenisPasien, kategoriProgram, dokterId, isDokterAdmin]);
 
   useEffect(() => {
     fetchReportData();
@@ -251,6 +253,7 @@ export default function LaporanPage() {
   const handleReset = () => {
     handlePresetChange('this_month');
     setJenisPasien('Semua');
+    setKategoriProgram('Semua');
     setDokterId('Semua');
     toast.info('Filter laporan telah direset ke bulan ini.');
   };
@@ -402,6 +405,8 @@ export default function LaporanPage() {
         onEndDateChange={setEndDate}
         jenisPasien={jenisPasien}
         onJenisPasienChange={setJenisPasien}
+        kategoriProgram={kategoriProgram}
+        onKategoriProgramChange={setKategoriProgram}
         dokterId={dokterId}
         onDokterIdChange={setDokterId}
         doctorsList={doctorsList}

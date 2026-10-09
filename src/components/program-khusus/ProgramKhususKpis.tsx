@@ -79,7 +79,7 @@ export function ProgramKhususKpis({ data, isLoading }: ProgramKhususKpisProps) {
       : 'Belum ada tindakan';
   const circBarColor = photoPct === 100 ? 'bg-teal-600' : 'bg-amber-500';
 
-  // 3. Agenda Pos-Rawat calculations
+  // 3. Agenda Observasi calculations
   const postCompleted = data.postCareCompletedCount || 0;
   const postOverdue = data.postCareOverdueCount || 0;
   const postToday = data.postCareTodayCount || 0;
@@ -136,7 +136,7 @@ export function ProgramKhususKpis({ data, isLoading }: ProgramKhususKpisProps) {
     },
     {
       id: 'kpi-posrawat',
-      title: 'Agenda Pasien Pos-Rawat',
+      title: 'Agenda Pasien Observasi',
       value: `${postToday} Hari Ini`,
       unit: '',
       subtitle: `${postCompleted} Selesai • ${postOverdue} Lewat`,

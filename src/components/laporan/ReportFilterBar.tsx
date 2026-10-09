@@ -9,9 +9,16 @@ import {
   CaretDown,
   Check,
   CalendarBlank,
+  Heartbeat,
 } from '@phosphor-icons/react';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { formatDateIndo } from '@/lib/utils';
+import { VISIT_CATEGORY_LABELS, VISIT_CATEGORY_VALUES } from '@/constants/clinic';
+
+const KATEGORI_OPTIONS = [
+  { id: 'Semua', label: 'Semua Kategori' },
+  ...VISIT_CATEGORY_VALUES.map((value) => ({ id: value, label: VISIT_CATEGORY_LABELS[value] })),
+];
 
 interface DoctorOption {
   id: string;
@@ -25,6 +32,8 @@ interface ReportFilterBarProps {
   onEndDateChange: (val: string) => void;
   jenisPasien: string;
   onJenisPasienChange: (val: string) => void;
+  kategoriProgram: string;
+  onKategoriProgramChange: (val: string) => void;
   dokterId: string;
   onDokterIdChange: (val: string) => void;
   doctorsList: DoctorOption[];
@@ -40,6 +49,8 @@ export function ReportFilterBar({
   onEndDateChange,
   jenisPasien,
   onJenisPasienChange,
+  kategoriProgram,
+  onKategoriProgramChange,
   dokterId,
   onDokterIdChange,
   doctorsList,
@@ -47,7 +58,7 @@ export function ReportFilterBar({
   onResetFilter,
   isLoading,
 }: ReportFilterBarProps) {
-  const [activeDropdown, setActiveDropdown] = useState<'jenis' | 'dokter' | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<'jenis' | 'kategori' | 'dokter' | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -70,6 +81,11 @@ export function ReportFilterBar({
     if (id === 'Semua') return 'Semua Dokter';
     const found = doctorsList.find((d) => d.id === id);
     return found ? found.nama : 'Semua Dokter';
+  };
+
+  const getKategoriLabel = (val: string) => {
+    const found = KATEGORI_OPTIONS.find((opt) => opt.id === val);
+    return found ? found.label : 'Semua Kategori';
   };
 
   const selectClass =
@@ -104,7 +120,7 @@ export function ReportFilterBar({
                 : 'Semua Periode Data'}
             </span>
           </span>
-          {(jenisPasien !== 'Semua' || dokterId !== 'Semua') && (
+          {(jenisPasien !== 'Semua' || kategoriProgram !== 'Semua' || dokterId !== 'Semua') && (
             <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-teal-50 border border-teal-100 text-[10px] font-bold text-teal-700">
               Filter Khusus
             </span>
@@ -123,7 +139,7 @@ export function ReportFilterBar({
         idPrefix="report-filter"
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1.5 relative">
           <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
             <UserCheck weight="duotone" className="w-3.5 h-3.5 text-slate-400" />
@@ -220,6 +236,55 @@ export function ReportFilterBar({
                 >
                   <span>{doc.nama}</span>
                   {dokterId === doc.id && <Check className="w-3.5 h-3.5 text-teal-600" weight="bold" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-1.5 relative">
+          <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+            <Heartbeat weight="duotone" className="w-3.5 h-3.5 text-slate-400" />
+            <span>Kategori Program</span>
+          </label>
+          <button
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded={activeDropdown === 'kategori'}
+            onClick={() => setActiveDropdown(activeDropdown === 'kategori' ? null : 'kategori')}
+            className={selectClass}
+          >
+            <span className="truncate">{getKategoriLabel(kategoriProgram)}</span>
+            <CaretDown
+              className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${
+                activeDropdown === 'kategori' ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          {activeDropdown === 'kategori' && (
+            <div
+              role="listbox"
+              className="absolute top-full mt-1 inset-x-0 z-50 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-popover p-1.5 space-y-1 animate-popover max-h-56 overflow-y-auto"
+            >
+              {KATEGORI_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="option"
+                  aria-selected={kategoriProgram === opt.id}
+                  onClick={() => {
+                    onKategoriProgramChange(opt.id);
+                    setActiveDropdown(null);
+                  }}
+                  className={`w-full min-h-[44px] flex items-center justify-between p-2 rounded-xl cursor-pointer text-xs transition text-left focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+                    kategoriProgram === opt.id
+                      ? 'bg-teal-50 text-teal-900 font-bold'
+                      : 'hover:bg-slate-100 text-slate-700 font-medium'
+                  }`}
+                >
+                  <span>{opt.label}</span>
+                  {kategoriProgram === opt.id && <Check className="w-3.5 h-3.5 text-teal-600" weight="bold" />}
                 </button>
               ))}
             </div>

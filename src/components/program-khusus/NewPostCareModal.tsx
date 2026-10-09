@@ -54,13 +54,13 @@ export function NewPostCareModal({ isOpen, onClose, onSuccess }: NewPostCareModa
       });
 
       if (error) throw error;
-      toast.success(`Jadwal kontrol pos-rawat untuk ${selectedPatient.nama} berhasil dijadwalkan`);
+      toast.success(`Jadwal observasi untuk ${selectedPatient.nama} berhasil dijadwalkan`);
       onSuccess();
       onClose();
     } catch (err) {
       console.error('Error creating post care entry:', err);
-      setErrorMsg(err instanceof Error ? err.message : 'Gagal menjadwalkan kontrol pos-rawat');
-      toast.error('Gagal menjadwalkan kontrol pos-rawat');
+      setErrorMsg(err instanceof Error ? err.message : 'Gagal menjadwalkan observasi');
+      toast.error('Gagal menjadwalkan observasi');
     } finally {
       setIsSubmitting(false);
     }
@@ -70,8 +70,8 @@ export function NewPostCareModal({ isOpen, onClose, onSuccess }: NewPostCareModa
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Jadwalkan Kontrol Pasien Pos-Rawat"
-      description="Pemantauan paska rawat inap rumah sakit atau paska tindakan bedah minor"
+      title="Jadwalkan Observasi Pasien"
+      description="Observasi pasca rawat inap rumah sakit atau pasca tindakan bedah minor"
       icon={
         <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-200">
           <CalendarCheck weight="duotone" className="w-5 h-5" />
@@ -184,7 +184,7 @@ export function NewPostCareModal({ isOpen, onClose, onSuccess }: NewPostCareModa
                 <span>Menyimpan...</span>
               </>
             ) : (
-              'Jadwalkan Kontrol Pos-Rawat'
+              'Jadwalkan Observasi'
             )}
           </button>
         </div>

@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { PatientSearchAutocomplete } from '@/components/pendaftaran/PatientSearchAutocomplete';
 import { createClient } from '@/lib/supabase/client';
+import { TRIPLE_ELIMINASI_LABS } from '@/constants/clinic';
 import { cn } from '@/lib/utils';
 
 interface NewPublicHealthModalProps {
@@ -27,7 +28,7 @@ const PROGRAM_OPTIONS: { id: PublicHealthProgramType; label: string; description
   { id: 'PTM', label: 'PTM', description: 'Penyakit Tidak Menular' },
   { id: 'ANC', label: 'ANC', description: 'Antenatal Care / Ibu Hamil' },
   { id: 'KB', label: 'KB', description: 'Keluarga Berencana' },
-  { id: 'ELIMINASI_3', label: '3 Eliminasi', description: 'Eliminasi TBC, Malaria, Kusta' },
+  { id: 'ELIMINASI_3', label: '3 Eliminasi', description: 'ANC ditambah lab HIV, HBsAg, dan Sipilis' },
 ];
 
 const baseSchema = z.object({
@@ -48,6 +49,8 @@ const baseSchema = z.object({
   lab: z.string().trim().optional().nullable(),
   terapi: z.string().trim().optional().nullable(),
   hbsag: z.string().trim().optional().nullable(),
+  hiv: z.string().trim().optional().nullable(),
+  syphilis: z.string().trim().optional().nullable(),
   jenisKb: z.string().trim().optional().nullable(),
   tanggalKembali: z.string().trim().optional().nullable(),
 });
@@ -71,6 +74,8 @@ export function NewPublicHealthModal({
   const [lab, setLab] = useState('');
   const [terapi, setTerapi] = useState('');
   const [hbsag, setHbsag] = useState('');
+  const [hiv, setHiv] = useState('');
+  const [syphilis, setSyphilis] = useState('');
   const [jenisKb, setJenisKb] = useState('');
   const [tanggalKembali, setTanggalKembali] = useState('');
 
@@ -91,6 +96,8 @@ export function NewPublicHealthModal({
     setLab('');
     setTerapi('');
     setHbsag('');
+    setHiv('');
+    setSyphilis('');
     setJenisKb('');
     setTanggalKembali('');
     setErrorMsg(null);
@@ -122,6 +129,8 @@ export function NewPublicHealthModal({
       lab: lab || null,
       terapi: terapi || null,
       hbsag: hbsag || null,
+      hiv: hiv || null,
+      syphilis: syphilis || null,
       jenisKb: jenisKb || null,
       tanggalKembali: tanggalKembali || null,
     });
@@ -160,6 +169,8 @@ export function NewPublicHealthModal({
         lab: valid.lab,
         terapi: valid.terapi,
         hbsag: valid.hbsag,
+        hiv: valid.hiv,
+        syphilis: valid.syphilis,
         jenis_kb: valid.jenisKb,
         tanggal_kembali: valid.tanggalKembali || null,
       });
@@ -181,6 +192,14 @@ export function NewPublicHealthModal({
 
   const isAnc = programType === 'ANC';
   const isKb = programType === 'KB';
+  const isEliminasi = programType === 'ELIMINASI_3';
+
+  // Triple Eliminasi needs all three labs. Report which are still blank rather than
+  // guessing a result.
+  const eliminasiValues: Record<string, string> = { hiv, hbsag, syphilis };
+  const eliminasiMissing = TRIPLE_ELIMINASI_LABS.filter(
+    (lab) => !(eliminasiValues[lab.key] || '').trim()
+  ).map((lab) => lab.label);
   const showDiagnosa = programType === 'PTM' || isAnc || programType === 'ELIMINASI_3';
   const showLab = programType === 'PTM' || programType === 'ELIMINASI_3';
 
@@ -397,6 +416,44 @@ export function NewPublicHealthModal({
                   placeholder="Contoh: GDS 142 mg/dL, Asam Urat 6.8"
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg min-h-[40px] focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 focus:outline-none"
                 />
+              </div>
+            )}
+
+            {isEliminasi && (
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Pemeriksaan Triple Eliminasi
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {TRIPLE_ELIMINASI_LABS.map((lab) => (
+                    <Select
+                      key={lab.key}
+                      value={eliminasiValues[lab.key]}
+                      onChange={(e) => {
+                        if (lab.key === 'hiv') setHiv(e.target.value);
+                        else if (lab.key === 'hbsag') setHbsag(e.target.value);
+                        else setSyphilis(e.target.value);
+                      }}
+                      placeholder={`${lab.label}: belum diperiksa`}
+                      searchable={false}
+                      headerTitle={`Hasil ${lab.label}`}
+                      options={[
+                        { value: 'Non Reaktif', label: 'Non Reaktif' },
+                        { value: 'Reaktif', label: 'Reaktif' },
+                      ]}
+                    />
+                  ))}
+                </div>
+                <p
+                  className={cn(
+                    'text-[11px] mt-1.5 font-medium',
+                    eliminasiMissing.length === 0 ? 'text-emerald-700' : 'text-amber-700'
+                  )}
+                >
+                  {eliminasiMissing.length === 0
+                    ? 'Ketiga lab Triple Eliminasi sudah terisi.'
+                    : `Belum diisi: ${eliminasiMissing.join(', ')}.`}
+                </p>
               </div>
             )}
 

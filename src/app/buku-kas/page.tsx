@@ -20,8 +20,13 @@ import { AddCashFlowModal } from '@/components/buku-kas/AddCashFlowModal';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function BukuKasPage() {
+  const { role } = useAuth();
+  // F-011 BR-002: Dokter/Admin records transactions but does not see the income,
+  // expense, and balance summaries, which stay owner-only.
+  const isDokterAdmin = role === 'dokter_admin';
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1;
   const currentYear = currentDate.getFullYear();
@@ -288,21 +293,25 @@ export default function BukuKasPage() {
         </div>
       )}
 
-      <CashFlowSummaryCards
-        totalMasuk={totalMasuk}
-        totalKeluar={totalKeluar}
-        saldoBersih={saldoBersih}
-        totalSetorTunai={totalSetorTunai}
-        monthName={`${selectedMonthName} ${selectedYear}`}
-        isLoading={isLoading}
-      />
+      {!isDokterAdmin && (
+        <CashFlowSummaryCards
+          totalMasuk={totalMasuk}
+          totalKeluar={totalKeluar}
+          saldoBersih={saldoBersih}
+          totalSetorTunai={totalSetorTunai}
+          monthName={`${selectedMonthName} ${selectedYear}`}
+          isLoading={isLoading}
+        />
+      )}
 
-      <CashReconciliationCard
-        todayCashVisitsTotal={todayCashVisitsTotal}
-        todayCashVisitsCount={todayCashVisitsCount}
-        todayCashDepositsTotal={todayCashDepositsTotal}
-        onOpenSetorTunai={() => handleOpenModal('Masuk')}
-      />
+      {!isDokterAdmin && (
+        <CashReconciliationCard
+          todayCashVisitsTotal={todayCashVisitsTotal}
+          todayCashVisitsCount={todayCashVisitsCount}
+          todayCashDepositsTotal={todayCashDepositsTotal}
+          onOpenSetorTunai={() => handleOpenModal('Masuk')}
+        />
+      )}
 
       <CashFlowTable
         cashFlows={cashFlows}

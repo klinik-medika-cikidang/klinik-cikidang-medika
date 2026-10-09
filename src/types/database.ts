@@ -46,6 +46,7 @@ export type Visit = {
   lab?: string;
   lab_hasil?: string;
   jenis_pasien: 'BPJS' | 'UMUM';
+  kategori_program: 'UMUM' | 'ANC' | 'PTM' | 'KB' | 'ELIMINASI_3';
   biaya_periksa: number;
   pendapatan_lain: number;
   keterangan_pendapatan?: string;

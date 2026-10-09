@@ -241,7 +241,7 @@ export default function ProgramKhususPage() {
             </span>
           </div>
           <p className="text-xs text-slate-600 font-medium mt-0.5">
-            Kohort kartu kendali TBC 6 bulan, dokumentasi tindakan sirkumsisi foto privat WebP, dan agenda kontrol pos-rawat
+            Kohort kartu kendali TBC 6 bulan, dokumentasi tindakan sirkumsisi foto privat WebP, dan agenda observasi
           </p>
         </div>
 
@@ -286,7 +286,7 @@ export default function ProgramKhususPage() {
               className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-gradient-to-b from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white px-3.5 py-2 min-h-[40px] sm:min-h-[38px] rounded-xl text-xs font-bold shadow-btn-primary border border-teal-700/80 tactile-btn transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
             >
               <Plus className="w-3.5 h-3.5" weight="bold" />
-              <span>Jadwal Pos-Rawat</span>
+              <span>Jadwal Observasi</span>
             </button>
           )}
 
@@ -386,7 +386,7 @@ export default function ProgramKhususPage() {
             }`}
           >
             <CalendarCheck className="w-4 h-4 text-emerald-600 shrink-0" weight="duotone" />
-            <span className="truncate">Agenda Pos-Rawat ({postCareList.length})</span>
+            <span className="truncate">Agenda Observasi ({postCareList.length})</span>
             {todayPostCareCount > 0 && (
               <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.2 rounded-md font-mono font-bold shrink-0">
                 {todayPostCareCount} Hari Ini
@@ -601,7 +601,7 @@ export default function ProgramKhususPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between text-xs text-slate-600 px-1">
                 <span className="font-medium">
-                  Pemantauan jadwal kontrol berkala pasien paska rawat inap atau tindakan medis operatif
+                  Observasi jadwal kontrol berkala pasien pasca rawat inap atau tindakan medis operatif
                 </span>
                 <span className="text-[11px] font-bold text-slate-700 font-mono">
                   {filteredPostCareList.length} dari {postCareList.length} Pasien

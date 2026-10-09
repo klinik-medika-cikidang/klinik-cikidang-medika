@@ -172,12 +172,12 @@ export function CommandMenu() {
       },
       {
         id: 'nav-program-khusus',
-        title: 'Program Khusus Medis (TBC, Sunat, Pos-Rawat)',
+        title: 'Program Khusus Medis (TBC, Sunat, Observasi)',
         subtitle: 'Registrasi program spesifik & pemantauan pasien',
         icon: Heartbeat,
         iconColor: 'text-rose-600',
         href: '/program-khusus',
-        keywords: ['program khusus', 'tbc', 'sunat', 'pos rawat', 'khusus'],
+        keywords: ['program khusus', 'tbc', 'sunat', 'observasi', 'pos rawat', 'khusus'],
       },
       {
         id: 'nav-buku-kas',

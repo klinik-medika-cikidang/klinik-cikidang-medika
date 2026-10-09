@@ -32,6 +32,7 @@ import { SuratSakitModal } from '@/components/rekam-medis/SuratSakitModal';
 import { SuratRujukanModal } from '@/components/rekam-medis/SuratRujukanModal';
 import { NewTbcModal } from '@/components/program-khusus/NewTbcModal';
 import { NewCircumcisionModal } from '@/components/program-khusus/NewCircumcisionModal';
+import { KategoriProgramPanel } from '@/components/program-khusus/KategoriProgramPanel';
 import { cn } from '@/lib/utils';
 
 export interface ExaminationFormProps {
@@ -589,6 +590,8 @@ export function ExaminationForm({
               </div>
             )}
           </div>
+
+          <KategoriProgramPanel visit={visit} />
         </div>
 
         {/* Sticky Bottom Tactile Action Bar */}
