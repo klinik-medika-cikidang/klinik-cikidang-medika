@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   UserPlus,
   ArrowClockwise,
@@ -21,12 +22,28 @@ import { QueueTicketModal } from '@/components/pendaftaran/QueueTicketModal';
 import { formatRupiah } from '@/lib/utils';
 
 export default function PendaftaranKasirPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-20 text-xs text-slate-400">
+          <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mr-2" />
+          Memuat loket pendaftaran...
+        </div>
+      }
+    >
+      <PendaftaranKasirContent />
+    </Suspense>
+  );
+}
+
+function PendaftaranKasirContent() {
   const { role } = useAuth();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [masterPatients, setMasterPatients] = useState<Patient[]>([]);
   const [isLoadingVisits, setIsLoadingVisits] = useState(true);
   const [selectedPosVisit, setSelectedPosVisit] = useState<Visit | null>(null);
   const [isSubmittingPos, setIsSubmittingPos] = useState(false);
+  const [tableResetSignal, setTableResetSignal] = useState(0);
 
   // Modals state
   const [isNewPatientOpen, setIsNewPatientOpen] = useState(false);
@@ -147,40 +164,46 @@ export default function PendaftaranKasirPage() {
     fetchVisits();
   }, [fetchVisits]);
 
-  // Handle URL query parameters for fast actions (from Navbar Search & Quick Profile)
+  // Fast actions arrive as query params from the command menu and quick profile. Reading them
+  // through useSearchParams lets the effect fire when only the query changes, and the params
+  // are then cleared so clicking the same action again is handled a second time.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const actionParam = searchParams.get('action');
+  const nameParam = searchParams.get('name') || searchParams.get('nama');
+  const patientIdParam = searchParams.get('pasien_id');
+
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const action = params.get('action');
-    const nameParam = params.get('name') || params.get('nama');
-    const patientId = params.get('pasien_id');
-
-    if (action === 'new') {
-      if (nameParam) {
-        setNewPatientInitialQuery(decodeURIComponent(nameParam));
-      }
+    if (actionParam === 'new') {
+      if (nameParam) setNewPatientInitialQuery(nameParam);
       setIsNewPatientOpen(true);
-    } else if (action === 'register' && patientId) {
-      const fetchPatientForVisit = async () => {
-        try {
-          const supabase = createClient();
-          const { data } = await supabase
-            .from('patients')
-            .select('*')
-            .eq('id', patientId)
-            .maybeSingle();
-
-          if (data) {
-            setSelectedPatientForVisit(data as Patient);
-            setIsRegisterVisitOpen(true);
-          }
-        } catch (err) {
-          console.error('Error fetching patient from URL param:', err);
-        }
-      };
-      fetchPatientForVisit();
+      router.replace('/pendaftaran');
+      return;
     }
-  }, []);
+
+    if (actionParam !== 'register' || !patientIdParam) return;
+
+    const fetchPatientForVisit = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('patients')
+          .select('*')
+          .eq('id', patientIdParam)
+          .maybeSingle();
+
+        if (data) {
+          setSelectedPatientForVisit(data as Patient);
+          setIsRegisterVisitOpen(true);
+        }
+      } catch (err) {
+        console.error('Error fetching patient from URL param:', err);
+      } finally {
+        router.replace('/pendaftaran');
+      }
+    };
+    fetchPatientForVisit();
+  }, [actionParam, nameParam, patientIdParam, router]);
 
   // Handle settlement from CashierPosPanel
   const handleSettlePayment = async (
@@ -336,6 +359,7 @@ export default function PendaftaranKasirPage() {
   };
 
   const handlePatientCreated = (newPatient: Patient) => {
+    fetchVisits();
     setSelectedPatientForVisit(newPatient);
     setIsRegisterVisitOpen(true);
   };
@@ -347,6 +371,7 @@ export default function PendaftaranKasirPage() {
 
   const handleVisitRegistered = (newVisit: Visit) => {
     fetchVisits();
+    setTableResetSignal((value) => value + 1);
     setActiveTicketVisit(newVisit);
     setIsTicketOpen(true);
   };
@@ -437,6 +462,7 @@ export default function PendaftaranKasirPage() {
         visits={visits}
         masterPatients={masterPatients}
         isLoadingVisits={isLoadingVisits}
+        resetSignal={tableResetSignal}
         onSelectForPayment={handleSelectForPayment}
         onPrintReceipt={handlePrintReceipt}
         onPrintTicket={handlePrintTicket}

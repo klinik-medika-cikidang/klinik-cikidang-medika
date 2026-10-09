@@ -13,6 +13,7 @@ import {
   PlusCircle,
 } from '@phosphor-icons/react';
 import type { Visit, Patient } from '@/types/database';
+import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 
 export type TableFilterTab =
@@ -26,6 +27,7 @@ export interface MasterPatientTableProps {
   visits: Visit[];
   masterPatients: Patient[];
   isLoadingVisits: boolean;
+  resetSignal?: number;
   onSelectForPayment: (visit: Visit) => void;
   onPrintReceipt: (visit: Visit) => void;
   onPrintTicket: (visit: Visit) => void;
@@ -45,6 +47,7 @@ export function MasterPatientTable({
   visits,
   masterPatients,
   isLoadingVisits,
+  resetSignal,
   onSelectForPayment,
   onPrintReceipt,
   onPrintTicket,
@@ -97,16 +100,52 @@ export function MasterPatientTable({
   const normalizedSearchQuery = searchQuery.toLowerCase().trim();
   const isSearching = normalizedSearchQuery.length > 0;
 
+  // The clinic has thousands of patients but only the 300 most recent are held in memory,
+  // so a name search must reach the database instead of filtering that window.
+  const [remoteMatches, setRemoteMatches] = useState<Patient[]>([]);
+  const [isRemoteSearching, setIsRemoteSearching] = useState(false);
+  const searchedTermRef = useRef('');
+
+  useEffect(() => {
+    searchedTermRef.current = normalizedSearchQuery;
+
+    const clean = normalizedSearchQuery.replace(/[%,()]/g, '').trim();
+    if (clean.length < 2) {
+      setRemoteMatches([]);
+      setIsRemoteSearching(false);
+      return;
+    }
+
+    setIsRemoteSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('patients')
+          .select('*')
+          .or(`nama.ilike.%${clean}%,no_rm.ilike.%${clean}%,desa.ilike.%${clean}%`)
+          .order('nama', { ascending: true })
+          .limit(50);
+
+        if (error) throw error;
+        // Ignore a slow response once the term has moved on, so it cannot overwrite a newer result.
+        if (searchedTermRef.current !== normalizedSearchQuery) return;
+        setRemoteMatches((data as unknown as Patient[]) || []);
+      } catch (err) {
+        console.error('Error searching patients:', err);
+        if (searchedTermRef.current === normalizedSearchQuery) setRemoteMatches([]);
+      } finally {
+        if (searchedTermRef.current === normalizedSearchQuery) setIsRemoteSearching(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [normalizedSearchQuery]);
+
   const filteredMasterPatients = useMemo(() => {
     if (!isSearching) return masterPatients;
-
-    return masterPatients.filter((p) => {
-      const nameMatch = p.nama?.toLowerCase().includes(normalizedSearchQuery);
-      const rmMatch = p.no_rm?.toLowerCase().includes(normalizedSearchQuery);
-      const desaMatch = p.desa?.toLowerCase().includes(normalizedSearchQuery);
-      return nameMatch || rmMatch || desaMatch;
-    });
-  }, [isSearching, masterPatients, normalizedSearchQuery]);
+    return remoteMatches;
+  }, [isSearching, masterPatients, remoteMatches]);
 
   const filteredVisitsByTab = useMemo(() => {
     return visits.filter((v) => {
@@ -124,26 +163,14 @@ export function MasterPatientTable({
   const searchSuggestions = useMemo<SearchSuggestion[]>(() => {
     if (!isSearching) return [];
 
-    return masterPatients
-      .filter((p) => {
-        const name = p.nama?.toLowerCase() || '';
-        const rm = p.no_rm?.toLowerCase() || '';
-        const desa = p.desa?.toLowerCase() || '';
-        return (
-          name.includes(normalizedSearchQuery) ||
-          rm.includes(normalizedSearchQuery) ||
-          desa.includes(normalizedSearchQuery)
-        );
-      })
-      .slice(0, 8)
-      .map((p) => ({
-        id: `patient-${p.id}`,
-        title: [p.gelar, p.nama].filter(Boolean).join(' '),
-        subtitle: p.no_rm || '-',
-        meta: p.desa || 'Desa belum diisi',
-        queryValue: p.no_rm || p.nama || '',
-      }));
-  }, [isSearching, masterPatients, normalizedSearchQuery]);
+    return remoteMatches.slice(0, 8).map((p) => ({
+      id: `patient-${p.id}`,
+      title: [p.gelar, p.nama].filter(Boolean).join(' '),
+      subtitle: p.no_rm || '-',
+      meta: p.desa || 'Desa belum diisi',
+      queryValue: p.no_rm || p.nama || '',
+    }));
+  }, [isSearching, remoteMatches]);
 
   useEffect(() => {
     const hasQuery = searchQuery.trim().length > 0;
@@ -231,6 +258,18 @@ export function MasterPatientTable({
     setActiveTab(tab);
     setCurrentPage(1);
   };
+
+  // A newly registered visit must be visible straight away, so a register action clears any
+  // active search and returns the table to the day's list.
+  const lastResetSignal = useRef(resetSignal);
+  useEffect(() => {
+    if (lastResetSignal.current === resetSignal) return;
+    lastResetSignal.current = resetSignal;
+    setSearchQuery('');
+    setActiveTab('hari_ini');
+    setCurrentPage(1);
+    setIsSearchOpen(false);
+  }, [resetSignal]);
 
   return (
     <div className="bg-white border border-slate-200/90 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-card-double space-y-4 tactile-card">
@@ -380,6 +419,12 @@ export function MasterPatientTable({
       </div>
 
       {/* Data Table */}
+      {activeTab === 'master_pasien' && !isSearching && (
+        <p className="text-[11px] text-slate-500 -mt-1">
+          Menampilkan {masterPatients.length} pasien terbaru. Ketik nama, No. RM, atau desa untuk
+          mencari seluruh database pasien.
+        </p>
+      )}
       <div className="overflow-x-auto -mx-2 px-2">
         <table className="w-full text-xs border-collapse min-w-[720px]">
           <thead>
@@ -413,17 +458,26 @@ export function MasterPatientTable({
                   <span>Memuat data dari database klinik...</span>
                 </td>
               </tr>
+            ) : isSearching && isRemoteSearching ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <div className="w-6 h-6 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <span>Mencari pasien di seluruh database...</span>
+                </td>
+              </tr>
             ) : paginatedData.length === 0 ? (
               <tr>
                 <td colSpan={6} className="py-12 text-center text-slate-400">
                   <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" weight="duotone" />
                   <p className="font-semibold text-slate-600 text-xs">
-                    Tidak ada data ditemukan
+                    {isSearching ? 'Tidak ada pasien yang cocok' : 'Tidak ada data ditemukan'}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {isSearching
-                      ? 'Data pasien terdaftar tidak cocok dengan kata kunci pencarian.'
-                      : 'Coba ubah kata kunci pencarian atau pilih tab status lain.'}
+                    {isSearching && normalizedSearchQuery.replace(/[%,()]/g, '').trim().length < 2
+                      ? 'Ketik minimal 2 karakter untuk mencari pasien.'
+                      : isSearching
+                        ? `Kata kunci "${searchQuery.trim()}" tidak ditemukan pada nama, No. RM, atau desa.`
+                        : 'Coba ubah kata kunci pencarian atau pilih tab status lain.'}
                   </p>
                 </td>
               </tr>
