@@ -39,7 +39,6 @@ export default function PendaftaranKasirPage() {
 function PendaftaranKasirContent() {
   const { role } = useAuth();
   const [visits, setVisits] = useState<Visit[]>([]);
-  const [masterPatients, setMasterPatients] = useState<Patient[]>([]);
   const [isLoadingVisits, setIsLoadingVisits] = useState(true);
   const [selectedPosVisit, setSelectedPosVisit] = useState<Visit | null>(null);
   const [isSubmittingPos, setIsSubmittingPos] = useState(false);
@@ -141,17 +140,6 @@ function PendaftaranKasirContent() {
         waitingPayment: waitingPay,
         todayRevenue: rev,
       });
-
-      // 2. Fetch Master Patients (up to 300 recent patients for instant database tab)
-      const { data: patientsData, error: patientsError } = await supabase
-        .from('patients')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(300);
-
-      if (!patientsError && patientsData) {
-        setMasterPatients((patientsData as unknown as Patient[]) || []);
-      }
     } catch (err) {
       console.error('Error fetching visits data:', err);
       toast.error('Gagal memuat data antrean kunjungan.');
@@ -460,7 +448,6 @@ function PendaftaranKasirContent() {
       {/* ============================================================== */}
       <MasterPatientTable
         visits={visits}
-        masterPatients={masterPatients}
         isLoadingVisits={isLoadingVisits}
         resetSignal={tableResetSignal}
         onSelectForPayment={handleSelectForPayment}

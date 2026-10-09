@@ -25,7 +25,6 @@ export type TableFilterTab =
 
 export interface MasterPatientTableProps {
   visits: Visit[];
-  masterPatients: Patient[];
   isLoadingVisits: boolean;
   resetSignal?: number;
   onSelectForPayment: (visit: Visit) => void;
@@ -45,7 +44,6 @@ interface SearchSuggestion {
 
 export function MasterPatientTable({
   visits,
-  masterPatients,
   isLoadingVisits,
   resetSignal,
   onSelectForPayment,
@@ -98,54 +96,87 @@ export function MasterPatientTable({
   );
 
   const normalizedSearchQuery = searchQuery.toLowerCase().trim();
+  const searchTerm = normalizedSearchQuery.replace(/[%,()]/g, '').trim();
   const isSearching = normalizedSearchQuery.length > 0;
+  const showMasterView = isSearching || activeTab === 'master_pasien';
 
-  // The clinic has thousands of patients but only the 300 most recent are held in memory,
-  // so a name search must reach the database instead of filtering that window.
-  const [remoteMatches, setRemoteMatches] = useState<Patient[]>([]);
-  const [isRemoteSearching, setIsRemoteSearching] = useState(false);
-  const searchedTermRef = useRef('');
+  // The clinic has thousands of patients, so the master view is searched and paged on the
+  // database. Only the rows for the current page are held in memory.
+  const [masterRows, setMasterRows] = useState<Patient[]>([]);
+  const [masterTotal, setMasterTotal] = useState<number | null>(null);
+  const [masterCount, setMasterCount] = useState(0);
+  const [isLoadingMaster, setIsLoadingMaster] = useState(false);
+
+  // The tab label states the true total, so it is counted once rather than inferred from a page.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { count, error } = await supabase
+          .from('patients')
+          .select('id', { count: 'exact', head: true });
+        if (error) throw error;
+        if (!cancelled) setMasterTotal(count ?? 0);
+      } catch (err) {
+        console.error('Error counting patients:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resetSignal]);
 
   useEffect(() => {
-    searchedTermRef.current = normalizedSearchQuery;
+    if (!showMasterView) return;
 
-    const clean = normalizedSearchQuery.replace(/[%,()]/g, '').trim();
-    if (clean.length < 2) {
-      setRemoteMatches([]);
-      setIsRemoteSearching(false);
+    if (isSearching && searchTerm.length < 2) {
+      setMasterRows([]);
+      setMasterCount(0);
+      setIsLoadingMaster(false);
       return;
     }
 
-    setIsRemoteSearching(true);
+    let cancelled = false;
+    setIsLoadingMaster(true);
+
     const timer = setTimeout(async () => {
       try {
         const supabase = createClient();
-        const { data, error } = await supabase
-          .from('patients')
-          .select('*')
-          .or(`nama.ilike.%${clean}%,no_rm.ilike.%${clean}%,desa.ilike.%${clean}%`)
-          .order('nama', { ascending: true })
-          .limit(50);
+        let request = supabase.from('patients').select('*', { count: 'exact' });
+        if (searchTerm.length >= 2) {
+          request = request.or(
+            `nama.ilike.%${searchTerm}%,no_rm.ilike.%${searchTerm}%,desa.ilike.%${searchTerm}%`
+          );
+        }
+
+        const from = (currentPage - 1) * itemsPerPage;
+        const { data, error, count } = await request
+          .order(searchTerm.length >= 2 ? 'nama' : 'created_at', {
+            ascending: searchTerm.length >= 2,
+          })
+          .range(from, from + itemsPerPage - 1);
 
         if (error) throw error;
-        // Ignore a slow response once the term has moved on, so it cannot overwrite a newer result.
-        if (searchedTermRef.current !== normalizedSearchQuery) return;
-        setRemoteMatches((data as unknown as Patient[]) || []);
+        if (cancelled) return;
+        setMasterRows((data as unknown as Patient[]) || []);
+        setMasterCount(count ?? 0);
       } catch (err) {
-        console.error('Error searching patients:', err);
-        if (searchedTermRef.current === normalizedSearchQuery) setRemoteMatches([]);
+        console.error('Error loading master patients:', err);
+        if (!cancelled) {
+          setMasterRows([]);
+          setMasterCount(0);
+        }
       } finally {
-        if (searchedTermRef.current === normalizedSearchQuery) setIsRemoteSearching(false);
+        if (!cancelled) setIsLoadingMaster(false);
       }
-    }, 250);
+    }, isSearching ? 250 : 0);
 
-    return () => clearTimeout(timer);
-  }, [normalizedSearchQuery]);
-
-  const filteredMasterPatients = useMemo(() => {
-    if (!isSearching) return masterPatients;
-    return remoteMatches;
-  }, [isSearching, masterPatients, remoteMatches]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [showMasterView, isSearching, searchTerm, currentPage, resetSignal]);
 
   const filteredVisitsByTab = useMemo(() => {
     return visits.filter((v) => {
@@ -157,20 +188,17 @@ export function MasterPatientTable({
     });
   }, [activeTab, visits]);
 
-  const shouldShowMasterPatients = isSearching || activeTab === 'master_pasien';
-  const filteredData = shouldShowMasterPatients ? filteredMasterPatients : filteredVisitsByTab;
-
   const searchSuggestions = useMemo<SearchSuggestion[]>(() => {
     if (!isSearching) return [];
 
-    return remoteMatches.slice(0, 8).map((p) => ({
+    return masterRows.slice(0, 8).map((p) => ({
       id: `patient-${p.id}`,
       title: [p.gelar, p.nama].filter(Boolean).join(' '),
       subtitle: p.no_rm || '-',
       meta: p.desa || 'Desa belum diisi',
       queryValue: p.no_rm || p.nama || '',
     }));
-  }, [isSearching, remoteMatches]);
+  }, [isSearching, masterRows]);
 
   useEffect(() => {
     const hasQuery = searchQuery.trim().length > 0;
@@ -248,11 +276,27 @@ export function MasterPatientTable({
     }
   };
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
+  const totalPages = showMasterView
+    ? Math.max(1, Math.ceil(masterCount / itemsPerPage))
+    : Math.max(1, Math.ceil(filteredVisitsByTab.length / itemsPerPage));
+
   const paginatedData = useMemo(() => {
+    if (showMasterView) return masterRows;
     const start = (currentPage - 1) * itemsPerPage;
-    return filteredData.slice(start, start + itemsPerPage);
-  }, [filteredData, currentPage]);
+    return filteredVisitsByTab.slice(start, start + itemsPerPage);
+  }, [showMasterView, masterRows, filteredVisitsByTab, currentPage]);
+
+  const activeRowCount = showMasterView ? masterCount : filteredVisitsByTab.length;
+  const isTableLoading = showMasterView ? isLoadingMaster : isLoadingVisits;
+
+  // With thousands of rows there are many pages, so the number buttons follow the current page.
+  const pageWindow = useMemo(() => {
+    const size = 5;
+    let start = Math.max(1, currentPage - Math.floor(size / 2));
+    const end = Math.min(totalPages, start + size - 1);
+    start = Math.max(1, end - size + 1);
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  }, [currentPage, totalPages]);
 
   const handleTabChange = (tab: TableFilterTab) => {
     setActiveTab(tab);
@@ -414,15 +458,15 @@ export function MasterPatientTable({
           )}
         >
           <Users className="w-3.5 h-3.5 text-teal-600" weight="duotone" />
-          <span>Database Master Pasien ({masterPatients.length})</span>
+          <span>Database Master Pasien{masterTotal !== null ? ` (${masterTotal})` : ''}</span>
         </button>
       </div>
 
       {/* Data Table */}
-      {activeTab === 'master_pasien' && !isSearching && (
+      {showMasterView && !isSearching && (
         <p className="text-[11px] text-slate-500 -mt-1">
-          Menampilkan {masterPatients.length} pasien terbaru. Ketik nama, No. RM, atau desa untuk
-          mencari seluruh database pasien.
+          Ketik nama, No. RM, atau desa untuk mencari seluruh database pasien. Gunakan tombol
+          halaman di bawah untuk menelusuri sisanya.
         </p>
       )}
       <div className="overflow-x-auto -mx-2 px-2">
@@ -451,18 +495,15 @@ export function MasterPatientTable({
           </thead>
 
           <tbody className="divide-y divide-slate-100">
-            {isLoadingVisits ? (
+            {isTableLoading ? (
               <tr>
                 <td colSpan={6} className="py-12 text-center text-slate-400">
                   <div className="w-6 h-6 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  <span>Memuat data dari database klinik...</span>
-                </td>
-              </tr>
-            ) : isSearching && isRemoteSearching ? (
-              <tr>
-                <td colSpan={6} className="py-12 text-center text-slate-400">
-                  <div className="w-6 h-6 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  <span>Mencari pasien di seluruh database...</span>
+                  <span>
+                    {showMasterView && isSearching
+                      ? 'Mencari pasien di seluruh database...'
+                      : 'Memuat data dari database klinik...'}
+                  </span>
                 </td>
               </tr>
             ) : paginatedData.length === 0 ? (
@@ -473,7 +514,7 @@ export function MasterPatientTable({
                     {isSearching ? 'Tidak ada pasien yang cocok' : 'Tidak ada data ditemukan'}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {isSearching && normalizedSearchQuery.replace(/[%,()]/g, '').trim().length < 2
+                    {isSearching && searchTerm.length < 2
                       ? 'Ketik minimal 2 karakter untuk mencari pasien.'
                       : isSearching
                         ? `Kata kunci "${searchQuery.trim()}" tidak ditemukan pada nama, No. RM, atau desa.`
@@ -481,7 +522,7 @@ export function MasterPatientTable({
                   </p>
                 </td>
               </tr>
-            ) : shouldShowMasterPatients ? (
+            ) : showMasterView ? (
               // Master Patients View
               (paginatedData as Patient[]).map((patient) => {
                 const fullName = [patient.gelar, patient.nama].filter(Boolean).join(' ');
@@ -680,14 +721,14 @@ export function MasterPatientTable({
         <span>
           Menampilkan{' '}
           <strong className="text-slate-800 font-mono">
-            {filteredData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}
+            {activeRowCount > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}
           </strong>{' '}
           sampai{' '}
           <strong className="text-slate-800 font-mono">
-            {Math.min(currentPage * itemsPerPage, filteredData.length)}
+            {Math.min(currentPage * itemsPerPage, activeRowCount)}
           </strong>{' '}
           dari{' '}
-          <strong className="text-slate-800 font-mono">{filteredData.length}</strong>{' '}
+          <strong className="text-slate-800 font-mono">{activeRowCount}</strong>{' '}
           data
         </span>
 
@@ -702,24 +743,21 @@ export function MasterPatientTable({
               &#8249;
             </button>
 
-            {[...Array(Math.min(5, totalPages))].map((_, i) => {
-              const pageNum = i + 1;
-              return (
-                <button
-                  key={pageNum}
-                  type="button"
-                  onClick={() => setCurrentPage(pageNum)}
-                  className={cn(
-                    'px-2.5 py-1 rounded-lg font-bold text-[10px] transition-colors',
-                    currentPage === pageNum
-                      ? 'bg-teal-600 border border-teal-700 text-white shadow-2xs'
-                      : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 tactile-btn'
-                  )}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
+            {pageWindow.map((pageNum) => (
+              <button
+                key={pageNum}
+                type="button"
+                onClick={() => setCurrentPage(pageNum)}
+                className={cn(
+                  'px-2.5 py-1 rounded-lg font-bold text-[10px] transition-colors',
+                  currentPage === pageNum
+                    ? 'bg-teal-600 border border-teal-700 text-white shadow-2xs'
+                    : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 tactile-btn'
+                )}
+              >
+                {pageNum}
+              </button>
+            ))}
 
             <button
               type="button"
