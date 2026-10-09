@@ -39,6 +39,7 @@ FILL_LIGHT = colors.HexColor("#F5F5F5")
 WHITE = colors.HexColor("#FFFFFF")
 
 DOC_DATE = "8 Oktober 2026"
+REVISION_DATE = "9 Oktober 2026"
 DOC_TITLE = "Lampiran Validasi Data"
 DOC_SUBTITLE = "Klinik Pratama Cikidang Medika"
 DOC_RUNNING = "Lampiran Validasi Data - Klinik Pratama Cikidang Medika"
@@ -157,7 +158,8 @@ def build_pdf(data, out_path):
             ["Tanggal", DOC_DATE],
             ["Untuk", "dr. Ovan, dr. Neneng, dan staf klinik"],
             ["Dari", "Pengembang"],
-            ["Isi", "Tiga daftar baris untuk dicek langsung di berkas Excel"],
+            ["Isi", "Daftar baris untuk dicek langsung di berkas Excel"],
+            ["Revisi", REVISION_DATE + " (menggantikan lampiran tanggal 8 Oktober 2026)"],
             ["Sifat", "Internal. Memuat nama pasien dan No RM, hanya untuk validasi klinik."],
         ],
         [3.2 * cm, 13.6 * cm],
@@ -172,15 +174,21 @@ def build_pdf(data, out_path):
     ))
 
     story += h2("A. Kunjungan tanpa tanggal periksa (%d baris)" % len(no_date))
-    story.append(Paragraph(
-        "Baris ini tidak memiliki tanggal periksa. Mohon ditentukan apakah tanggalnya dilengkapi "
-        "atau barisnya diabaikan.", S["body"],
-    ))
-    story.append(data_table(
-        ["Baris Excel", "No RM", "Nama", "Tgl Lahir", "Desa", "Dokter", "Diagnosa"],
-        [[r["baris"], r["noRm"], r["nama"], r["tglLahir"], r["desa"], r["dokter"], r["diagnosa"]] for r in no_date],
-        [1.7 * cm, 2.1 * cm, 3.7 * cm, 2.1 * cm, 2.3 * cm, 2.1 * cm, 3.4 * cm],
-    ))
+    if no_date:
+        story.append(Paragraph(
+            "Baris ini tidak memiliki tanggal periksa. Mohon ditentukan apakah tanggalnya dilengkapi "
+            "atau barisnya diabaikan.", S["body"],
+        ))
+        story.append(data_table(
+            ["Baris Excel", "No RM", "Nama", "Tgl Lahir", "Desa", "Dokter", "Diagnosa"],
+            [[r["baris"], r["noRm"], r["nama"], r["tglLahir"], r["desa"], r["dokter"], r["diagnosa"]] for r in no_date],
+            [1.7 * cm, 2.1 * cm, 3.7 * cm, 2.1 * cm, 2.3 * cm, 2.1 * cm, 3.4 * cm],
+        ))
+    else:
+        story.append(Paragraph(
+            "Selesai. Klinik sudah melengkapi tanggal periksa untuk seluruh 26 baris yang sebelumnya "
+            "kosong, sehingga tidak ada lagi kunjungan tanpa tanggal.", S["body"],
+        ))
 
     story += h2("B. Kunjungan yang perlu ditinjau (%d baris)" % len(review))
     story.append(Paragraph(
@@ -202,6 +210,13 @@ def build_pdf(data, out_path):
         ["No RM", "Nama", "Tgl Lahir", "Desa"],
         [[r["noRm"], r["nama"], r["tglLahir"], r["desa"]] for r in sunat],
         [2.6 * cm, 7.0 * cm, 2.8 * cm, 5.0 * cm],
+    ))
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(
+        "Catatan revisi: nomor anak sunat mengikuti nomor bebas berikutnya setelah pasien terakhir. "
+        "Dua nomor bergeser dari lampiran sebelumnya (010103727 dan 010203728) karena dua pasien baru "
+        "(M. Abizar dan Nazwa) yang terdaftar pada 9 Oktober 2026 resmi memakai nomor tersebut.",
+        S["body"],
     ))
 
     story.append(Spacer(1, 8))
@@ -225,6 +240,7 @@ def build_markdown(data, out_path):
     lines.append("")
     lines.append("**Klinik Pratama Cikidang Medika**  ")
     lines.append("Tanggal: %s  " % DOC_DATE)
+    lines.append("Revisi: %s  " % REVISION_DATE)
     lines.append("Untuk: dr. Ovan, dr. Neneng, dan staf klinik")
     lines.append("")
     lines.append("Berisi data pasien. Berkas ini tidak di-commit ke repositori, hanya untuk validasi klinik.")
@@ -237,11 +253,14 @@ def build_markdown(data, out_path):
 
     lines.append("## A. Kunjungan tanpa tanggal periksa (%d baris)" % len(no_date))
     lines.append("")
-    lines.append("| Baris Excel | No RM | Nama | Tgl Lahir | Desa | Dokter | Diagnosa |")
-    lines.append("|---|---|---|---|---|---|---|")
-    for r in no_date:
-        lines.append("| %s | %s | %s | %s | %s | %s | %s |" % (
-            r["baris"], r["noRm"], r["nama"], r["tglLahir"], r["desa"], r["dokter"], r["diagnosa"]))
+    if no_date:
+        lines.append("| Baris Excel | No RM | Nama | Tgl Lahir | Desa | Dokter | Diagnosa |")
+        lines.append("|---|---|---|---|---|---|---|")
+        for r in no_date:
+            lines.append("| %s | %s | %s | %s | %s | %s | %s |" % (
+                r["baris"], r["noRm"], r["nama"], r["tglLahir"], r["desa"], r["dokter"], r["diagnosa"]))
+    else:
+        lines.append("Selesai. Klinik sudah melengkapi tanggal periksa untuk seluruh 26 baris yang sebelumnya kosong.")
     lines.append("")
 
     lines.append("## B. Kunjungan yang perlu ditinjau (%d baris)" % len(review))
@@ -255,6 +274,9 @@ def build_markdown(data, out_path):
     lines.append("")
 
     lines.append("## C. Anak sunat yang dibuatkan nomor baru (%d pasien)" % len(sunat))
+    lines.append("")
+    lines.append("Catatan revisi: dua nomor bergeser dari lampiran sebelumnya (010103727 dan 010203728) "
+                 "karena dua pasien baru (M. Abizar dan Nazwa) yang terdaftar pada 9 Oktober 2026 memakai nomor tersebut.")
     lines.append("")
     lines.append("| No RM | Nama | Tgl Lahir | Desa |")
     lines.append("|---|---|---|---|")
