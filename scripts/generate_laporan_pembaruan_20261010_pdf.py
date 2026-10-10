@@ -229,6 +229,7 @@ def build(out_path):
         "Format Laporan Puskesmas & Register KB (F-015) disesuaikan penuh untuk pelaporan bulanan ke PKM (filter bulan, Tanggal, No RM, Desa, Triple Eliminasi, ANC GPA, dan PTM Hipertensi & Diabetes). Kolom Jenis KB dan Kunjungan Kembali tetap dipertahankan penuh pada tabel serta ekspor Excel, disertai pemulihan 31 data akseptor KB historis.",
         "Fitur Pembebasan Biaya Pasien Umum / Free 100% (F-016): Tombol pintas 1-klik untuk dokter & kasir, pilihan alasan bebas biaya, kuitansi diskon 100%, serta pembukuan keuangan bersih tanpa saldo tunai semu.",
         "Penyempurnaan Formulir Pendaftaran: Sinkronisasi sapaan (Nn./Ny.) dan jenis kelamin perempuan tanpa kendala reset.",
+        "Penomoran Otomatis RM Berkelanjutan (F-017): Sistem pendaftaran pasien otomatis melanjutkan nomor urut pendaftaran dari data historis klinik (mulai nomor urut 3741 dst.) dengan format resmi 9 digit tanpa strip (misal: 010103741), menjamin data tidak akan pernah bentrok dengan 3.750 berkas lama klinik.",
         "Ketentuan Layanan Pasca Go-Live: Jaminan bebas biaya perbaikan bug, dan kebijakan penambahan fitur baru berbayar (Rp 150.000 per fitur) setelah sistem aktif digunakan untuk operasional harian klinik.",
         "Seluruh data riil klinik dicadangkan menyeluruh sebelum pembaruan diterapkan ke sistem produksi.",
     ], numbered=True)
@@ -348,6 +349,7 @@ def build(out_path):
         "Tombol Daftarkan Kunjungan dari kartu cepat pasien langsung membuka formulir kunjungan baru secara instan.",
         "Halaman pengelolaan Paket Terapi untuk membuat, mengubah tarif, mengaktifkan, dan menonaktifkan paket.",
         "Perbaikan Formulir Pendaftaran Pasien Baru: Pilihan sapaan (Nn. atau Ny.) dan jenis kelamin perempuan kini otomatis tersinkronisasi tanpa kendala reset formulir.",
+        "Generator No RM Otomatis Berkelanjutan (F-017): Pendaftaran pasien baru di web otomatis menghasilkan No RM 9 digit tanpa tanda strip (misal: 010103741) yang secara otomatis meneruskan nomor urut terakhir Google Sheet klinik (3740 ke 3741). Petugas loket tetap dapat mengedit manual jika diperlukan, dengan sistem pengaman anti-duplikat.",
     ])
 
     story += h2("Bagian G. Ketentuan Layanan Pemeliharaan & Pengembangan Pasca Go-Live")

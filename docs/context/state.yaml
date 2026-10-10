@@ -85,9 +85,15 @@ features:
     status: completed
     spec_path: docs/specs/F-016-pasien-umum-bebas-biaya
     active_phase: completed
+  - id: F-017
+    name: Penomoran Otomatis RM Berkelanjutan (9-Digit)
+    track: engineering
+    status: completed
+    spec_path: docs/specs/F-017-penomoran-otomatis-rm-berkelanjutan
+    active_phase: completed
 
 active:
-  feature_id: "F-016"
+  feature_id: "F-017"
   task_id: "COMPLETED"
   branch: "main"
 

@@ -15,11 +15,10 @@ import { createClient } from '@/lib/supabase/client';
 import type { Patient } from '@/types/database';
 import {
   DESA_OPTIONS,
-  DESA_RM_CODE,
   GELAR_OPTIONS,
   JENIS_KELAMIN_OPTIONS,
-  JENIS_KELAMIN_RM_CODE,
 } from '@/constants/clinic';
+import { fetchNextMedicalRecordNumber } from '@/lib/rm';
 import { Modal } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
 
@@ -27,7 +26,8 @@ const patientSchema = z.object({
   noRm: z
     .string()
     .trim()
-    .regex(/^\d{2}-\d{2}-\d{6}$/, 'Format No RM wajib 00-00-000000.'),
+    .min(1, 'Nomor RM wajib diisi.')
+    .regex(/^\d{8,12}$/, 'Nomor RM harus berupa 8-12 digit angka (baku klinik: 9 digit).'),
   gelar: z.string().trim().default('Tn.'),
   nama: z.string().trim().min(2, 'Nama pasien minimal 2 karakter.'),
   jenisKelamin: z.enum(['Laki-laki', 'Perempuan']),
@@ -99,34 +99,11 @@ export function NewPatientModal({
       setIsGeneratingRm(true);
       try {
         const supabase = createClient();
-        const jkCode = JENIS_KELAMIN_RM_CODE[jk];
-        const desaCode = DESA_RM_CODE[d];
-
-        if (!jkCode || !desaCode) {
-          throw new Error('Kode jenis kelamin atau kode desa belum terdaftar.');
-        }
-
-        const prefix = `${jkCode}-${desaCode}`;
-
-        const { data, error } = await supabase
-          .from('patients')
-          .select('no_rm')
-          .like('no_rm', `${prefix}-%`)
-          .order('no_rm', { ascending: false })
-          .limit(1);
-
-        if (error) throw error;
-
-        const latestRm = data?.[0]?.no_rm || '';
-        const latestSeqRaw = latestRm.split('-')[2] || '000000';
-        const latestSeq = Number.parseInt(latestSeqRaw, 10);
-        const nextSeq = Number.isNaN(latestSeq) ? 1 : latestSeq + 1;
-
-        const formatted = `${prefix}-${String(nextSeq).padStart(6, '0')}`;
-        setNoRm(formatted);
+        const nextRm = await fetchNextMedicalRecordNumber(supabase, jk, d);
+        setNoRm(nextRm);
       } catch (err) {
         console.error('Failed to generate No RM:', err);
-        setNoRm('00-00-000001');
+        setNoRm('010103741');
       } finally {
         setIsGeneratingRm(false);
       }
@@ -337,10 +314,13 @@ export function NewPatientModal({
                   setNoRm(e.target.value);
                   if (fieldErrors.noRm) setFieldErrors((prev) => ({ ...prev, noRm: '' }));
                 }}
-                placeholder={isGeneratingRm ? 'Membuat...' : '00-00-000000'}
+                placeholder={isGeneratingRm ? 'Membuat...' : '010103741'}
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-teal-700 focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-600 transition-colors min-h-[44px]"
                 required
               />
+              <p className="text-[10px] text-slate-500 font-medium mt-1">
+                Format resmi: 9 digit angka (melanjutkan data klinik).
+              </p>
               {fieldErrors.noRm && (
                 <p className="text-[11px] text-rose-600 font-semibold mt-1">{fieldErrors.noRm}</p>
               )}
