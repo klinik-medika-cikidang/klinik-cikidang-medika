@@ -81,8 +81,8 @@ class NumberedCanvas(canvas.Canvas):
 S = {
     "title": ParagraphStyle("title", fontName="Helvetica-Bold", fontSize=16, leading=20, textColor=BLACK, spaceAfter=2),
     "subtitle": ParagraphStyle("subtitle", fontName="Helvetica", fontSize=10.5, leading=14, textColor=MUTED, spaceAfter=8),
-    "h2": ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=11, leading=14.5, textColor=BLACK, spaceBefore=11, spaceAfter=4),
-    "h3": ParagraphStyle("h3", fontName="Helvetica-Bold", fontSize=9.5, leading=13, textColor=BLACK, spaceBefore=6, spaceAfter=2),
+    "h2": ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=10.5, leading=14, textColor=BLACK, spaceBefore=10, spaceAfter=3, keepWithNext=True),
+    "h3": ParagraphStyle("h3", fontName="Helvetica-Bold", fontSize=9.5, leading=13, textColor=BLACK, spaceBefore=6, spaceAfter=2, keepWithNext=True),
     "body": ParagraphStyle("body", fontName="Helvetica", fontSize=9, leading=13, textColor=BODY, alignment=TA_LEFT, spaceAfter=4),
     "small": ParagraphStyle("small", fontName="Helvetica", fontSize=8, leading=11, textColor=MUTED),
     "cell": ParagraphStyle("cell", fontName="Helvetica", fontSize=8.5, leading=11.5, textColor=BODY),
@@ -213,10 +213,10 @@ def build(out_path):
         ["Keterangan", "Isi"],
         [
             ["Tanggal", "10 Oktober 2026"],
-            ["Untuk", "dr. Ovan, dr. Neneng, dan staf klinik"],
+            ["Untuk", "dr. Ovan, dr. Neneng, dan Staf Klinik Pratama Cikidang Medika"],
             ["Dari", "Pengembang Sistem"],
-            ["Isi Laporan", "Penataan No RM, Paket Terapi, Batal Antrean, Laporan Puskesmas (F-015), dan Ketentuan Layanan"],
-            ["Perlu Tindakan", "Pemeriksaan dan konfirmasi dokter pada Bagian H"],
+            ["Isi Laporan", "Penataan No RM, Paket Terapi, Batal Antrean, Laporan Puskesmas & Register KB, Fitur Bebas Biaya (Free 100%), Penyempurnaan Sistem, dan Ketentuan Layanan Pasca Go-Live"],
+            ["Perlu Tindakan", "Pemeriksaan dan konfirmasi dokter pada Bagian I"],
         ],
         [3.4 * cm, 14.0 * cm],
     ))
@@ -226,8 +226,10 @@ def build(out_path):
         "Nomor RM pasien di aplikasi telah diselaraskan penuh dengan berkas resmi DATAPASIEN dan REKAMMEDIS (3.750 pasien aktif, tanpa nomor ganda).",
         "Fitur Paket Terapi telah terpasang dan terintegrasi ke formulir rekam medis dokter serta meja kasir.",
         "Fitur Pembatalan Antrean Pasien (F-014) telah aktif: melayani pencatatan alasan batal dan opsi pemulihan antrean.",
-        "Format Laporan Puskesmas & Register Program (F-015) disesuaikan penuh untuk pelaporan bulanan ke PKM (filter bulan, Tanggal, No RM, Desa, Triple Eliminasi, ANC GPA, dan PTM Hipertensi & Diabetes).",
-        "Ketentuan Layanan Pasca Go-Live: jaminan stabilitas & bebas biaya perbaikan bug, serta kebijakan penambahan fitur baru berbayar (Rp 150.000 per fitur) setelah sistem aktif digunakan operasional.",
+        "Format Laporan Puskesmas & Register KB (F-015) disesuaikan penuh untuk pelaporan bulanan ke PKM (filter bulan, Tanggal, No RM, Desa, Triple Eliminasi, ANC GPA, dan PTM Hipertensi & Diabetes). Kolom Jenis KB dan Kunjungan Kembali tetap dipertahankan penuh pada tabel serta ekspor Excel, disertai pemulihan 31 data akseptor KB historis.",
+        "Fitur Pembebasan Biaya Pasien Umum / Free 100% (F-016): Tombol pintas 1-klik untuk dokter & kasir, pilihan alasan bebas biaya, kuitansi diskon 100%, serta pembukuan keuangan bersih tanpa saldo tunai semu.",
+        "Penyempurnaan Formulir Pendaftaran: Sinkronisasi sapaan (Nn./Ny.) dan jenis kelamin perempuan tanpa kendala reset.",
+        "Ketentuan Layanan Pasca Go-Live: Jaminan bebas biaya perbaikan bug, dan kebijakan penambahan fitur baru berbayar (Rp 150.000 per fitur) setelah sistem aktif digunakan untuk operasional harian klinik.",
         "Seluruh data riil klinik dicadangkan menyeluruh sebelum pembaruan diterapkan ke sistem produksi.",
     ], numbered=True)
 
@@ -311,7 +313,7 @@ def build(out_path):
         "<b>Opsi Pemulihan (Restore):</b> Staf dapat memulihkan kembali antrean ke antrean aktif jika pasien ternyata kembali atau terjadi salah pencet.",
     ])
 
-    story += h2("Bagian D. Penyesuaian Format Laporan Puskesmas (F-015)")
+    story += h2("Bagian D. Penyesuaian Format Laporan Puskesmas & Register KB (F-015)")
     story.append(body(
         "Menindaklanjuti arahan dokter untuk pelaporan bulanan ke Puskesmas Cikidang (PKM) per akhir bulan, "
         "sistem register program kesehatan telah disempurnakan secara menyeluruh:"
@@ -322,26 +324,41 @@ def build(out_path):
         "<b>Register Triple Eliminasi Bumil:</b> Parameter hasil laboratorium mandiri untuk HBsAg, HIV, dan Sifilis (Non-Reaktif / Reaktif), dilengkapi tombol pintas 'Set Semua Non-Reaktif'.",
         "<b>Register ANC (Pemeriksaan Kehamilan):</b> Ditambahkan kotak isian manual notasi GPA bumil (contoh: G3P2A0 untuk Gravida 3, Para 2, Abortus 0).",
         "<b>Register PTM (Penyakit Tidak Menular):</b> Penambahan sub-kategori spesifik untuk Hipertensi (kardiovaskular) dan Diabetes Melitus sesuai format baku Puskesmas.",
+        "<b>Pemeliharaan Register KB (Keluarga Berencana):</b> Kolom Jenis KB dan Kunjungan Kembali dipastikan tetap dipertahankan penuh pada tampilan tabel serta berkas ekspor Excel Puskesmas. Sebanyak 31 data akseptor KB historis dari rekam medis klinik telah disinkronkan kembali ke database sistem.",
         "<b>Format Unduhan Excel Rapi:</b> Berkas Excel otomatis terbagi ke lembar kerja (sheet) per program dengan format judul berstempel bulan yang siap dikirim ke Puskesmas.",
     ])
 
-    story += h2("Bagian E. Perbaikan & Penyempurnaan Aplikasi")
+    story += h2("Bagian E. Fitur Baru: Pembebasan Biaya Pasien Umum / Free 100% (F-016)")
+    story.append(body(
+        "<b>Latar belakang operasional:</b> Dalam pelayanan sehari-hari, dokter dan kasir kerap membebaskan biaya "
+        "untuk pasien umum tertentu (misalnya kontrol pasca tindakan, keluarga staf, bakti sosial, dhuafa, atau diskon khusus). "
+        "Sebelumnya, pengaturan biaya Rp 0 oleh dokter masih memunculkan alur berbayar di kasir."
+    ))
+    story += bullets([
+        "<b>Tombol Pintas di Ruang Periksa Dokter:</b> Tepat di samping kolom Biaya Periksa pada modul rekam medis, disediakan tombol chip [ Free 100% / Gratis ]. Sekali klik, tarif periksa dan tindakan langsung otomatis diatur menjadi Rp 0.",
+        "<b>Tombol Bebaskan Biaya di Meja Kasir:</b> Pada modal pembayaran kasir, tersedia tombol [ Bebaskan Biaya (Rp 0) ] disertai pilihan alasan terstandar (Kontrol Pasca Tindakan, Keluarga Dokter/Staf, Bakti Sosial/Dhuafa, Instruksi Dokter, atau alasan lainnya).",
+        "<b>Kuitansi Resmi Bebas Biaya:</b> Lembar kuitansi pembayaran mencantumkan keterangan resmi 'Lunas (Bebas Biaya / Diskon 100%)' lengkap dengan alasan pembebasan, sehingga pasien menerima bukti administrasi yang jelas dan rapi.",
+        "<b>Pembukuan Keuangan Bersih (Zero Phantom Cash):</b> Transaksi bebas biaya tidak mencatatkan uang masuk semu ke Buku Kas klinik, menjaga laporan keuangan tetap akurat dan seimbang untuk diaudit oleh Owner.",
+    ])
+
+    story += h2("Bagian F. Perbaikan & Penyempurnaan Aplikasi Lainnya")
     story += bullets([
         "Pencarian pasien di menu Loket & Kasir sekarang menjangkau seluruh 3.750 pasien (tidak lagi terbatas pada 300 data terbaru).",
         "Daftar pasien kini dibagi bertahap per halaman (paginasi), sehingga penelusuran data tetap cepat dan ringan.",
         "Tombol Daftarkan Kunjungan dari kartu cepat pasien langsung membuka formulir kunjungan baru secara instan.",
         "Halaman pengelolaan Paket Terapi untuk membuat, mengubah tarif, mengaktifkan, dan menonaktifkan paket.",
+        "Perbaikan Formulir Pendaftaran Pasien Baru: Pilihan sapaan (Nn. atau Ny.) dan jenis kelamin perempuan kini otomatis tersinkronisasi tanpa kendala reset formulir.",
     ])
 
-    story += h2("Bagian F. Ketentuan Layanan Pemeliharaan & Pengembangan Pasca Go-Live")
+    story += h2("Bagian G. Ketentuan Layanan Pemeliharaan & Pengembangan Pasca Go-Live")
     story.append(body(
         "Tahap implementasi awal, migrasi ribuan data historis, serta penyesuaian kebutuhan khusus klinik telah "
         "kami selesaikan penuh. Seiring dengan masuknya aplikasi ke tahap <b>penggunaan operasional harian secara aktif (go-live)</b>, "
         "berikut adalah ketentuan pemeliharaan dan pengembangan lanjutan yang disepakati:"
     ))
     story += bullets([
-        "<b>Jaminan Stabilitas Sistem (Bebas Biaya Perbaikan Bug):</b> Seluruh modul yang telah diserahkan (pendaftaran, rekam medis, kasir, buku kas, paket terapi, batal antrean, dan laporan Puskesmas) dijamin beroperasi dengan baik. Apabila di kemudian hari ditemukan kendala teknis atau eror program (bug) pada fitur yang ada, perbaikan tetap menjadi tanggung jawab pengembang tanpa biaya tambahan (gratis).",
-        "<b>Kebijakan Pembaruan Fitur Baru (Pembaruan Berbayar):</b> Setelah sistem aktif digunakan untuk operasional harian, permintaan penambahan fitur baru atau perubahan alur di luar ruang lingkup yang telah disepakati tidak lagi termasuk dalam pembaruan gratis. Setiap penambahan 1 (satu) fitur baru dikenakan biaya pengembangan sebesar Rp 150.000,- (atau disesuaikan transparan apabila memiliki kompleksitas teknis yang lebih luas).",
+        "<b>Jaminan Stabilitas Sistem (Bebas Biaya Perbaikan Bug):</b> Seluruh modul yang telah diserahkan (pendaftaran, rekam medis, kasir, buku kas, paket terapi, batal antrean, fitur bebas biaya, dan laporan Puskesmas) dijamin beroperasi dengan baik. Apabila di kemudian hari ditemukan kendala teknis atau eror program (bug) pada fitur yang ada, perbaikan tetap menjadi tanggung jawab pengembang tanpa biaya tambahan (gratis).",
+        "<b>Kebijakan Pembaruan Fitur Baru (Pembaruan Berbayar):</b> Setelah sistem aktif digunakan untuk operasional harian di klinik, masa pembaruan fitur gratis telah berakhir. Permintaan penambahan fitur baru, pembuatan modul baru, atau perubahan alur di luar ruang lingkup yang telah disepakati dikenakan biaya pengembangan standar sebesar Rp 150.000,- per fitur (atau disesuaikan secara transparan apabila memiliki kompleksitas teknis yang lebih luas).",
         "<b>Prosedur Pengajuan Fitur Baru:</b> Pihak klinik dapat menghimpun daftar kebutuhan fitur baru, kemudian menyampaikannya kepada pengembang untuk ditinjau estimasi dan kesiapan teknisnya sebelum dikerjakan.",
     ], numbered=True)
     story.append(Spacer(1, 2))
@@ -350,7 +367,7 @@ def build(out_path):
         "serta memastikan keberlanjutan dukungan teknis profesional jangka panjang bagi Klinik Cikidang Medika.</i>"
     ))
 
-    story += h2("Bagian G. Informasi Penting untuk Dibaca Dokter")
+    story += h2("Bagian H. Informasi Penting untuk Dibaca Dokter")
     story += bullets([
         "Nomor RM pasien baru ke depan mengikuti pola resmi klinik: jenis kelamin, desa, lalu nomor urut. Sistem menghitung nomornya secara otomatis.",
         "Ada 18 baris kunjungan lama yang perlu dipastikan karena nama pada kunjungan berbeda dari berkas DATAPASIEN (daftarnya di Lampiran 1). Ini hanya konfirmasi data lama, bukan kunjungan baru.",
@@ -358,16 +375,16 @@ def build(out_path):
         "Harga paket terapi masih berupa nilai acuan dan dapat disesuaikan manajemen sebelum diaktifkan.",
     ])
 
-    story += h2("Bagian H. Pertanyaan & Konfirmasi Dokter")
+    story += h2("Bagian I. Pertanyaan & Konfirmasi Dokter")
     story.append(question(1, "Menu Paket Terapi sebaiknya hanya untuk Owner, atau dokter pemeriksa juga perlu akses mengelola paket?"))
     story.append(question(2, "Apakah tarif acuan paket terapi pada Bagian B sudah sesuai untuk diaktifkan di sistem kasir?"))
     story.append(question(3, "Terkait 18 baris kunjungan pada Lampiran 1, apakah cukup dikonfirmasi di lembar ini, atau dokter menghendaki berkas Excel terpisah?"))
     story.append(question(4, "Mohon konfirmasi nama dan nomor RM pada 23 anak pasien sunat di Lampiran 2."))
     story.append(question(5, "Bila ada pasien dalam daftar yang merupakan dua orang berbeda dengan nama yang sama, mohon ditandai agar nomor RM tetap dipisahkan."))
 
-    story += h2("Bagian I. Langkah Berikutnya")
+    story += h2("Bagian J. Langkah Berikutnya")
     story += bullets([
-        "Dokter meninjau paket terapi dan memberikan jawaban konfirmasi pada Bagian H.",
+        "Dokter meninjau paket terapi dan memberikan jawaban konfirmasi pada Bagian I.",
         "Pengembang mengaktifkan paket terapi yang telah disetujui pihak klinik.",
         "Pengembang menindaklanjuti catatan konfirmasi dari Lampiran 1 dan Lampiran 2.",
         "Sistem mulai dijalankan secara penuh untuk melayani operasional harian klinik.",
@@ -394,7 +411,7 @@ def build(out_path):
         [3.0 * cm, 7.0 * cm, 2.8 * cm, 4.6 * cm],
     ))
 
-    story += h2("Lampiran 3. Keterangan Istilah")
+    story += h2("Lampiran 3. Keterangan Istilah Teknis")
     story.append(data_table(
         ["Istilah", "Penjelasan Sederhana"],
         [
@@ -406,6 +423,7 @@ def build(out_path):
             ["Soft Cancel", "Pembatalan antrean tanpa menghapus data agar riwayat register tetap rapi"],
             ["Triple Eliminasi", "Program skrining bumil Kemenkes meliputi HBsAg, HIV, dan Sifilis"],
             ["ANC & GPA", "Pemeriksaan kehamilan dengan notasi Gravida (hamil), Para (lahir), Abortus (keguguran)"],
+            ["Free 100% / Bebas Biaya", "Pembebasan biaya periksa & tindakan untuk kontrol pasca tindakan atau keluarga staf tanpa kas semu"],
         ],
         [3.8 * cm, 13.6 * cm],
     ))
