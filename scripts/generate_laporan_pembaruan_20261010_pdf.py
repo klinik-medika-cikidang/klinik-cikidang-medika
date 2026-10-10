@@ -343,25 +343,46 @@ def build(out_path):
         "<b>Pembukuan Keuangan Bersih (Zero Phantom Cash):</b> Transaksi bebas biaya tidak mencatatkan uang masuk semu ke Buku Kas klinik, menjaga laporan keuangan tetap akurat dan seimbang untuk diaudit oleh Owner.",
     ])
 
-    story += h2("Bagian F. Perbaikan & Penyempurnaan Aplikasi Lainnya")
+    story += h2("Bagian F. Fitur Baru: Penomoran Otomatis RM Berkelanjutan (F-017)")
+    story.append(body(
+        "<b>Latar belakang operasional:</b> Menjawab masukan dokter mengenai integrasi nomor urut pendaftaran dari data "
+        "Google Sheet klinik (<i>DATAPASIEN & REKAMMEDIS</i>), sistem web telah menerapkan mekanisme "
+        "<b>Penomoran Otomatis Berkelanjutan (Continuous Auto-Generation)</b> resmi 9 digit tanpa strip."
+    ))
     story += bullets([
-        "Pencarian pasien di menu Loket & Kasir sekarang menjangkau seluruh 3.750 pasien (tidak lagi terbatas pada 300 data terbaru).",
-        "Daftar pasien kini dibagi bertahap per halaman (paginasi), sehingga penelusuran data tetap cepat dan ringan.",
-        "Tombol Daftarkan Kunjungan dari kartu cepat pasien langsung membuka formulir kunjungan baru secara instan.",
-        "Halaman pengelolaan Paket Terapi untuk membuat, mengubah tarif, mengaktifkan, dan menonaktifkan paket.",
-        "Perbaikan Formulir Pendaftaran Pasien Baru: Pilihan sapaan (Nn. atau Ny.) dan jenis kelamin perempuan kini otomatis tersinkronisasi tanpa kendala reset formulir.",
-        "Generator No RM Otomatis Berkelanjutan (F-017): Pendaftaran pasien baru di web otomatis menghasilkan No RM 9 digit tanpa tanda strip (misal: 010103741) yang secara otomatis meneruskan nomor urut terakhir Google Sheet klinik (3740 ke 3741). Petugas loket tetap dapat mengedit manual jika diperlukan, dengan sistem pengaman anti-duplikat.",
-        "Akurasi Perhitungan Penerimaan Kasir & Mutasi Kas: Memperbaiki agregasi nominal kasir harian agar secara cerdas menormalisasi input angka ribuan maupun rupiah penuh sebelum dijumlahkan, sehingga kartu ringkasan penerimaan kasir, mutasi kas harian, dan kuitansi pembayaran selalu menampilkan angka yang seragam dan akurat (tepat Rp 1.005.000).",
+        "<b>Format Baku 9 Digit Resmi:</b> 2 digit Kode Gender (01 Laki-laki / 02 Perempuan) + 2 digit Kode Wilayah Desa (01 Cikidang s/d 13 Desa Lainnya) + 5 digit Nomor Urut Pendaftaran (misal: 010103741).",
+        "<b>Melanjutkan Nomor Google Sheet (Mulai 3741):</b> Sebanyak 3.750 berkas historis klinik berakhir pada nomor urut 3740. Generator sistem otomatis memulai nomor urut pasien baru dari angka <b>3741</b>, menjamin 100% data tidak pernah bertabrakan atau menimpa berkas lama klinik.",
+        "<b>Proteksi Anti-Duplikasi & Edit Manual:</b> Sistem memeriksa basis data secara langsung untuk mencegah nomor ganda. Petugas loket tetap dapat mengetikkan nomor lama secara manual bila pasien membawa kartu berobat fisik lama.",
     ])
 
-    story += h2("Bagian G. Ketentuan Layanan Pemeliharaan & Pengembangan Pasca Go-Live")
+    story += h2("Bagian G. Perbaikan Akurasi Penerimaan Kasir & Mutasi Kas")
+    story.append(body(
+        "<b>Masalah sebelumnya:</b> Kartu ringkasan Penerimaan Kasir harian pada menu pendaftaran sempat menampilkan angka "
+        "<b>Rp 150.855</b>, sedangkan Dashboard dan Buku Kas mencatat nominal yang benar sebesar <b>Rp 1.005.000</b>."
+    ))
+    story += bullets([
+        "<b>Akar Masalah:</b> Terjadi variasi input transaksi kasir di mana sebagian data dimasukkan dalam format ribuan singkat (165, 175, 215, 250, 50) dan sebagian lain dimasukkan dalam angka rupiah penuh (150000). Modul kasir sebelumnya menjumlahkan nilai mentah sebelum normalisasi (165 + 175 + 215 + 250 + 50 + 150.000 = 150.855).",
+        "<b>Solusi Teknis:</b> Sistem telah dipasangi fungsi normalisasi protektif pada seluruh pembacaan biaya periksa, tindakan kasir, dan mutasi kas sebelum penjumlahan dilakukan. Data riil pada sistem produksi juga telah diselaraskan penuh.",
+        "<b>Hasil:</b> Kartu ringkasan Penerimaan Kasir, rekonsiliasi kasir harian, laporan mutasi buku kas, dan kuitansi pembayaran kini seragam dan akurat menampilkan <b>Rp 1.005.000</b>.",
+    ])
+
+    story += h2("Bagian H. Perbaikan & Penyempurnaan Aplikasi Lainnya")
+    story += bullets([
+        "<b>Sinkronisasi Formulir Pendaftaran Pasien:</b> Pilihan sapaan (Nn. atau Ny.) dan jenis kelamin perempuan kini otomatis tersinkronisasi mulus tanpa kendala reset formulir.",
+        "<b>Pencarian Pasien Menyeluruh:</b> Pencarian pasien di loket pendaftaran kini menjangkau seluruh 3.750 pasien (tidak lagi terbatas pada 300 data terbaru).",
+        "<b>Paginasi Data Pasien:</b> Daftar pasien dibagi bertahap per halaman agar penelusuran data tetap ringan dan cepat saat diakses di komputer klinik.",
+        "<b>Pendaftaran Cepat:</b> Tombol Daftarkan Kunjungan pada kartu profil pasien langsung membuka formulir kunjungan baru secara instan.",
+        "<b>Menu Kelola Paket Terapi:</b> Pengelola klinik dapat menambah paket, mengubah tarif, serta mengaktifkan atau menonaktifkan paket terapi kapan saja.",
+    ])
+
+    story += h2("Bagian I. Ketentuan Layanan Pemeliharaan & Pengembangan Pasca Go-Live")
     story.append(body(
         "Tahap implementasi awal, migrasi ribuan data historis, serta penyesuaian kebutuhan khusus klinik telah "
         "kami selesaikan penuh. Seiring dengan masuknya aplikasi ke tahap <b>penggunaan operasional harian secara aktif (go-live)</b>, "
         "berikut adalah ketentuan pemeliharaan dan pengembangan lanjutan yang disepakati:"
     ))
     story += bullets([
-        "<b>Jaminan Stabilitas Sistem (Bebas Biaya Perbaikan Bug):</b> Seluruh modul yang telah diserahkan (pendaftaran, rekam medis, kasir, buku kas, paket terapi, batal antrean, fitur bebas biaya, dan laporan Puskesmas) dijamin beroperasi dengan baik. Apabila di kemudian hari ditemukan kendala teknis atau eror program (bug) pada fitur yang ada, perbaikan tetap menjadi tanggung jawab pengembang tanpa biaya tambahan (gratis).",
+        "<b>Jaminan Stabilitas Sistem (Bebas Biaya Perbaikan Bug):</b> Seluruh modul yang telah diserahkan (pendaftaran, rekam medis, kasir, buku kas, paket terapi, batal antrean, fitur bebas biaya, laporan Puskesmas, dan penomoran RM) dijamin beroperasi dengan baik. Apabila di kemudian hari ditemukan kendala teknis atau eror program (bug) pada fitur yang ada, perbaikan tetap menjadi tanggung jawab pengembang tanpa biaya tambahan (gratis).",
         "<b>Kebijakan Pembaruan Fitur Baru (Pembaruan Berbayar):</b> Setelah sistem aktif digunakan untuk operasional harian di klinik, masa pembaruan fitur gratis telah berakhir. Permintaan penambahan fitur baru, pembuatan modul baru, atau perubahan alur di luar ruang lingkup yang telah disepakati dikenakan biaya pengembangan standar sebesar Rp 150.000,- per fitur (atau disesuaikan secara transparan apabila memiliki kompleksitas teknis yang lebih luas).",
         "<b>Prosedur Pengajuan Fitur Baru:</b> Pihak klinik dapat menghimpun daftar kebutuhan fitur baru, kemudian menyampaikannya kepada pengembang untuk ditinjau estimasi dan kesiapan teknisnya sebelum dikerjakan.",
     ], numbered=True)
@@ -371,24 +392,24 @@ def build(out_path):
         "serta memastikan keberlanjutan dukungan teknis profesional jangka panjang bagi Klinik Cikidang Medika.</i>"
     ))
 
-    story += h2("Bagian H. Informasi Penting untuk Dibaca Dokter")
+    story += h2("Bagian J. Informasi Penting untuk Dibaca Dokter")
     story += bullets([
-        "Nomor RM pasien baru ke depan mengikuti pola resmi klinik: jenis kelamin, desa, lalu nomor urut. Sistem menghitung nomornya secara otomatis.",
+        "Nomor RM pasien baru ke depan mengikuti pola resmi klinik: jenis kelamin, desa, lalu nomor urut (dimulai dari 3741). Sistem menghitung nomornya secara otomatis.",
         "Ada 18 baris kunjungan lama yang perlu dipastikan karena nama pada kunjungan berbeda dari berkas DATAPASIEN (daftarnya di Lampiran 1). Ini hanya konfirmasi data lama, bukan kunjungan baru.",
         "Ada 23 anak sunat yang belum ada di berkas DATAPASIEN, sehingga sistem membuatkan nomor RM baru otomatis (daftarnya di Lampiran 2).",
         "Harga paket terapi masih berupa nilai acuan dan dapat disesuaikan manajemen sebelum diaktifkan.",
     ])
 
-    story += h2("Bagian I. Pertanyaan & Konfirmasi Dokter")
+    story += h2("Bagian K. Pertanyaan & Konfirmasi Dokter")
     story.append(question(1, "Menu Paket Terapi sebaiknya hanya untuk Owner, atau dokter pemeriksa juga perlu akses mengelola paket?"))
     story.append(question(2, "Apakah tarif acuan paket terapi pada Bagian B sudah sesuai untuk diaktifkan di sistem kasir?"))
     story.append(question(3, "Terkait 18 baris kunjungan pada Lampiran 1, apakah cukup dikonfirmasi di lembar ini, atau dokter menghendaki berkas Excel terpisah?"))
     story.append(question(4, "Mohon konfirmasi nama dan nomor RM pada 23 anak pasien sunat di Lampiran 2."))
     story.append(question(5, "Bila ada pasien dalam daftar yang merupakan dua orang berbeda dengan nama yang sama, mohon ditandai agar nomor RM tetap dipisahkan."))
 
-    story += h2("Bagian J. Langkah Berikutnya")
+    story += h2("Bagian L. Langkah Berikutnya")
     story += bullets([
-        "Dokter meninjau paket terapi dan memberikan jawaban konfirmasi pada Bagian I.",
+        "Dokter meninjau paket terapi dan memberikan jawaban konfirmasi pada Bagian K.",
         "Pengembang mengaktifkan paket terapi yang telah disetujui pihak klinik.",
         "Pengembang menindaklanjuti catatan konfirmasi dari Lampiran 1 dan Lampiran 2.",
         "Sistem mulai dijalankan secara penuh untuk melayani operasional harian klinik.",
@@ -428,6 +449,8 @@ def build(out_path):
             ["Triple Eliminasi", "Program skrining bumil Kemenkes meliputi HBsAg, HIV, dan Sifilis"],
             ["ANC & GPA", "Pemeriksaan kehamilan dengan notasi Gravida (hamil), Para (lahir), Abortus (keguguran)"],
             ["Free 100% / Bebas Biaya", "Pembebasan biaya periksa & tindakan untuk kontrol pasca tindakan atau keluarga staf tanpa kas semu"],
+            ["No RM Berkelanjutan", "Penomoran otomatis yang meneruskan nomor urut terakhir Google Sheet (mulai 3741)"],
+            ["Normalisasi Rupiah", "Konversi otomatis angka ribuan menjadi nominal rupiah penuh untuk mencegah selisih kasir"],
         ],
         [3.8 * cm, 13.6 * cm],
     ))
