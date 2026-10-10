@@ -94,43 +94,47 @@ export function NewPatientModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const generateNextNoRm = useCallback(async () => {
-    setIsGeneratingRm(true);
-    try {
-      const supabase = createClient();
-      const jkCode = JENIS_KELAMIN_RM_CODE[jenisKelamin];
-      const desaCode = DESA_RM_CODE[desa];
+  const generateRmForParams = useCallback(
+    async (jk: 'Laki-laki' | 'Perempuan', d: string) => {
+      setIsGeneratingRm(true);
+      try {
+        const supabase = createClient();
+        const jkCode = JENIS_KELAMIN_RM_CODE[jk];
+        const desaCode = DESA_RM_CODE[d];
 
-      if (!jkCode || !desaCode) {
-        throw new Error('Kode jenis kelamin atau kode desa belum terdaftar.');
+        if (!jkCode || !desaCode) {
+          throw new Error('Kode jenis kelamin atau kode desa belum terdaftar.');
+        }
+
+        const prefix = `${jkCode}-${desaCode}`;
+
+        const { data, error } = await supabase
+          .from('patients')
+          .select('no_rm')
+          .like('no_rm', `${prefix}-%`)
+          .order('no_rm', { ascending: false })
+          .limit(1);
+
+        if (error) throw error;
+
+        const latestRm = data?.[0]?.no_rm || '';
+        const latestSeqRaw = latestRm.split('-')[2] || '000000';
+        const latestSeq = Number.parseInt(latestSeqRaw, 10);
+        const nextSeq = Number.isNaN(latestSeq) ? 1 : latestSeq + 1;
+
+        const formatted = `${prefix}-${String(nextSeq).padStart(6, '0')}`;
+        setNoRm(formatted);
+      } catch (err) {
+        console.error('Failed to generate No RM:', err);
+        setNoRm('00-00-000001');
+      } finally {
+        setIsGeneratingRm(false);
       }
+    },
+    []
+  );
 
-      const prefix = `${jkCode}-${desaCode}`;
-
-      const { data, error } = await supabase
-        .from('patients')
-        .select('no_rm')
-        .like('no_rm', `${prefix}-%`)
-        .order('no_rm', { ascending: false })
-        .limit(1);
-
-      if (error) throw error;
-
-      const latestRm = data?.[0]?.no_rm || '';
-      const latestSeqRaw = latestRm.split('-')[2] || '000000';
-      const latestSeq = Number.parseInt(latestSeqRaw, 10);
-      const nextSeq = Number.isNaN(latestSeq) ? 1 : latestSeq + 1;
-
-      const formatted = `${prefix}-${String(nextSeq).padStart(6, '0')}`;
-      setNoRm(formatted);
-    } catch (err) {
-      console.error('Failed to generate No RM:', err);
-      setNoRm('00-00-000001');
-    } finally {
-      setIsGeneratingRm(false);
-    }
-  }, [jenisKelamin, desa]);
-
+  // 1. Reset formulir HANYA saat modal pertama kali dibuka
   useEffect(() => {
     if (!isOpen) {
       setErrorMessage(null);
@@ -152,14 +156,38 @@ export function NewPatientModal({
     setRiwayatAlergi('Tidak Ada');
     setErrorMessage(null);
     setFieldErrors({});
+  }, [isOpen, initialQuery]);
 
-    generateNextNoRm();
-  }, [isOpen, initialQuery, generateNextNoRm]);
-
+  // 2. Generate No RM saat modal terbuka dan ketika jenisKelamin atau desa berubah
   useEffect(() => {
     if (!isOpen) return;
-    generateNextNoRm();
-  }, [isOpen, jenisKelamin, desa, generateNextNoRm]);
+    generateRmForParams(jenisKelamin, desa);
+  }, [isOpen, jenisKelamin, desa, generateRmForParams]);
+
+  const handleGelarChange = (newGelar: string) => {
+    setGelar(newGelar);
+    // Sinkronisasi otomatis jenis kelamin sesuai sapaan/gelar
+    if (newGelar === 'Ny.' || newGelar === 'Nn.') {
+      setJenisKelamin('Perempuan');
+    } else if (newGelar === 'Tn.') {
+      setJenisKelamin('Laki-laki');
+    }
+  };
+
+  const handleJenisKelaminChange = (newJk: 'Laki-laki' | 'Perempuan') => {
+    setJenisKelamin(newJk);
+    // Sesuaikan gelar jika bertentangan dengan gender yang dipilih
+    if (newJk === 'Perempuan' && gelar === 'Tn.') {
+      setGelar('Ny.');
+    } else if (newJk === 'Laki-laki' && (gelar === 'Ny.' || gelar === 'Nn.')) {
+      setGelar('Tn.');
+    }
+  };
+
+  const handleManualRefreshRm = () => {
+    generateRmForParams(jenisKelamin, desa);
+  };
+
 
   const handleDateOfBirthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const dob = e.target.value;
@@ -287,7 +315,7 @@ export function NewPatientModal({
             </span>
             <button
               type="button"
-              onClick={generateNextNoRm}
+              onClick={handleManualRefreshRm}
               disabled={isGeneratingRm}
               className="text-[11px] font-bold text-teal-700 hover:text-teal-900 flex items-center gap-1 tactile-btn"
               title="Generate ulang No. RM baru"
@@ -324,7 +352,7 @@ export function NewPatientModal({
               </label>
               <Select
                 value={gelar}
-                onChange={(e) => setGelar(e.target.value)}
+                onChange={(e) => handleGelarChange(e.target.value)}
                 options={GELAR_OPTIONS.map((g) => ({ value: g, label: g }))}
                 searchable={false}
                 headerTitle="Sapaan / Gelar"
@@ -337,7 +365,7 @@ export function NewPatientModal({
               </label>
               <Select
                 value={jenisKelamin}
-                onChange={(e) => setJenisKelamin(e.target.value as 'Laki-laki' | 'Perempuan')}
+                onChange={(e) => handleJenisKelaminChange(e.target.value as 'Laki-laki' | 'Perempuan')}
                 options={JENIS_KELAMIN_OPTIONS.map((jk) => ({ value: jk, label: jk }))}
                 searchable={false}
                 headerTitle="Jenis Kelamin"

@@ -128,6 +128,24 @@ export function EditPatientModal({
     }
   };
 
+  const handleGelarChange = (newGelar: string) => {
+    setGelar(newGelar);
+    if (newGelar === 'Ny.' || newGelar === 'Nn.') {
+      setJenisKelamin('Perempuan');
+    } else if (newGelar === 'Tn.') {
+      setJenisKelamin('Laki-laki');
+    }
+  };
+
+  const handleJenisKelaminChange = (newJk: 'Laki-laki' | 'Perempuan') => {
+    setJenisKelamin(newJk);
+    if (newJk === 'Perempuan' && gelar === 'Tn.') {
+      setGelar('Ny.');
+    } else if (newJk === 'Laki-laki' && (gelar === 'Ny.' || gelar === 'Nn.')) {
+      setGelar('Tn.');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patient) return;
@@ -259,7 +277,7 @@ export function EditPatientModal({
               </label>
               <Select
                 value={gelar}
-                onChange={(e) => setGelar(e.target.value)}
+                onChange={(e) => handleGelarChange(e.target.value)}
                 options={GELAR_OPTIONS.map((g) => ({ value: g, label: g }))}
                 searchable={false}
                 headerTitle="Sapaan / Gelar"
@@ -272,7 +290,7 @@ export function EditPatientModal({
               </label>
               <Select
                 value={jenisKelamin}
-                onChange={(e) => setJenisKelamin(e.target.value as 'Laki-laki' | 'Perempuan')}
+                onChange={(e) => handleJenisKelaminChange(e.target.value as 'Laki-laki' | 'Perempuan')}
                 options={JENIS_KELAMIN_OPTIONS.map((jk) => ({ value: jk, label: jk }))}
                 searchable={false}
                 headerTitle="Jenis Kelamin"
