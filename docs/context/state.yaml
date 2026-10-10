@@ -109,6 +109,7 @@ migration:
       migrations_applied:
         - supabase/migrations/20260929_f009_reconciliation_support.sql
         - supabase/migrations/20260929_f009_circumcision_register.sql
+        - supabase/migrations/20261009_f012_therapy_packages.sql
     - name: production
       project_ref: aszjzvdmxudmoomdxttx
       backup: docs/data/prod-pref009-2026-10-01T09-31-10-869Z.json
@@ -119,6 +120,8 @@ migration:
       migrations_applied:
         - supabase/migrations/20260929_f009_reconciliation_support.sql
         - supabase/migrations/20260929_f009_circumcision_register.sql
+        - supabase/migrations/20261009_f012_therapy_packages.sql
+      latest_change: "2026-10-10: skema F-012 (therapy_packages, therapy_package_items, visit_therapy_packages) diterapkan; 10 paket awal dimasukkan dengan aktif=false; backup pra-migrasi docs/data/prod-pref012-2026-10-10T09-04-03-890Z.json"
   result:
     patients: 4703
     visits: 7671
@@ -209,15 +212,16 @@ next_tasks:
     blocked_by: "Persetujuan klinik; ini mengubah isi rekam medis"
   - id: F-012-OPEN-001
     task: "Klinik memutuskan cakupan peran Paket Terapi dan meninjau harga paket awal"
-    detail: "F-012 diimplementasikan dan diuji di staging (migrasi tiga tabel + sepuluh paket awal dari data klinik). Menu /paket-terapi untuk saat ini hanya untuk Owner. Perlu keputusan: cukup Owner saja, atau dokter/staf lain juga (melihat saja atau turut mengelola). Harga paket awal mengacu daftar harga obat dan tarif tindakan masih perlu diisi. Produksi ditahan sampai disetujui."
+    detail: "F-012 sudah diterapkan ke produksi pada 2026-10-10: skema tiga tabel dibuat dan sepuluh paket awal dimasukkan dengan status nonaktif (aktif=false) agar tidak bisa dipilih di kasir sebelum ditinjau. Menu /paket-terapi untuk saat ini hanya untuk Owner. Langkah berikutnya: Owner menyesuaikan harga dan tarif tindakan lalu mengaktifkan paket yang siap; sekaligus memutuskan apakah cukup Owner saja, atau dokter/staf lain juga (melihat saja atau turut mengelola)."
     artifact: "docs/product/Laporan_Pembaruan_Sistem_F012.pdf"
+    status: "Produksi: skema dan data paket (nonaktif) terpasang 2026-10-10. Menunggu tinjauan harga dan keputusan peran."
 
 handoff:
   current: "docs/handoff/current.md"
   generated_views: "PROJECT_STATE.md dan PROGRESS.md belum memiliki renderer otomatis; state.yaml adalah sumber kanonik dan PROJECT_STATE.md mengarahkan pembaca ke handoff serta Git."
 
-last_updated: "2026-10-09"
-last_verified_commit: "68c8af6"
+last_updated: "2026-10-10"
+last_verified_commit: "de28444"
 client_confirmations:
   - date: "2026-09-30"
     item: "Layout Laporan Puskesmas mengikuti sheet LAPORAN DPP sudah benar"

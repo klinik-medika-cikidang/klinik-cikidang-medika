@@ -2,10 +2,11 @@
 
 **Klinik Pratama Cikidang Medika**
 Tanggal: 9 Oktober 2026
+Diperbarui: 10 Oktober 2026
 Untuk: dr. Ovan, dr. Neneng, dan staf klinik
 Dari: Pengembang
 
-Dokumen ini menjelaskan fitur Paket Terapi yang baru selesai dikerjakan dan diuji di lingkungan uji (staging). Belum ada perubahan yang dijalankan pada data produksi.
+Dokumen ini menjelaskan fitur Paket Terapi. Fitur sudah selesai, diuji di staging, dan diterapkan ke produksi pada 10 Oktober 2026. Sepuluh paket awal dipasang dalam status nonaktif agar tidak dapat dipilih di kasir sebelum harganya ditinjau dan diaktifkan.
 
 ## 1. Ringkasan
 
@@ -43,6 +44,8 @@ Sepuluh paket awal dibuat dari pola terapi yang paling sering muncul pada data r
 
 Catatan: paket tindakan seperti nebulizer, infus, dan USG belum memiliki tarif karena tarif tindakan tidak ada di berkas harga obat. Tarif tersebut diisi oleh klinik melalui menu Paket Terapi.
 
+Di produksi, kesepuluh paket dipasang dalam status nonaktif. Paket baru muncul sebagai pilihan di kasir setelah Owner meninjau harga lalu mengaktifkannya.
+
 ## 4. Yang Bisa Dilakukan
 
 Pemilik (Owner) dapat:
@@ -59,15 +62,16 @@ Pada halaman kasir, staf dapat menekan tombol Terapkan Paket Terapi, memilih pak
 - Pemeriksaan tipe TypeScript lulus.
 - Uji otomatis lulus, termasuk perhitungan harga paket dan matriks hak akses.
 - Proses build aplikasi lulus dan halaman Paket Terapi terbentuk.
-- Di staging: ketiga tabel baru terbentuk, sepuluh paket dengan dua puluh satu item terpasang.
+- Di staging: tiga tabel baru terbentuk, sepuluh paket dengan dua puluh satu item terpasang.
 - Di staging: simulasi penerapan paket berhasil menambah pendapatan lain, mengisi keterangan, dan menulis riwayat, tanpa mengubah biaya pemeriksaan pasien BPJS.
+- Di produksi: skema terpasang (tiga tabel, delapan index, tiga policy) dan sepuluh paket awal dimasukkan dengan status nonaktif, sehingga belum ada yang dapat ditagihkan ke pasien.
 
 ## 6. Batasan dan Catatan
 
 - Untuk saat ini menu Paket Terapi hanya tersedia untuk Owner. Pertanyaan mengenai peran lain ada di Bagian 7.
 - Harga paket awal mengacu pada daftar harga obat klinik dan tarif jual masih perlu disesuaikan.
 - Paket yang sudah pernah diterapkan pada minimal satu kunjungan tidak dihapus permanen, hanya dinonaktifkan, agar rincian kunjungan lama tetap utuh.
-- Belum ada perubahan pada proyek produksi.
+- Produksi sudah menerima skema dan sepuluh paket awal (nonaktif). Paket belum bisa dipilih di kasir sampai diaktifkan Owner.
 
 ## 7. Pertanyaan untuk Dokter
 
@@ -76,9 +80,9 @@ Pada halaman kasir, staf dapat menekan tombol Terapkan Paket Terapi, memilih pak
 
 ## 8. Langkah Berikutnya
 
-1. Klinik meninjau daftar paket, menyesuaikan harga, dan menjawab pertanyaan pada Bagian 7.
-2. Pengembang melakukan pemeriksaan tampilan pada staging (ponsel, tablet, dan komputer).
-3. Setelah disetujui, perubahan diterapkan ke produksi dengan pencadangan data lebih dahulu.
+1. Owner meninjau dan menyesuaikan harga serta tarif tindakan pada menu Paket Terapi, lalu mengaktifkan paket yang sudah siap.
+2. Klinik menjawab pertanyaan pada Bagian 7.
+3. Pengembang melakukan pemeriksaan tampilan pada staging (ponsel, tablet, dan komputer).
 
 ## 9. Keterangan Istilah
 
@@ -88,3 +92,10 @@ Pada halaman kasir, staf dapat menekan tombol Terapkan Paket Terapi, memilih pak
 | Produksi | Aplikasi asli yang dipakai klinik sehari-hari |
 | Paket Terapi | Sekumpulan tindakan dan obat yang diberi satu nama dan satu harga |
 | Owner | Pemilik klinik yang memegang akses penuh |
+
+## 10. Status Produksi (10 Oktober 2026)
+
+- Data produksi dicadangkan lebih dahulu sebelum perubahan, dan cadangannya disimpan di luar aplikasi.
+- Skema Paket Terapi sudah diterapkan ke produksi pada 10 Oktober 2026: tiga tabel baru, tanpa mengubah tabel atau data lama.
+- Sepuluh paket awal dimasukkan dengan status nonaktif. Belum ada paket yang dapat dipilih di kasir, sehingga belum ada tagihan pasien yang terpengaruh.
+- Owner mengaktifkan paket satu per satu setelah harga dan tarifnya dipastikan.

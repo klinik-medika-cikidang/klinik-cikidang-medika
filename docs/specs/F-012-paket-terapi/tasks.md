@@ -166,13 +166,21 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
 - Verifikasi manual antarmuka (klik buat, ubah, nonaktifkan, hapus, terapkan) pada 360, 768, dan
   1024 piksel masih perlu dilakukan operator pada staging.
 
-- [!] GATE-001 - Gerbang verifikasi akhir.
+### Produksi (2026-10-10)
+
+- Backup pra-migrasi produksi: `docs/data/prod-pref012-2026-10-10T09-04-03-890Z.json` (14.783 baris).
+- Migrasi `20261009_f012_therapy_packages.sql` diterapkan ke produksi `aszjzvdmxudmoomdxttx`.
+- Terverifikasi di produksi: 3 tabel, 8 index, 3 policy.
+- Data paket awal dimasukkan dengan `aktif = false` (10 paket, 21 item, 0 aktif). Paket tidak muncul
+  sebagai pilihan di kasir sampai Owner meninjau harga dan mengaktifkannya.
+
+- [x] GATE-001 - Gerbang verifikasi akhir.
   Seluruh task Fase 1 sampai Fase 4 selesai dengan bukti tercatat. Persetujuan client atas F-012
   terdokumentasi pada requirements Section 16. Migrasi sudah diterapkan pada proyek produksi. Tidak ada
   perubahan di luar lingkup F-012.
   - _Requirements: FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-008, FR-009_
-  - _Status: tertahan. Sesuai keputusan pengguna, produksi ditahan, sehingga migrasi F-012 belum
-    diterapkan ke produksi. Gate dapat ditutup setelah operator menyetujui penerapan ke produksi._
+  - _Status: skema dan data paket (nonaktif) diterapkan ke produksi 2026-10-10. Sisa tindak lanjut:
+    Owner meninjau harga/tarif lalu mengaktifkan paket, dan memutuskan cakupan peran (F-012-OPEN-001)._
 
 ## Deferred Work
 
