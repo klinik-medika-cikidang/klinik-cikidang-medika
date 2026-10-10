@@ -97,7 +97,9 @@ console.log(`Env    : ${envFileName}`);
 console.log(`Target : ${projectRef} (${isProduction ? 'PRODUKSI' : 'pengembangan'})`);
 console.log(`Mode   : ${dryRun ? 'DRY-RUN' : 'NYATA'}`);
 
-const passthrough = dryRun ? ['--dry-run'] : [];
+// Each child script carries its own production guard, so the confirmation flag has to be
+// forwarded, not just the dry-run flag.
+const passthrough = [...(dryRun ? ['--dry-run'] : []), ...(isProduction ? ['--confirm-prod'] : [])];
 
 if (!dryRun) {
   run('1. Backup', ['scripts/backup-clinic-data.mjs', projectRef, 'f010-promote-prebuild']);
