@@ -659,7 +659,9 @@ export function NewPublicHealthModal({
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Tanggal Kembali</label>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Kunjungan Kembali (Tanggal Kontrol)
+                  </label>
                   <input
                     type="date"
                     value={tanggalKembali}

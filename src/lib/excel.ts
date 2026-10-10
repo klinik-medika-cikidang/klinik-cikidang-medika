@@ -360,7 +360,7 @@ const PUBLIC_HEALTH_SHEET_CONFIG: Record<
       'Alamat',
       'No NIK',
       'Jenis KB',
-      'Tanggal Kembali',
+      'Kunjungan Kembali',
     ],
   },
   ELIMINASI_3: {
@@ -399,7 +399,7 @@ function buildPublicHealthRow(row: PublicHealthExportRow, program: string): (str
       desa,
       row.alamat,
       row.no_nik,
-      row.jenis_kb || '-',
+      row.jenis_kb || row.terapi || '-',
       row.tanggal_kembali || '-',
     ];
   }
@@ -512,6 +512,8 @@ export interface PuskesmasRegisterExportRow {
   hiv: string;
   syphilis: string;
   hbsag: string;
+  jenis_kb?: string;
+  kunjungan_kembali?: string;
 }
 
 // Column order and labels follow the clinic's LAPORAN DPP sheets, so the export can be
@@ -561,8 +563,14 @@ const PUSKESMAS_PROGRAM_COLUMNS: Record<
   KB: {
     sheetName: 'KB',
     title: 'LAPORAN KB (KELUARGA BERENCANA)',
-    extra: [],
+    extra: [
+      { key: 'jenis_kb', label: 'Jenis KB' },
+      { key: 'kunjungan_kembali', label: 'Kunjungan Kembali' },
+      { key: 'diagnosa', label: 'Diagnosa' },
+      { key: 'terapi', label: 'Terapi' },
+    ],
   },
+
   ELIMINASI_3: {
     sheetName: '3 Eliminasi',
     title: 'LAPORAN 3 ELIMINASI',

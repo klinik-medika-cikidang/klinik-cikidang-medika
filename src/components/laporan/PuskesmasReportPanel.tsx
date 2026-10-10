@@ -49,7 +49,7 @@ export function PuskesmasReportPanel({
         let query = supabase
           .from('public_health_records')
           .select(
-            'id, program_type, tanggal_periksa, no_rm, desa, nama, jenis_kelamin, ttl, alamat, no_nik, diagnosa, lab, terapi, hbsag, gpa, uk, tp, hiv, syphilis, visits(tanggal_periksa, bulan, kode_icd10, doctors(nama)), patients(no_rm, gelar, usia, desa, alamat, no_ktp, no_bpjs)'
+            'id, program_type, tanggal_periksa, no_rm, desa, nama, jenis_kelamin, ttl, alamat, no_nik, diagnosa, lab, terapi, hbsag, gpa, uk, tp, hiv, syphilis, jenis_kb, tanggal_kembali, visits(tanggal_periksa, bulan, kode_icd10, doctors(nama)), patients(no_rm, gelar, usia, desa, alamat, no_ktp, no_bpjs)'
           )
           .order('tanggal_periksa', { ascending: false })
           .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
@@ -89,6 +89,8 @@ export function PuskesmasReportPanel({
             hiv: text(record.hiv),
             syphilis: text(record.syphilis),
             hbsag: text(record.hbsag),
+            jenis_kb: text(record.jenis_kb, text(record.terapi)),
+            kunjungan_kembali: text(record.tanggal_kembali),
           });
         });
 

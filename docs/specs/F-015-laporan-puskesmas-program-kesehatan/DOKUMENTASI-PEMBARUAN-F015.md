@@ -53,11 +53,17 @@ Untuk sinkronisasi dengan laporan PTM Puskesmas, sistem menambahkan klasifikasi 
 - **Diabetes Melitus**: Terdeteksi otomatis dari diagnosa gula darah atau dipilih manual.
 - **Filter Subkategori Cepat**: Pada menu Program Khusus kategori PTM, staf dapat mengklik filter chip: `[Semua PTM]`, `[Hipertensi]`, `[Diabetes Melitus]`, atau `[Lainnya]`.
 
-### 2.6. Penyempurnaan Ekspor Berkas Excel Bulanan
+### 2.6. Pemeliharaan Kolom Register KB (Jenis KB & Kunjungan Kembali)
+Menjawab konfirmasi dokter pengelola terkait program KB (Keluarga Berencana), kolom operasional KB tetap dipertahankan penuh dan tidak dihapus:
+- **Jenis KB**: Mencatat metode kontrasepsi yang digunakan oleh akseptor (*Suntik 3 Bulan, Suntik 1 Bulan, Pil KB, IUD/Spiral, Implan, dll.*).
+- **Kunjungan Kembali**: Menampilkan tanggal jatuh tempo kontrol atau suntik KB berikutnya agar klinik dapat memantau kepatuhan akseptor.
+- Seluruh kolom ini tampil jelas pada tabel Register Program Khusus (`/program-khusus`), tabel Laporan Puskesmas (`/laporan`), serta lembar kerja ekspor Excel resmi.
+
+### 2.7. Penyempurnaan Ekspor Berkas Excel Bulanan
 Fitur unduh laporan Excel pada menu Laporan Puskesmas telah disempurnakan:
 - Berkas Excel diunduh dengan penamaan otomatis berstempel bulan: `Laporan_Puskesmas_Klinik_Cikidang_YYYY-MM.xlsx`.
-- Lembar kerja (*sheet*) terpisah untuk masing-masing program: *ANC, Balita, Skrining PTM, Imunisasi, Triple Eliminasi*.
-- Seluruh sheet memuat kolom standar: *Tanggal, No RM, Nama Pasien, Jenis Kelamin, Usia, Desa/Alamat, Diagnosa, Parameter Spesifik (GPA / Hasil Lab HBsAg-HIV-Sifilis / Kategori PTM)*.
+- Lembar kerja (*sheet*) terpisah untuk masing-masing program: *ANC, PTM, KB, dan 3 Eliminasi*.
+- Seluruh sheet memuat kolom standar: *Tanggal, No RM, Nama Pasien, Jenis Kelamin, Usia, Desa/Alamat, Diagnosa, Parameter Spesifik (GPA / Hasil Lab HBsAg-HIV-Sifilis / Kategori PTM / Jenis KB & Kunjungan Kembali)*.
 
 ---
 

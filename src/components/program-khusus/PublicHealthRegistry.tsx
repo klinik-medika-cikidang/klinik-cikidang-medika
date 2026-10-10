@@ -161,7 +161,7 @@ export function PublicHealthRegistry({ records, isLoading }: PublicHealthRegistr
         hbsag: r.hbsag || '-',
         hiv: r.hiv || '-',
         syphilis: r.syphilis || '-',
-        jenis_kb: r.jenis_kb || '-',
+        jenis_kb: r.jenis_kb || r.terapi || '-',
         tanggal_kembali: r.tanggal_kembali ? formatDateIndo(r.tanggal_kembali) : '-',
       }));
 
@@ -400,10 +400,12 @@ export function PublicHealthRegistry({ records, isLoading }: PublicHealthRegistr
                           </span>
                         ) : row.program_type === 'KB' ? (
                           <div className="flex flex-col gap-0.5">
-                            <span className="font-semibold text-slate-800">{row.jenis_kb || '-'}</span>
+                            <span className="font-semibold text-slate-800">
+                              Jenis KB: {row.jenis_kb || row.terapi || '-'}
+                            </span>
                             {row.tanggal_kembali && (
-                              <span className="text-[10px] font-mono text-slate-500">
-                                Kembali: {formatDateIndo(row.tanggal_kembali)}
+                              <span className="text-[10px] font-mono text-teal-700 font-bold">
+                                Kunjungan Kembali: {formatDateIndo(row.tanggal_kembali)}
                               </span>
                             )}
                           </div>
