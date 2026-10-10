@@ -19,7 +19,7 @@ import { CashFlowTable } from '@/components/buku-kas/CashFlowTable';
 import { AddCashFlowModal } from '@/components/buku-kas/AddCashFlowModal';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
-import { cn } from '@/lib/utils';
+import { cn, normalizeRupiah } from '@/lib/utils';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function BukuKasPage() {
@@ -92,8 +92,8 @@ export default function BukuKasPage() {
 
       if (!visitsError && visitsData) {
         const totalVisitsCash = visitsData.reduce((acc, v) => {
-          const biaya = Number(v.biaya_periksa) || 0;
-          const lain = Number(v.pendapatan_lain) || 0;
+          const biaya = normalizeRupiah(Number(v.biaya_periksa) || 0);
+          const lain = normalizeRupiah(Number(v.pendapatan_lain) || 0);
           return acc + biaya + lain;
         }, 0);
         setTodayCashVisitsTotal(totalVisitsCash);
@@ -107,7 +107,10 @@ export default function BukuKasPage() {
         .eq('kategori', 'Setor Tunai');
 
       if (!flowError && flowData) {
-        const totalDeposits = flowData.reduce((acc, f) => acc + (Number(f.nominal) || 0), 0);
+        const totalDeposits = flowData.reduce(
+          (acc, f) => acc + normalizeRupiah(Number(f.nominal) || 0),
+          0
+        );
         setTodayCashDepositsTotal(totalDeposits);
       }
     } catch (err) {
@@ -125,17 +128,17 @@ export default function BukuKasPage() {
 
   const totalMasuk = cashFlows
     .filter((cf) => cf.jenis === 'Masuk')
-    .reduce((acc, cf) => acc + (Number(cf.nominal) || 0), 0);
+    .reduce((acc, cf) => acc + (normalizeRupiah(Number(cf.nominal)) || 0), 0);
 
   const totalKeluar = cashFlows
     .filter((cf) => cf.jenis === 'Keluar')
-    .reduce((acc, cf) => acc + (Number(cf.nominal) || 0), 0);
+    .reduce((acc, cf) => acc + (normalizeRupiah(Number(cf.nominal)) || 0), 0);
 
   const saldoBersih = totalMasuk - totalKeluar;
 
   const totalSetorTunai = cashFlows
     .filter((cf) => cf.kategori === 'Setor Tunai')
-    .reduce((acc, cf) => acc + (Number(cf.nominal) || 0), 0);
+    .reduce((acc, cf) => acc + (normalizeRupiah(Number(cf.nominal)) || 0), 0);
 
   const handleOpenModal = (type: 'Masuk' | 'Keluar') => {
     setModalType(type);

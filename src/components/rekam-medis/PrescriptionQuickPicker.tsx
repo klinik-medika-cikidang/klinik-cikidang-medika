@@ -15,7 +15,7 @@ import {
 import { toast } from 'sonner';
 import { CLINIC_DRUG_CATALOG, FAST_SIGNA_CHIPS, type PrescriptionPreset } from '@/constants/prescriptions';
 import { ALASAN_GRATIS_OPTIONS, DEFAULT_TARIFFS } from '@/constants/clinic';
-import { formatRupiah, cn } from '@/lib/utils';
+import { formatRupiah, normalizeRupiah, cn } from '@/lib/utils';
 
 export interface PrescriptionItem {
   id: string;
@@ -201,7 +201,7 @@ export function PrescriptionQuickPicker({
     );
   }, [searchQuery]);
 
-  const totalBill = Number(biayaPeriksa || 0) + Number(pendapatanLain || 0);
+  const totalBill = normalizeRupiah(Number(biayaPeriksa || 0)) + normalizeRupiah(Number(pendapatanLain || 0));
 
   return (
     <div className={cn('bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-card-double space-y-5', className)}>

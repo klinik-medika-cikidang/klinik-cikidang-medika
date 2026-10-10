@@ -16,7 +16,7 @@ import type { TherapyPackage, Visit } from '@/types/database';
 import { ALASAN_GRATIS_OPTIONS, DEFAULT_TARIFFS } from '@/constants/clinic';
 import { Button } from '@/components/ui/Button';
 import { ApplyPackageModal } from '@/components/paket-terapi/ApplyPackageModal';
-import { formatRupiah, cn } from '@/lib/utils';
+import { formatRupiah, normalizeRupiah, cn } from '@/lib/utils';
 
 export interface CashierPosPanelProps {
   waitingVisits: Visit[];
@@ -86,9 +86,9 @@ export function CashierPosPanel({
       selectedVisit.jenis_pasien === 'BPJS' || isFree
         ? 0
         : selectedVisit.biaya_periksa !== null && selectedVisit.biaya_periksa !== undefined
-          ? Number(selectedVisit.biaya_periksa)
+          ? normalizeRupiah(Number(selectedVisit.biaya_periksa))
           : DEFAULT_TARIFFS.umum;
-    const lain = isFree ? 0 : Number(selectedVisit.pendapatan_lain || 0);
+    const lain = isFree ? 0 : normalizeRupiah(Number(selectedVisit.pendapatan_lain || 0));
 
     setIsGratis(isFree);
     setAlasanGratis(selectedVisit.alasan_gratis || (isFree ? 'Kontrol Pasca Tindakan' : ''));
@@ -278,10 +278,10 @@ export function CashierPosPanel({
                   visit.jenis_pasien === 'BPJS' || isVisitGratis
                     ? 0
                     : visit.biaya_periksa !== null && visit.biaya_periksa !== undefined
-                      ? Number(visit.biaya_periksa)
+                      ? normalizeRupiah(Number(visit.biaya_periksa))
                       : DEFAULT_TARIFFS.umum;
                 const visitTagihan =
-                  visitPeriksa + (isVisitGratis ? 0 : Number(visit.pendapatan_lain || 0));
+                  visitPeriksa + (isVisitGratis ? 0 : normalizeRupiah(Number(visit.pendapatan_lain || 0)));
 
                 const isBpjs = visit.jenis_pasien === 'BPJS';
 
@@ -578,10 +578,10 @@ export function CashierPosPanel({
                             setIsGratis(false);
                             const originalPeriksa =
                               selectedVisit.biaya_periksa !== null && selectedVisit.biaya_periksa !== undefined
-                                ? Number(selectedVisit.biaya_periksa)
+                                ? normalizeRupiah(Number(selectedVisit.biaya_periksa))
                                 : DEFAULT_TARIFFS.umum;
                             const restoredPeriksa = originalPeriksa > 0 ? originalPeriksa : DEFAULT_TARIFFS.umum;
-                            const restoredLain = Number(selectedVisit.pendapatan_lain || 0);
+                            const restoredLain = normalizeRupiah(Number(selectedVisit.pendapatan_lain || 0));
                             setBiayaPeriksa(restoredPeriksa);
                             setPendapatanLain(restoredLain);
                             setAlasanGratis('');

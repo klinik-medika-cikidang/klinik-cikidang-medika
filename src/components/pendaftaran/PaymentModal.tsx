@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import type { Visit } from '@/types/database';
 import { Modal, Button, Input, Select, Badge } from '@/components/ui';
-import { formatRupiah, cn } from '@/lib/utils';
+import { formatRupiah, normalizeRupiah, cn } from '@/lib/utils';
 import { METODE_PEMBAYARAN_OPTIONS } from '@/constants/clinic';
 
 export interface PaymentModalProps {
@@ -47,8 +47,8 @@ export function PaymentModal({
       return;
     }
 
-    const periksa = visit.jenis_pasien === 'BPJS' ? 0 : Number(visit.biaya_periksa || 0);
-    const lain = Number(visit.pendapatan_lain || 0);
+    const periksa = visit.jenis_pasien === 'BPJS' ? 0 : normalizeRupiah(Number(visit.biaya_periksa || 0));
+    const lain = normalizeRupiah(Number(visit.pendapatan_lain || 0));
 
     setBiayaPeriksa(periksa);
     setPendapatanLain(lain);
@@ -104,8 +104,8 @@ export function PaymentModal({
 
     try {
       const supabase = createClient();
-      const finalBiayaPeriksa = visit.jenis_pasien === 'BPJS' ? 0 : Number(biayaPeriksa || 0);
-      const finalPendapatanLain = Number(pendapatanLain || 0);
+      const finalBiayaPeriksa = visit.jenis_pasien === 'BPJS' ? 0 : normalizeRupiah(Number(biayaPeriksa || 0));
+      const finalPendapatanLain = normalizeRupiah(Number(pendapatanLain || 0));
 
       const { data, error } = await supabase
         .from('visits')

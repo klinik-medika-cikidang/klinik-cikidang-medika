@@ -87,5 +87,34 @@ describe('resolveVisitBilling', () => {
     expect(res.pendapatanLain).toBe(0);
     expect(res.totalTagihan).toBe(0);
   });
+
+  it('normalizes ribuan inputs (< 10000) to full Rupiah automatically', () => {
+    const res = resolveVisitBilling({
+      jenis_pasien: 'UMUM',
+      biaya_periksa: 50,
+      pendapatan_lain: 25,
+    });
+    expect(res.isGratis).toBe(false);
+    expect(res.biayaPeriksa).toBe(50000);
+    expect(res.pendapatanLain).toBe(25000);
+    expect(res.totalTagihan).toBe(75000);
+  });
+
+  it('correctly aggregates clinic daily samples with mixed ribuan and full Rupiah', () => {
+    // Exact scenario from clinic incident: 165, 175, 150000, 250, 50, 215
+    const samples = [
+      { jenis_pasien: 'UMUM', biaya_periksa: 165 },
+      { jenis_pasien: 'UMUM', biaya_periksa: 175 },
+      { jenis_pasien: 'UMUM', biaya_periksa: 150000 },
+      { jenis_pasien: 'UMUM', biaya_periksa: 250 },
+      { jenis_pasien: 'UMUM', biaya_periksa: 50 },
+      { jenis_pasien: 'UMUM', biaya_periksa: 215 },
+    ];
+    const totalRevenue = samples.reduce((sum, item) => {
+      const billing = resolveVisitBilling(item);
+      return sum + billing.totalTagihan;
+    }, 0);
+    expect(totalRevenue).toBe(1005000);
+  });
 });
 

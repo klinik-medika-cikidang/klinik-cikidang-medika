@@ -35,7 +35,7 @@ import { ApplyPackageModal } from '@/components/paket-terapi/ApplyPackageModal';
 import { NewTbcModal } from '@/components/program-khusus/NewTbcModal';
 import { NewCircumcisionModal } from '@/components/program-khusus/NewCircumcisionModal';
 import { KategoriProgramPanel } from '@/components/program-khusus/KategoriProgramPanel';
-import { cn } from '@/lib/utils';
+import { cn, normalizeRupiah } from '@/lib/utils';
 
 export interface ExaminationFormProps {
   visit: Visit;
@@ -88,11 +88,11 @@ export function ExaminationForm({
   // Billing & Tariffs
   const [biayaPeriksa, setBiayaPeriksa] = useState<number>(() => {
     if (visit.biaya_periksa !== undefined && visit.biaya_periksa !== null) {
-      return Number(visit.biaya_periksa);
+      return normalizeRupiah(Number(visit.biaya_periksa));
     }
     return visit.jenis_pasien === 'BPJS' ? 0 : DEFAULT_TARIFFS.umum;
   });
-  const [pendapatanLain, setPendapatanLain] = useState<number>(Number(visit.pendapatan_lain || 0));
+  const [pendapatanLain, setPendapatanLain] = useState<number>(normalizeRupiah(Number(visit.pendapatan_lain || 0)));
   const [keteranganPendapatan, setKeteranganPendapatan] = useState(visit.keterangan_pendapatan || '');
   const [isGratis, setIsGratis] = useState<boolean>(() =>
     Boolean(visit.is_gratis || (visit.jenis_pasien === 'UMUM' && visit.biaya_periksa === 0))
@@ -139,10 +139,10 @@ export function ExaminationForm({
     setLabHasil(visit.lab_hasil || '');
     setBiayaPeriksa(
       visit.biaya_periksa !== undefined && visit.biaya_periksa !== null
-        ? Number(visit.biaya_periksa)
+        ? normalizeRupiah(Number(visit.biaya_periksa))
         : visit.jenis_pasien === 'BPJS' ? 0 : DEFAULT_TARIFFS.umum
     );
-    setPendapatanLain(Number(visit.pendapatan_lain || 0));
+    setPendapatanLain(normalizeRupiah(Number(visit.pendapatan_lain || 0)));
     setKeteranganPendapatan(visit.keterangan_pendapatan || '');
     setIsGratis(Boolean(visit.is_gratis || (visit.jenis_pasien === 'UMUM' && visit.biaya_periksa === 0)));
     setAlasanGratis(visit.alasan_gratis || '');
@@ -288,8 +288,8 @@ export function ExaminationForm({
           keterangan_tindakan: keteranganTindakan.trim() || null,
           lab: lab.trim() || null,
           lab_hasil: labHasil.trim() || null,
-          biaya_periksa: visit.jenis_pasien === 'BPJS' || isGratis ? 0 : Number(biayaPeriksa || 0),
-          pendapatan_lain: isGratis ? 0 : Number(pendapatanLain || 0),
+          biaya_periksa: visit.jenis_pasien === 'BPJS' || isGratis ? 0 : normalizeRupiah(Number(biayaPeriksa || 0)),
+          pendapatan_lain: isGratis ? 0 : normalizeRupiah(Number(pendapatanLain || 0)),
           keterangan_pendapatan: keteranganPendapatan.trim() || null,
           is_gratis: isGratis,
           alasan_gratis: isGratis ? (alasanGratis.trim() || 'Bebas Biaya') : null,

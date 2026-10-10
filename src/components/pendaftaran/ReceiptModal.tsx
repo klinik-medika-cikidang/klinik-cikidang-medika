@@ -6,7 +6,7 @@ import { useReactToPrint } from 'react-to-print';
 import type { Visit } from '@/types/database';
 import { CLINIC_PROFILE } from '@/constants/clinic';
 import { Modal } from '@/components/ui';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah, normalizeRupiah } from '@/lib/utils';
 
 export interface ReceiptModalProps {
   isOpen: boolean;
@@ -25,7 +25,9 @@ export function ReceiptModal({ isOpen, onClose, visit }: ReceiptModalProps) {
   const receiptNo = visit
     ? `KUI-${visit.tanggal_periksa.replace(/-/g, '')}-${String(visit.nomor_antrian || '1').padStart(3, '0')}`
     : 'KUI-000';
-  const totalAmount = Number(visit?.biaya_periksa || 0) + Number(visit?.pendapatan_lain || 0);
+  const periksaAmount = normalizeRupiah(Number(visit?.biaya_periksa || 0));
+  const lainAmount = normalizeRupiah(Number(visit?.pendapatan_lain || 0));
+  const totalAmount = periksaAmount + lainAmount;
   const isFreeVisit = Boolean(
     visit?.is_gratis ||
     (visit?.jenis_pasien === 'UMUM' && totalAmount === 0 && visit?.status_pembayaran === 'Lunas')

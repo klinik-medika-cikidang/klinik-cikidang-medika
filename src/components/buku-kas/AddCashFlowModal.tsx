@@ -20,7 +20,7 @@ import { Select } from '@/components/ui/Select';
 import { CASH_FLOW_CATEGORIES } from '@/constants/clinic';
 import { createClient } from '@/lib/supabase/client';
 import type { CashFlow } from '@/types/database';
-import { formatRupiah, cn } from '@/lib/utils';
+import { formatRupiah, normalizeRupiah, cn } from '@/lib/utils';
 
 const cashFlowSchema = z.object({
   tanggal: z.string().trim().min(1, 'Tanggal transaksi wajib diisi.'),
@@ -137,7 +137,7 @@ export function AddCashFlowModal({
           tanggal: parseResult.data.tanggal,
           jenis: parseResult.data.jenis,
           kategori: parseResult.data.kategori,
-          nominal: parseResult.data.nominal,
+          nominal: normalizeRupiah(parseResult.data.nominal),
           keterangan: parseResult.data.keterangan || null,
         })
         .select()
@@ -146,7 +146,7 @@ export function AddCashFlowModal({
       if (error) throw error;
 
       toast.success(
-        `Mutasi kas ${jenis === 'Masuk' ? 'masuk' : 'keluar'} sebesar ${formatRupiah(nominalRaw)} berhasil disimpan.`
+        `Mutasi kas ${jenis === 'Masuk' ? 'masuk' : 'keluar'} sebesar ${formatRupiah(normalizeRupiah(nominalRaw))} berhasil disimpan.`
       );
 
       if (onSuccess && data) {

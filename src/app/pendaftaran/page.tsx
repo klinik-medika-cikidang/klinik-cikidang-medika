@@ -20,7 +20,7 @@ import { RegisterVisitModal } from '@/components/pendaftaran/RegisterVisitModal'
 import { ReceiptModal } from '@/components/pendaftaran/ReceiptModal';
 import { QueueTicketModal } from '@/components/pendaftaran/QueueTicketModal';
 import { CancelQueueModal } from '@/components/rekam-medis/CancelQueueModal';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah, normalizeRupiah } from '@/lib/utils';
 
 export default function PendaftaranKasirPage() {
   return (
@@ -136,8 +136,8 @@ function PendaftaranKasirContent() {
       const rev = visitList
         .filter((v) => v.status_pembayaran === 'Lunas')
         .reduce((sum, v) => {
-          const periksa = v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa || 0);
-          const lain = Number(v.pendapatan_lain || 0);
+          const periksa = v.jenis_pasien === 'BPJS' ? 0 : normalizeRupiah(Number(v.biaya_periksa || 0));
+          const lain = normalizeRupiah(Number(v.pendapatan_lain || 0));
           return sum + periksa + lain;
         }, 0);
 
@@ -219,8 +219,9 @@ function PendaftaranKasirContent() {
       const isFreeVisit = Boolean(
         isGratis || (visit.jenis_pasien === 'UMUM' && biayaPeriksa === 0 && pendapatanLain === 0)
       );
-      const finalBiayaPeriksa = visit.jenis_pasien === 'BPJS' || isFreeVisit ? 0 : Number(biayaPeriksa || 0);
-      const finalPendapatanLain = isFreeVisit ? 0 : Number(pendapatanLain || 0);
+      const finalBiayaPeriksa =
+        visit.jenis_pasien === 'BPJS' || isFreeVisit ? 0 : normalizeRupiah(Number(biayaPeriksa || 0));
+      const finalPendapatanLain = isFreeVisit ? 0 : normalizeRupiah(Number(pendapatanLain || 0));
       const totalTagihan = finalBiayaPeriksa + finalPendapatanLain;
 
       const finalStatus =

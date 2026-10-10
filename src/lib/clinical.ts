@@ -1,3 +1,5 @@
+import { normalizeRupiah } from './utils';
+
 export type PtmCategory = 'Hipertensi' | 'Diabetes' | 'Lainnya';
 
 export function classifyPtm(record: {
@@ -90,9 +92,9 @@ export function resolveVisitBilling(
 
   const biayaPeriksa =
     visit.biaya_periksa !== null && visit.biaya_periksa !== undefined
-      ? Number(visit.biaya_periksa)
+      ? normalizeRupiah(Number(visit.biaya_periksa))
       : defaultUmumTariff;
-  const pendapatanLain = Number(visit.pendapatan_lain || 0);
+  const pendapatanLain = normalizeRupiah(Number(visit.pendapatan_lain || 0));
 
   return {
     isGratis: false,
