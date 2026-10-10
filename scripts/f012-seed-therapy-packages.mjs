@@ -1,5 +1,5 @@
 /**
- * F-012: build starter therapy packages for staging from the clinic's own records.
+ * F-012: build starter therapy packages from the clinic's own records.
  *
  * Package shape comes from the most frequent Terapi combinations in REKAMMEDIS.csv.
  * Drug prices are read from HARGA OBAT NURANI.csv (never hardcoded here), so the
@@ -8,12 +8,20 @@
  * AC-005.3. The whole set is a starting point: the owner edits, adds, or deletes
  * packages and items from the master page.
  *
+ * Active by default. Pass --inactive for production, where the packages must not be
+ * selectable in the cashier until the owner reviews the prices and activates them.
+ *
  * This writes SQL only. Apply it with:
- *   node scripts/apply-sql.mjs --env=.env.staging --file=docs/data/f012-seed-staging.sql
+ *   node scripts/apply-sql.mjs --env=.env.staging --file=docs/data/f012-seed-active.sql
+ *   node scripts/f012-seed-therapy-packages.mjs --inactive
+ *   node scripts/apply-sql.mjs --env=.env.production --confirm-prod --file=docs/data/f012-seed-inactive.sql
  */
 import fs from 'fs';
 import path from 'path';
 import { DATA_DIR, FILES, parseCSVLine } from './lib/clinic-csv.mjs';
+
+const inactive = process.argv.includes('--inactive');
+const aktifLiteral = inactive ? 'false' : 'true';
 
 const OBAT_FILE = '[DATA] Klinik Cikidang Medika  - HARGA OBAT NURANI.csv';
 
@@ -147,7 +155,7 @@ for (const pkg of packages) {
   const total = pkg.items.reduce((sum, line) => sum + line.qty * line.hargaSatuan, 0);
   statements.push(
     `insert into public.therapy_packages (kode, nama, deskripsi, harga_total, aktif, created_by_role)`,
-    `values (${quote(pkg.kode)}, ${quote(pkg.nama)}, ${quote(pkg.deskripsi)}, ${num(total)}, true, 'owner')`,
+    `values (${quote(pkg.kode)}, ${quote(pkg.nama)}, ${quote(pkg.deskripsi)}, ${num(total)}, ${aktifLiteral}, 'owner')`,
     `on conflict (kode) where kode is not null do update set`,
     `  nama = excluded.nama,`,
     `  deskripsi = excluded.deskripsi,`,
@@ -169,13 +177,14 @@ for (const pkg of packages) {
 
 statements.push('commit;', '');
 
-const outPath = path.join(DATA_DIR, 'f012-seed-staging.sql');
+const outPath = path.join(DATA_DIR, inactive ? 'f012-seed-inactive.sql' : 'f012-seed-active.sql');
 fs.writeFileSync(outPath, statements.join('\n'), 'utf-8');
 
 const totalItems = packages.reduce((sum, pkg) => sum + pkg.items.length, 0);
 console.log(`Ditulis: ${outPath}`);
-console.log(`Paket : ${packages.length}`);
-console.log(`Item  : ${totalItems}`);
+console.log(`Status : ${inactive ? 'nonaktif (aktif=false)' : 'aktif (aktif=true)'}`);
+console.log(`Paket  : ${packages.length}`);
+console.log(`Item   : ${totalItems}`);
 for (const pkg of packages) {
   const total = pkg.items.reduce((sum, line) => sum + line.qty * line.hargaSatuan, 0);
   console.log(`  ${pkg.kode.padEnd(20)} ${String(total).padStart(9)}  ${pkg.nama}`);

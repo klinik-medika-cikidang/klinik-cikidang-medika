@@ -152,11 +152,11 @@ def build(out_path):
     story.append(data_table(
         ["Keterangan", "Isi"],
         [
-            ["Tanggal", "9 Oktober 2026"],
+            ["Tanggal", "9 Oktober 2026 (diperbarui 10 Oktober 2026)"],
             ["Untuk", "dr. Ovan, dr. Neneng, dan staf klinik"],
             ["Dari", "Pengembang"],
-            ["Status", "Selesai diuji di staging. Belum ada perubahan pada data produksi."],
-            ["Versi", "1 (hitam putih, siap cetak)"],
+            ["Status", "Diterapkan ke produksi 10 Oktober 2026 dengan paket awal nonaktif."],
+            ["Versi", "2 (hitam putih, siap cetak)"],
         ],
         [3.2 * cm, 13.6 * cm],
     ))
@@ -215,6 +215,11 @@ def build(out_path):
         "Catatan: paket tindakan seperti nebulizer, infus, dan USG belum memiliki tarif karena tarif "
         "tindakan tidak ada di berkas harga obat. Tarif tersebut diisi oleh klinik melalui menu Paket Terapi."
     ))
+    story.append(Spacer(1, 4))
+    story.append(body(
+        "Di produksi, kesepuluh paket dipasang dalam status nonaktif. Paket baru muncul sebagai pilihan "
+        "di kasir setelah Owner meninjau harga lalu mengaktifkannya."
+    ))
 
     story += h2("4. Yang Bisa Dilakukan")
     story.append(Paragraph("Pemilik (Owner) dapat:", S["body"]))
@@ -242,6 +247,8 @@ def build(out_path):
         "Di staging: ketiga tabel baru terbentuk, sepuluh paket dengan dua puluh satu item terpasang.",
         "Di staging: simulasi penerapan paket berhasil menambah pendapatan lain, mengisi keterangan, dan "
         "menulis riwayat, tanpa mengubah biaya pemeriksaan pasien BPJS.",
+        "Di produksi: skema terpasang (tiga tabel, delapan index, tiga policy) dan sepuluh paket awal "
+        "dimasukkan dengan status nonaktif, sehingga belum ada yang dapat ditagihkan ke pasien.",
     ])
 
     story += h2("6. Batasan dan Catatan")
@@ -251,7 +258,8 @@ def build(out_path):
         "Harga paket awal mengacu pada daftar harga obat klinik dan tarif jual masih perlu disesuaikan.",
         "Paket yang sudah pernah diterapkan pada minimal satu kunjungan tidak dihapus permanen, hanya "
         "dinonaktifkan, agar rincian kunjungan lama tetap utuh.",
-        "Belum ada perubahan pada proyek produksi.",
+        "Produksi sudah menerima skema dan sepuluh paket awal (nonaktif). Paket belum bisa dipilih di "
+        "kasir sampai diaktifkan Owner.",
     ])
 
     story += h2("7. Pertanyaan untuk Dokter")
@@ -268,9 +276,10 @@ def build(out_path):
 
     story += h2("8. Langkah Berikutnya")
     story += bullets([
-        "Klinik meninjau daftar paket, menyesuaikan harga, dan menjawab pertanyaan pada Bagian 7.",
+        "Owner meninjau dan menyesuaikan harga serta tarif tindakan pada menu Paket Terapi, lalu "
+        "mengaktifkan paket yang sudah siap.",
+        "Klinik menjawab pertanyaan pada Bagian 7.",
         "Pengembang melakukan pemeriksaan tampilan pada staging (ponsel, tablet, dan komputer).",
-        "Setelah disetujui, perubahan diterapkan ke produksi dengan pencadangan data lebih dahulu.",
     ], numbered=True)
 
     story += h2("9. Keterangan Istilah")
@@ -285,9 +294,19 @@ def build(out_path):
         [3.6 * cm, 13.2 * cm],
     ))
 
+    story += h2("10. Status Produksi (10 Oktober 2026)")
+    story += bullets([
+        "Data produksi dicadangkan lebih dahulu sebelum perubahan, dan cadangannya disimpan di luar aplikasi.",
+        "Skema Paket Terapi sudah diterapkan ke produksi pada 10 Oktober 2026: tiga tabel baru, tanpa "
+        "mengubah tabel atau data lama.",
+        "Sepuluh paket awal dimasukkan dengan status nonaktif. Belum ada paket yang dapat dipilih di kasir, "
+        "sehingga belum ada tagihan pasien yang terpengaruh.",
+        "Owner mengaktifkan paket satu per satu setelah harga dan tarifnya dipastikan.",
+    ])
+
     story.append(Spacer(1, 10))
     story.append(HRFlowable(width="100%", thickness=0.5, color=RULE, spaceAfter=6))
-    story.append(Paragraph("<b>Belum ada tindakan pada data produksi.</b>", S["body"]))
+    story.append(Paragraph("<b>Skema dan paket awal (nonaktif) sudah diterapkan ke produksi pada 10 Oktober 2026.</b>", S["body"]))
 
     doc.build(story, canvasmaker=NumberedCanvas)
     print("PDF dibuat:", out_path)

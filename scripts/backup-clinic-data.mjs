@@ -6,22 +6,51 @@
  * which is gitignored because it contains patient data.
  *
  * Usage:
+ *   node scripts/backup-clinic-data.mjs --env=.env.production [label]
  *   SUPABASE_ACCESS_TOKEN=... node scripts/backup-clinic-data.mjs <projectRef> [label]
  */
 
 import fs from 'fs';
 import path from 'path';
 
-const [projectRef, label = 'backup'] = process.argv.slice(2);
-const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
+function readEnv(envFileName) {
+  const envPath = path.resolve(process.cwd(), envFileName);
+  if (!fs.existsSync(envPath)) return {};
+  const env = {};
+  fs.readFileSync(envPath, 'utf-8').split('\n').forEach((line) => {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const [key, ...values] = trimmed.split('=');
+      env[key.trim()] = values.join('=').trim();
+    }
+  });
+  return env;
+}
+
+const argOf = (name, fallback = null) => {
+  const found = process.argv.find((arg) => arg.startsWith(`--${name}=`));
+  return found ? found.slice(name.length + 3) : fallback;
+};
+
+const envFileName = argOf('env');
+const fileEnv = envFileName ? readEnv(envFileName) : {};
+const positional = process.argv.slice(2).filter((arg) => !arg.startsWith('--'));
+
+// With --env the positional argument is the label; otherwise it is the project ref.
+const projectRef = envFileName
+  ? fileEnv.SUPABASE_PROJECT_REF ||
+    /https:\/\/([^.]+)\./.exec(fileEnv.NEXT_PUBLIC_SUPABASE_URL || '')?.[1]
+  : positional[0];
+const label = (envFileName ? positional[0] : positional[1]) || 'backup';
+const TOKEN = process.env.SUPABASE_ACCESS_TOKEN || fileEnv.SUPABASE_ACCESS_TOKEN;
 
 if (!projectRef) {
-  console.error('Usage: node scripts/backup-clinic-data.mjs <projectRef> [label]');
+  console.error('Project ref tidak ditemukan. Sertakan --env=<file> atau argumen projectRef.');
   process.exit(1);
 }
 
 if (!TOKEN) {
-  console.error('SUPABASE_ACCESS_TOKEN wajib diset.');
+  console.error('SUPABASE_ACCESS_TOKEN wajib diset (env atau berkas --env).');
   process.exit(1);
 }
 
@@ -35,6 +64,9 @@ const TABLES = [
   'post_cares',
   'public_health_records',
   'referral_commissions',
+  'therapy_packages',
+  'therapy_package_items',
+  'visit_therapy_packages',
 ];
 
 async function runQuery(query) {
