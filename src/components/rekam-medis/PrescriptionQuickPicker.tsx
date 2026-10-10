@@ -10,6 +10,7 @@ import {
   WarningCircle,
   MagnifyingGlass,
   Sparkle,
+  FirstAid,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { CLINIC_DRUG_CATALOG, FAST_SIGNA_CHIPS, type PrescriptionPreset } from '@/constants/prescriptions';
@@ -34,6 +35,10 @@ export interface PrescriptionQuickPickerProps {
   onChangeKeteranganPendapatan: (val: string) => void;
   jenisPasien?: 'BPJS' | 'Umum' | string;
   className?: string;
+  onOpenTherapyPackageModal?: () => void;
+  items?: PrescriptionItem[];
+  onItemsChange?: (items: PrescriptionItem[]) => void;
+  appliedPackageNames?: string[];
 }
 
 // 1-Click Clinical Presets
@@ -81,16 +86,29 @@ export function PrescriptionQuickPicker({
   onChangeKeteranganPendapatan,
   jenisPasien,
   className,
+  onOpenTherapyPackageModal,
+  items,
+  onItemsChange,
+  appliedPackageNames,
 }: PrescriptionQuickPickerProps) {
-  const [structuredItems, setStructuredItems] = useState<PrescriptionItem[]>([]);
+  const [internalItems, setInternalItems] = useState<PrescriptionItem[]>([]);
+  const structuredItems = items !== undefined ? items : internalItems;
+  const setStructuredItems = (newItems: PrescriptionItem[]) => {
+    if (onItemsChange) {
+      onItemsChange(newItems);
+    } else {
+      setInternalItems(newItems);
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Sync structured items to free text
-  const syncToFreeText = (items: PrescriptionItem[]) => {
-    setStructuredItems(items);
-    if (items.length === 0) return;
-    const lines = items.map((it) => `${it.name} ${it.dosage} - ${it.instruction}`);
+  const syncToFreeText = (newItems: PrescriptionItem[]) => {
+    setStructuredItems(newItems);
+    if (newItems.length === 0) return;
+    const lines = newItems.map((it) => `${it.name} ${it.dosage} - ${it.instruction}`);
     onChangeTerapiObat(lines.join('\n'));
   };
 
@@ -214,22 +232,54 @@ export function PrescriptionQuickPicker({
         </div>
       )}
 
-      {/* 1-Click Preset Packages Cards */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
-            Paket Resep Cepat Klinis (1-Klik):
-          </span>
-          <span className="text-[11px] text-slate-400">Otomatis mengisi tabel &amp; resep apotek</span>
+      {/* 1-Click Preset Packages Cards & Master Therapy Package Trigger */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+              Paket Resep Cepat Klinis (1-Klik):
+            </span>
+            <span className="text-[11px] text-slate-400 hidden sm:inline">&bull; Otomatis mengisi resep &amp; tindakan</span>
+          </div>
+
+          {onOpenTherapyPackageModal && (
+            <button
+              type="button"
+              onClick={onOpenTherapyPackageModal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-300 transition-all tactile-btn shadow-2xs group min-h-[36px]"
+              title="Buka daftar paket tindakan dan obat resmi klinik dari database"
+            >
+              <FirstAid className="w-3.5 h-3.5 text-teal-600 group-hover:scale-110 transition-transform" weight="duotone" />
+              <span>Pilih Paket Terapi Master</span>
+            </button>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        {/* Applied Packages Badges */}
+        {appliedPackageNames && appliedPackageNames.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap p-2.5 bg-teal-50/70 border border-teal-200 rounded-xl">
+            <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider">
+              Paket Terpasang di Kunjungan Ini:
+            </span>
+            {appliedPackageNames.map((name, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-900 bg-white border border-teal-300 px-2.5 py-0.5 rounded-lg shadow-2xs font-mono"
+              >
+                <FirstAid className="w-3 h-3 text-teal-600 shrink-0" weight="fill" />
+                <span>{name}</span>
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
           {PRESET_PACKS.map((pack) => (
             <button
               key={pack.id}
               type="button"
               onClick={() => handleApplyPreset(pack.id)}
-              className="px-3.5 py-2.5 bg-slate-50/70 hover:bg-teal-50/60 border border-slate-300 hover:border-teal-400 rounded-xl text-left transition-all tactile-btn group shadow-2xs"
+              className="px-3.5 py-2.5 bg-slate-50/70 hover:bg-teal-50/60 border border-slate-300 hover:border-teal-400 rounded-xl text-left transition-all tactile-btn group shadow-2xs min-h-[44px]"
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-900 group-hover:text-teal-900">
@@ -242,6 +292,27 @@ export function PrescriptionQuickPicker({
               </p>
             </button>
           ))}
+
+          {onOpenTherapyPackageModal && (
+            <button
+              type="button"
+              onClick={onOpenTherapyPackageModal}
+              className="px-3.5 py-2.5 bg-teal-50/80 hover:bg-teal-100/90 border border-teal-300 hover:border-teal-500 rounded-xl text-left transition-all tactile-btn group shadow-2xs min-h-[44px] flex flex-col justify-between"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-teal-950 group-hover:text-teal-900 flex items-center gap-1.5">
+                  <FirstAid className="w-3.5 h-3.5 text-teal-600 shrink-0" weight="fill" />
+                  Paket Terapi Master
+                </span>
+                <span className="text-[10px] font-bold text-teal-800 bg-white px-1.5 py-0.5 rounded border border-teal-200">
+                  Resmi
+                </span>
+              </div>
+              <p className="text-[11px] text-teal-700 font-mono mt-0.5 truncate">
+                Bundel tindakan + obat klinik
+              </p>
+            </button>
+          )}
         </div>
       </div>
 

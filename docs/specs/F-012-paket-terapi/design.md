@@ -116,19 +116,40 @@ Alur master paket (khusus `owner`):
   -> toggle aktif/nonaktif
 ```
 
+Alur penerapan paket pada workstation dokter (ExaminationForm):
+
+```text
+Dokter di form rekam medis (/rekam-medis)
+  -> Pada seksi "3. Terapi Obat & Resep Apotek", klik tombol "Pilih Paket Terapi"
+  -> Buka ApplyPackageModal (memuat paket aktif dari therapy_packages)
+  -> Dokter memilih paket dan klik konfirmasi
+  -> Callback in-memory (onApplyTherapyPackage):
+       - Item OBAT ditambahkan ke structured medication items & textarea terapi_obat
+       - Item TINDAKAN ditambahkan ke tindakan & keterangan_tindakan
+       - Biaya total paket ditambahkan ke pendapatan_lain & nama paket ke keterangan_pendapatan
+       - Catat package ke temporary session state (pendingPackages)
+  -> Dokter dapat meninjau / menyunting dosis obat sebelum simpan
+  -> Dokter klik "Simpan Draft" atau "Selesai Periksa & Kirim Kasir":
+       - Update visits dengan data gabungan
+       - Insert baris snapshot ke visit_therapy_packages (applied_by_role: 'dokter_admin')
+       - Data otomatis terbaca oleh kasir saat pasien tiba di loket kasir
+```
+
 Urutan:
 
 1. Migrasi menambahkan tabel baru beserta index dan kebijakan RLS. Aditif, tidak mengubah kolom lama.
 2. Tipe TypeScript dan konstanta item ditambahkan.
 3. Master paket dibangun lebih dulu, karena penerapan bergantung padanya.
 4. Penerapan ke kunjungan dibangun pada alur kasir, memakai kolom yang sudah ada.
-5. Verifikasi dijalankan sebelum rilis.
+5. Penerapan diperluas ke workstation pemeriksaan dokter (`PrescriptionQuickPicker` & `ExaminationForm`).
+6. Verifikasi dijalankan sebelum rilis.
 
 ## 4. Component Changes
 
 | Component or path | Change | Responsibility |
 |---|---|---|
 | `supabase/migrations/20261008_f012_therapy_packages.sql` | Create | Tabel paket, item, dan rekam jejak penerapan, beserta index dan RLS |
+| `supabase/migrations/20261010_f012_activate_packages.sql` | Create | Migrasi aktivasi paket terapi awal di database produksi dan staging |
 | `src/types/database.ts` | Modify | Tambah tipe `TherapyPackage`, `TherapyPackageItem`, `VisitTherapyPackage` |
 | `src/constants/clinic.ts` | Modify | Tambah `THERAPY_PACKAGE_ITEM_TYPES` dan label tampilannya |
 | `src/app/paket-terapi/page.tsx` | Create | Halaman master paket, akses baca untuk semua peran, kelola untuk `owner` |
@@ -138,6 +159,8 @@ Urutan:
 | `src/components/paket-terapi/ApplyPackageModal.tsx` | Create | Pilih paket aktif, tampilkan rincian, konfirmasi, dan serahkan payload |
 | `src/components/pendaftaran/CashierPosPanel.tsx` | Modify | Tambah aksi "Terapkan Paket Terapi" dan tampilkan paket yang diterapkan |
 | `src/app/pendaftaran/page.tsx` | Modify | Handler penerapan paket dan penulisan ke kolom `visits` |
+| `src/components/rekam-medis/PrescriptionQuickPicker.tsx` | Modify | Tambah tombol pemicu "Pilih Paket Terapi" berdampingan dengan preset cepat |
+| `src/components/rekam-medis/ExaminationForm.tsx` | Modify | Integrasikan `ApplyPackageModal`, gabungkan obat/tindakan/biaya ke formulir, dan simpan snapshot |
 | `src/components/Sidebar.tsx` | Modify | Tambah tautan navigasi `Paket Terapi` dengan visibilitas peran |
 | `src/components/CommandMenu.tsx` | Modify | Tambah aksi cepat menuju master paket (opsional, `owner`) |
 

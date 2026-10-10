@@ -250,6 +250,31 @@ Acceptance criteria:
 - AC-009.4: Hak akses HARUS ditegakkan pada basis data melalui Row Level Security, bukan hanya dengan
   menyembunyikan tombol pada antarmuka.
 
+### FR-010 - Integrasi Workstation Pemeriksaan Dokter
+
+The system shall allow doctors to apply active therapy packages directly during clinical examination.
+
+Acceptance criteria:
+
+- AC-010.1: KETIKA dokter membuka formulir pemeriksaan rekam medis (`ExaminationForm`), sistem HARUS
+  menyediakan tombol aksi "Pilih Paket Terapi" pada seksi "3. Terapi Obat & Resep Apotek".
+- AC-010.2: KETIKA dokter memilih sebuah paket terapi aktif pada modal dan mengonfirmasi, sistem HARUS
+  menggabungkan (append) item obat dari paket ke dalam tabel resep obat dan catatan resep teks bebas
+  tanpa menghapus obat yang telah diinput dokter sebelumnya.
+- AC-010.3: KETIKA paket terapi memuat item bertipe `TINDAKAN`, sistem HARUS menggabungkan nama tindakan
+  ke kolom `tindakan` dan `keterangan_tindakan` pada formulir pemeriksaan.
+- AC-010.4: KETIKA paket terapi diterapkan oleh dokter, harga total paket HARUS ditambahkan secara
+  akumulatif ke kolom `pendapatan_lain` dan nama paket ditambahkan ke `keterangan_pendapatan` pada formulir,
+  tanpa mengubah `biaya_periksa`.
+- AC-010.5: Penerapan paket pada layar dokter HARUS bersifat in-memory state: dokter DAPAT meninjau,
+  mengubah dosis, atau menambah catatan sebelum menekan tombol "Simpan Draft" atau "Selesai Periksa & Kirim Kasir".
+- AC-010.6: KETIKA dokter menekan "Simpan Draft" atau "Selesai Periksa & Kirim Kasir", sistem HARUS
+  menyimpan perubahan ke tabel `visits` dan menulis baris audit snapshot ke `visit_therapy_packages`
+  dengan `applied_by_role` bernilai `'dokter_admin'`.
+- AC-010.7: KETIKA data pemeriksaan yang memuat paket terapi telah dikirim ke kasir, panel kasir
+  (`CashierPosPanel`) HARUS otomatis menampilkan rincian tagihan paket dan obat yang telah ditentukan
+  oleh dokter tanpa mewajibkan kasir menginput ulang paket tersebut.
+
 ## 8. Business Rules
 
 - BR-001: Harga paket dan seluruh nilai uang disimpan sebagai `NUMERIC(15,2)`.

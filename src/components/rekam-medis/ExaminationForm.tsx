@@ -18,18 +18,20 @@ import {
   FloppyDisk,
   CaretDown,
   CaretUp,
+  FirstAid,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
-import type { Visit, Doctor } from '@/types/database';
+import type { Visit, Doctor, TherapyPackage } from '@/types/database';
 import { DEFAULT_TARIFFS } from '@/constants/clinic';
 import { Badge } from '@/components/ui';
 import { Icd10QuickPicker, type DiagnosisItem } from '@/components/rekam-medis/Icd10QuickPicker';
 import { VitalsWidget } from '@/components/rekam-medis/VitalsWidget';
-import { PrescriptionQuickPicker } from '@/components/rekam-medis/PrescriptionQuickPicker';
+import { PrescriptionQuickPicker, type PrescriptionItem } from '@/components/rekam-medis/PrescriptionQuickPicker';
 import { PatientHistoryTimeline } from '@/components/rekam-medis/PatientHistoryTimeline';
 import { SuratSakitModal } from '@/components/rekam-medis/SuratSakitModal';
 import { SuratRujukanModal } from '@/components/rekam-medis/SuratRujukanModal';
+import { ApplyPackageModal } from '@/components/paket-terapi/ApplyPackageModal';
 import { NewTbcModal } from '@/components/program-khusus/NewTbcModal';
 import { NewCircumcisionModal } from '@/components/program-khusus/NewCircumcisionModal';
 import { KategoriProgramPanel } from '@/components/program-khusus/KategoriProgramPanel';
@@ -105,6 +107,11 @@ export function ExaminationForm({
   const [isTbcModalOpen, setIsTbcModalOpen] = useState(false);
   const [isCircumcisionModalOpen, setIsCircumcisionModalOpen] = useState(false);
 
+  // F-012 Master Paket Terapi State
+  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
+  const [pendingPackages, setPendingPackages] = useState<TherapyPackage[]>([]);
+  const [prescriptionItems, setPrescriptionItems] = useState<PrescriptionItem[]>([]);
+
   useEffect(() => {
     async function loadDoctors() {
       try {
@@ -134,6 +141,8 @@ export function ExaminationForm({
     setPendapatanLain(Number(visit.pendapatan_lain || 0));
     setKeteranganPendapatan(visit.keterangan_pendapatan || '');
     setErrorMessage(null);
+    setPendingPackages([]);
+    setPrescriptionItems([]);
   }, [visit.id, visit.biaya_periksa, visit.pendapatan_lain, visit.keterangan_pendapatan, visit.jenis_pasien]);
 
   const patient = visit.pasien;
@@ -180,6 +189,65 @@ export function ExaminationForm({
     });
   };
 
+  // F-012 Handler: Menerapkan paket terapi ke state formulir pemeriksaan
+  const handleApplyTherapyPackage = (pkg: TherapyPackage) => {
+    // 1. Tambahkan item obat ke daftar resep
+    const obatItems = (pkg.items || []).filter((it) => it.jenis_item === 'OBAT');
+    if (obatItems.length > 0) {
+      const newPrescriptionItems: PrescriptionItem[] = obatItems.map((item, idx) => ({
+        id: `pkg-${pkg.id}-${idx}-${Date.now()}`,
+        name: item.nama_item,
+        dosage: item.satuan ? `${item.qty} ${item.satuan}` : `${item.qty}`,
+        instruction: item.catatan?.trim() || 'Sesuai petunjuk dokter',
+      }));
+
+      setPrescriptionItems((prev) => [...prev, ...newPrescriptionItems]);
+
+      const newLines = newPrescriptionItems.map((it) => `${it.name} (${it.dosage}) - ${it.instruction}`);
+      setTerapiObat((prev) => {
+        const existing = prev.trim();
+        return existing ? `${existing}\n${newLines.join('\n')}` : newLines.join('\n');
+      });
+    }
+
+    // 2. Gabungkan item tindakan ke kolom tindakan
+    const tindakanNames = (pkg.items || [])
+      .filter((it) => it.jenis_item === 'TINDAKAN')
+      .map((it) => it.nama_item.trim());
+    if (tindakanNames.length > 0) {
+      setTindakan((prev) => {
+        const parts = [prev.trim(), ...tindakanNames].filter(Boolean);
+        return parts.join(', ');
+      });
+    }
+
+    // 3. Gabungkan keterangan tindakan (TINDAKAN + LAIN)
+    const allProcNames = (pkg.items || [])
+      .filter((it) => it.jenis_item === 'TINDAKAN' || it.jenis_item === 'LAIN')
+      .map((it) => it.nama_item.trim());
+    if (allProcNames.length > 0) {
+      setKeteranganTindakan((prev) => {
+        const parts = [prev.trim(), ...allProcNames].filter(Boolean);
+        return parts.join(', ');
+      });
+    }
+
+    // 4. Akumulasikan biaya tindakan/paket ke pendapatan_lain
+    const pkgPrice = Number(pkg.harga_total || 0);
+    if (pkgPrice > 0) {
+      setPendapatanLain((prev) => Number(prev || 0) + pkgPrice);
+    }
+    setKeteranganPendapatan((prev) => {
+      const parts = [prev.trim(), pkg.nama.trim()].filter(Boolean);
+      return parts.join(', ');
+    });
+
+    // 5. Catat ke pendingPackages untuk audit snapshot saat simpan
+    setPendingPackages((prev) => [...prev, pkg]);
+
+    toast.success(`Paket terapi "${pkg.nama}" diterapkan ke formulir.`);
+  };
+
   // Save Examination Record
   const handleSave = async (isCompleteHandover: boolean) => {
     if (isCompleteHandover && diagnoses.length === 0) {
@@ -216,6 +284,26 @@ export function ExaminationForm({
         .single();
 
       if (error) throw error;
+
+      // F-012 Persist audit snapshot for applied therapy packages
+      if (pendingPackages.length > 0) {
+        const auditRows = pendingPackages.map((pkg) => ({
+          visit_id: visit.id,
+          package_id: pkg.id,
+          nama_paket_snapshot: pkg.nama,
+          harga_total_snapshot: pkg.harga_total,
+          items_snapshot: pkg.items || [],
+          applied_by_role: 'dokter_admin',
+        }));
+        const { error: auditError } = await supabase
+          .from('visit_therapy_packages')
+          .insert(auditRows);
+        if (auditError) {
+          console.error('Gagal mencatat snapshot paket terapi:', auditError);
+        } else {
+          setPendingPackages([]);
+        }
+      }
 
       toast.success(
         isCompleteHandover
@@ -349,6 +437,16 @@ export function ExaminationForm({
                 <Scissors className="w-3.5 h-3.5 text-indigo-600" weight="duotone" />
                 <span>Sirkumsisi</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPackageModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-xl text-xs font-bold transition shadow-btn-secondary tactile-btn"
+                title="Terapkan Paket Terapi Master Klinik"
+              >
+                <FirstAid className="w-3.5 h-3.5 text-teal-600" weight="duotone" />
+                <span>Paket Terapi</span>
+              </button>
             </div>
           </div>
 
@@ -481,6 +579,10 @@ export function ExaminationForm({
             keteranganPendapatan={keteranganPendapatan}
             onChangeKeteranganPendapatan={setKeteranganPendapatan}
             jenisPasien={visit.jenis_pasien}
+            onOpenTherapyPackageModal={() => setIsPackageModalOpen(true)}
+            items={prescriptionItems}
+            onItemsChange={setPrescriptionItems}
+            appliedPackageNames={pendingPackages.map((p) => p.nama)}
           />
 
           {/* SECTION 4: Point-of-Care Lab & Procedures */}
@@ -684,6 +786,17 @@ export function ExaminationForm({
           }}
         />
       )}
+
+      {/* Modal Terapkan Paket Terapi Master */}
+      <ApplyPackageModal
+        isOpen={isPackageModalOpen}
+        onClose={() => setIsPackageModalOpen(false)}
+        visit={visit}
+        onSubmit={async (pkg) => {
+          handleApplyTherapyPackage(pkg);
+        }}
+        extraAppliedIds={pendingPackages.map((p) => p.id)}
+      />
     </>
   );
 }

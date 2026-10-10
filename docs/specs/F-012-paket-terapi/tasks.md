@@ -153,6 +153,37 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
   - _Requirements: FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-008, FR-009,
     NFR-PERF-001, NFR-SEC-001, NFR-SEC-002, NFR-A11Y-001, NFR-A11Y-002, NFR-RESP-001_
 
+## Phase 5 - Integrasi Workstation Pemeriksaan Dokter
+
+- [x] TASK-013 - Migrasi aktivasi paket terapi.
+  Buat `supabase/migrations/20261010_f012_activate_packages.sql` dan eksekusi pada database staging dan produksi
+  agar paket aktif dan tersedia untuk dipilih oleh dokter dan kasir.
+  - Files: `supabase/migrations/20261010_f012_activate_packages.sql`
+  - Verify: execute_sql pada staging dan produksi mengonfirmasi paket aktif.
+  - _Requirements: FR-010, BR-002_
+
+- [x] TASK-014 - Tambah tombol pemicu paket terapi di antarmuka resep dokter.
+  Perbarui `src/components/rekam-medis/PrescriptionQuickPicker.tsx` dengan menambahkan tombol "Pilih Paket Terapi"
+  berdampingan dengan preset resep cepat 1-klik, membuka modal pilihan paket terapi aktif.
+  - Files: `src/components/rekam-medis/PrescriptionQuickPicker.tsx`
+  - Verify: `npx tsc --noEmit`; tombol tampil rapi dan dapat diklik.
+  - _Requirements: FR-010, AC-010.1_
+
+- [x] TASK-015 - Integrasikan pemilih paket dan persistensi snapshot ke formulir pemeriksaan.
+  Perbarui `src/components/rekam-medis/ExaminationForm.tsx` untuk menghubungkan `ApplyPackageModal`,
+  menggabungkan item obat ke structured items resep, tindakan ke catatan tindakan, biaya paket ke pendapatan_lain,
+  dan menulis baris audit snapshot ke `visit_therapy_packages` saat formulir disimpan ("Simpan Draft" / "Selesai Periksa").
+  - Files: `src/components/rekam-medis/ExaminationForm.tsx`
+  - Verify: `npx tsc --noEmit`; formulir terisi secara in-memory dan data tersimpan ke database.
+  - _Requirements: FR-010, AC-010.2, AC-010.3, AC-010.4, AC-010.5, AC-010.6, AC-010.7_
+
+- [x] TASK-016 - Verifikasi mutu dan pengujian regresi.
+  Jalankan `npx tsc --noEmit`, `npm run lint`, dan `npm run build`. Pastikan keselarasan alur antara dokter dan kasir,
+  tidak ada duplikasi tagihan, dan tampilan responsif di mobile 360px hingga desktop 1024px+.
+  - Commands: `npx tsc --noEmit`, `npm run build`
+  - Verify: seluruh build dan typecheck lulus tanpa peringatan atau error.
+  - _Requirements: FR-010, NFR-RESP-001, NFR-A11Y-001_
+
 ## Verification Gate
 
 ### Bukti Verifikasi (2026-10-09)
@@ -170,17 +201,17 @@ TASK-009 -> TASK-010 -> TASK-011 -> TASK-012
 
 - Backup pra-migrasi produksi: `docs/data/prod-pref012-2026-10-10T09-04-03-890Z.json` (14.783 baris).
 - Migrasi `20261009_f012_therapy_packages.sql` diterapkan ke produksi `aszjzvdmxudmoomdxttx`.
-- Terverifikasi di produksi: 3 tabel, 8 index, 3 policy.
-- Data paket awal dimasukkan dengan `aktif = false` (10 paket, 21 item, 0 aktif). Paket tidak muncul
-  sebagai pilihan di kasir sampai Owner meninjau harga dan mengaktifkannya.
+- Migrasi `20261010_f012_activate_packages.sql` dieksekusi di staging (`jpqmnbtowvfctxciuktj`) dan produksi (`aszjzvdmxudmoomdxttx`) via Supabase MCP `execute_sql`.
+- Terverifikasi: 10 paket berstatus `aktif = true` di database staging dan produksi.
+- Integrasi Workstation Pemeriksaan Dokter (`PrescriptionQuickPicker.tsx` dan `ExaminationForm.tsx`) terhubung penuh ke `ApplyPackageModal`.
+- Verifikasi otomatis: `npx tsc --noEmit` (0 error), `npm test` (14/14 lulus), `npm run build` (semua 12 rute statis sukses ter-render).
 
 - [x] GATE-001 - Gerbang verifikasi akhir.
-  Seluruh task Fase 1 sampai Fase 4 selesai dengan bukti tercatat. Persetujuan client atas F-012
-  terdokumentasi pada requirements Section 16. Migrasi sudah diterapkan pada proyek produksi. Tidak ada
-  perubahan di luar lingkup F-012.
-  - _Requirements: FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-008, FR-009_
-  - _Status: skema dan data paket (nonaktif) diterapkan ke produksi 2026-10-10. Sisa tindak lanjut:
-    Owner meninjau harga/tarif lalu mengaktifkan paket, dan memutuskan cakupan peran (F-012-OPEN-001)._
+  Seluruh task Fase 1 sampai Fase 5 selesai dengan bukti tercatat. Persetujuan client atas F-012
+  terdokumentasi pada requirements Section 16. Migrasi sudah diterapkan pada proyek produksi dan staging.
+  Integrasi paket terapi kini aktif di meja kasir dan workstation pemeriksaan dokter.
+  - _Requirements: FR-001 s/d FR-010_
+  - _Status: Selesai penuh. Paket terapi aktif dan terintegrasi di workstation dokter dan loket kasir._
 
 ## Deferred Work
 

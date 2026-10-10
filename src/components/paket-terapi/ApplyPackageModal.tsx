@@ -15,6 +15,7 @@ export interface ApplyPackageModalProps {
   onClose: () => void;
   visit: Visit | null;
   onSubmit: (pkg: TherapyPackage) => Promise<void>;
+  extraAppliedIds?: string[];
 }
 
 function sortItems(pkg: TherapyPackage): TherapyPackage {
@@ -24,7 +25,13 @@ function sortItems(pkg: TherapyPackage): TherapyPackage {
   };
 }
 
-export function ApplyPackageModal({ isOpen, onClose, visit, onSubmit }: ApplyPackageModalProps) {
+export function ApplyPackageModal({
+  isOpen,
+  onClose,
+  visit,
+  onSubmit,
+  extraAppliedIds,
+}: ApplyPackageModalProps) {
   const [packages, setPackages] = useState<TherapyPackage[]>([]);
   const [appliedIds, setAppliedIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -77,11 +84,15 @@ export function ApplyPackageModal({ isOpen, onClose, visit, onSubmit }: ApplyPac
     }
   }, [isOpen, load]);
 
+  const allAppliedIds = useMemo(() => {
+    return Array.from(new Set([...appliedIds, ...(extraAppliedIds || [])]));
+  }, [appliedIds, extraAppliedIds]);
+
   const selected = useMemo(
     () => packages.find((pkg) => pkg.id === selectedId) || null,
     [packages, selectedId]
   );
-  const isDuplicate = Boolean(selected && appliedIds.includes(selected.id));
+  const isDuplicate = Boolean(selected && allAppliedIds.includes(selected.id));
   const isBpjs = visit?.jenis_pasien === 'BPJS';
   const canSubmit = Boolean(selected) && !isSubmitting && (!isDuplicate || duplicateConfirmed);
 
@@ -144,7 +155,7 @@ export function ApplyPackageModal({ isOpen, onClose, visit, onSubmit }: ApplyPac
                 <legend className="sr-only">Daftar paket aktif</legend>
                 {packages.map((pkg) => {
                   const isChosen = pkg.id === selectedId;
-                  const alreadyApplied = appliedIds.includes(pkg.id);
+                  const alreadyApplied = allAppliedIds.includes(pkg.id);
                   return (
                     <label
                       key={pkg.id}
