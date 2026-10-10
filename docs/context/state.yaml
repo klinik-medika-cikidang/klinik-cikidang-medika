@@ -120,16 +120,20 @@ migration:
       migrations_applied:
         - supabase/migrations/20260929_f009_reconciliation_support.sql
         - supabase/migrations/20260929_f009_circumcision_register.sql
+        - supabase/migrations/20261005_f010_datapasien_identity_source.sql
         - supabase/migrations/20261009_f012_therapy_packages.sql
-      latest_change: "2026-10-10: skema F-012 (therapy_packages, therapy_package_items, visit_therapy_packages) diterapkan; 10 paket awal dimasukkan dengan aktif=false; backup pra-migrasi docs/data/prod-pref012-2026-10-10T09-04-03-890Z.json"
+      latest_change: "2026-10-10: F-010 diremigrasi ke produksi lewat scripts/f010-promote.mjs (identitas No RM dari DATAPASIEN.csv + REKAMMEDIS.csv); F-012 (schema + 10 paket nonaktif) diterapkan. Backup pra-rebuild docs/data/f010-promote-prebuild-*.json, pra-F-012 docs/data/prod-pref012-2026-10-10T09-04-03-890Z.json"
   result:
-    patients: 4703
-    visits: 7671
-    cash_flows: 1552
-    public_health_records: 810
+    patients: 3750
+    visits: 7827
+    cash_flows: 1624
+    public_health_records: 812
     circumcisions: 43
     circumcisions_without_date: 43
     duplicate_identity_groups: 0
+    identity_duplicate_no_rm: 0
+    identity_unresolved: 0
+    identity_needs_review: 18
     bidan_referral_rows: 82
     bidan_distinct: 9
     patients_without_rm: 0
@@ -138,6 +142,7 @@ migration:
     out_of_range_age: 0
     idempotent_second_run: true
     verified_in: "dev dan produksi"
+    note: "Angka result diperbarui setelah F-010 diremigrasi ke produksi 2026-10-10; identitas pasien kini mengikuti DATAPASIEN.csv."
 
 deployment:
   platform: Vercel
@@ -221,7 +226,7 @@ handoff:
   generated_views: "PROJECT_STATE.md dan PROGRESS.md belum memiliki renderer otomatis; state.yaml adalah sumber kanonik dan PROJECT_STATE.md mengarahkan pembaca ke handoff serta Git."
 
 last_updated: "2026-10-10"
-last_verified_commit: "de28444"
+last_verified_commit: "14cdae7"
 client_confirmations:
   - date: "2026-09-30"
     item: "Layout Laporan Puskesmas mengikuti sheet LAPORAN DPP sudah benar"

@@ -2,10 +2,10 @@
 id: F-010-TSK
 feature: F-010
 title: "Tasks: Sumber Identitas No RM dari DATAPASIEN"
-status: draft
+status: implemented
 owner: "Developer"
-last_updated: "2026-10-05"
-last_verified_commit: unverified
+last_updated: "2026-10-10"
+last_verified_commit: "14cdae7"
 related:
   - "requirements.md"
   - "design.md"
@@ -14,7 +14,9 @@ related:
 
 # Tasks: F-010 Sumber Identitas No RM dari DATAPASIEN
 
-Status: rehearsal staging fase 1 selesai dan terverifikasi. Promosi produksi menunggu jawaban klinik dan OQ-004.
+Status: promosi produksi selesai 2026-10-10. Master pasien, kunjungan, kas, register, dan sirkumsisi
+produksi dibangun ulang dari `DATAPASIEN.csv` + `REKAMMEDIS.csv` yang diperbarui klinik. Sisa: keputusan
+klinik atas 18 baris perlu tinjauan (OQ-001/OQ-002).
 
 Hasil rehearsal staging (2026-10-08): `patients` 3.725, audit 7.818 baris, 0 unresolved, 18 perlu
 tinjauan (`RM_NAMA_IDENTIK` 7.729, `RM_NAMA_VARIAN` 56, `NAMA_UNIK` 13, `NAMA+TIEBREAK` 2,
@@ -31,6 +33,12 @@ Status staging (2026-10-08), lengkap: `patients` 3.748 (semua RM 9 digit), `visi
 
 Catatan: 23 pasien sunat tidak ada di master `DATA`, jadi dibuatkan otomatis dengan No RM 9 digit
 lanjutan. Ini masuk daftar konfirmasi klinik.
+
+Status produksi (2026-10-10), lengkap: `patients` 3.750 (semua RM 9 digit, 0 RM ganda), `visits` 7.827,
+`cash_flows` 1.624, `public_health_records` 812, `circumcisions` 43, audit perlu tinjauan 18,
+`resolved_patient_id` NULL 0. Backup pra-rebuild: `docs/data/f010-promote-prebuild-*.json`.
+Contoh perbaikan: `020802708` Septiani auleria (3 kunjungan) dan `020802709` Reny nurdiany (6 kunjungan);
+`020802710` yang lama sudah tidak ada.
 
 Penggabungan `rmKey` di `scripts/reconcile-clinic-data.mjs` kini opt-in (`--legacy-merge`) dan tidak
 lagi jalan secara default.
@@ -98,19 +106,23 @@ lagi jalan secara default.
 
 ## Fase E - Promosi produksi (setelah persetujuan klinik)
 
-- [ ] **TASK-010-13**: Backup produksi (`node scripts/backup-clinic-data.mjs <ref> prod-f010`).
+- [x] **TASK-010-13**: Backup produksi (`node scripts/backup-clinic-data.mjs <ref> prod-f010`).
   _Requirements: NFR-REL-001, PRE-001_
 
-- [ ] **TASK-010-14**: Konfirmasi tidak ada data baru pasca-migrasi 2026-10-01 pada
+- [x] **TASK-010-14**: Konfirmasi tidak ada data baru pasca-migrasi 2026-10-01 pada
   `patients`, `visits`, dan `cash_flows`.
   _Requirements: ASM-003_
+  _Catatan 2026-10-10: klinik mengonfirmasi hanya `DATAPASIEN.csv` dan `REKAMMEDIS.csv` yang diperbarui,
+  keduanya dijadikan sumber; tidak ada catatan aplikasi di luar berkas itu._
 
-- [ ] **TASK-010-15**: Jalankan rebuild fase 1 dan fase 2 di produksi, lalu bangun ulang data
+- [x] **TASK-010-15**: Jalankan rebuild fase 1 dan fase 2 di produksi, lalu bangun ulang data
   program (register kesehatan, sunat, bidan) lewat skrip.
   _Requirements: FR-002, FR-006_
+  _Bukti 2026-10-10: `scripts/f010-promote.mjs --env=.env.production --confirm-prod` selesai tanpa galat._
 
-- [ ] **TASK-010-16**: Verifikasi produksi sesuai TASK-010-10 dan cocokkan dengan laporan.
+- [x] **TASK-010-16**: Verifikasi produksi sesuai TASK-010-10 dan cocokkan dengan laporan.
   _Requirements: FR-006, INV-001, INV-002, INV-003_
+  _Bukti 2026-10-10: 0 RM ganda, 0 `resolved_patient_id` NULL, `perlu_tinjauan` 18._
 
 ## Fase F - Serah terima dan pembersihan
 
