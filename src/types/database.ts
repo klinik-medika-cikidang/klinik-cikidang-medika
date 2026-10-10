@@ -59,7 +59,10 @@ export type Visit = {
     | 'Ditanggung BPJS'
     | 'Belum Bayar'
     | 'Piutang'
-    | 'Pending';
+    | 'Pending'
+    | 'Batal';
+  alasan_batal?: string;
+  dibatalkan_pada?: string;
   payment_state?: 'Menunggu Pembayaran' | 'Lunas' | 'Ditanggung BPJS' | 'Belum Bayar' | 'Piutang';
   piutang_nominal?: number;
   piutang_note?: string;
@@ -184,10 +187,11 @@ export type TherapyPackageItem = {
   jenis_item: TherapyPackageItemType;
   nama_item: string;
   qty: number;
+  satuan?: string | null;
   harga_satuan: number;
   subtotal: number;
   urutan: number;
-  catatan?: string;
+  catatan?: string | null;
   created_at?: string;
 };
 

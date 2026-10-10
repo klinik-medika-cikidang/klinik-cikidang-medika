@@ -19,6 +19,7 @@ import { EditPatientModal } from '@/components/pendaftaran/EditPatientModal';
 import { RegisterVisitModal } from '@/components/pendaftaran/RegisterVisitModal';
 import { ReceiptModal } from '@/components/pendaftaran/ReceiptModal';
 import { QueueTicketModal } from '@/components/pendaftaran/QueueTicketModal';
+import { CancelQueueModal } from '@/components/rekam-medis/CancelQueueModal';
 import { formatRupiah } from '@/lib/utils';
 
 export default function PendaftaranKasirPage() {
@@ -55,6 +56,8 @@ function PendaftaranKasirContent() {
   const [activeReceiptVisit, setActiveReceiptVisit] = useState<Visit | null>(null);
   const [isTicketOpen, setIsTicketOpen] = useState(false);
   const [activeTicketVisit, setActiveTicketVisit] = useState<Visit | null>(null);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [visitToCancel, setVisitToCancel] = useState<Visit | null>(null);
 
   const posPanelRef = useRef<HTMLDivElement>(null);
 
@@ -65,16 +68,20 @@ function PendaftaranKasirContent() {
     todayRevenue: 0,
   });
 
+  const isCancelled = (v: Visit) => v.status_pembayaran === 'Batal';
+
   const isSettled = (v: Visit) =>
-    v.status_pembayaran === 'Lunas' || v.status_pembayaran === 'Ditanggung BPJS';
+    !isCancelled(v) && (v.status_pembayaran === 'Lunas' || v.status_pembayaran === 'Ditanggung BPJS');
 
   const isWaitingDoctor = (v: Visit) => {
+    if (isCancelled(v)) return false;
     if (isSettled(v)) return false;
     if (v.status_pembayaran === 'Menunggu Kasir') return false;
     return v.status_pembayaran === 'Menunggu Dokter' || !v.kode_icd10;
   };
 
   const isWaitingPayment = (v: Visit) => {
+    if (isCancelled(v)) return false;
     if (isSettled(v)) return false;
     if (isWaitingDoctor(v)) return false;
     return (
@@ -364,6 +371,74 @@ function PendaftaranKasirContent() {
     setIsTicketOpen(true);
   };
 
+  const handleOpenCancelModal = (visit: Visit) => {
+    setVisitToCancel(visit);
+    setIsCancelModalOpen(true);
+  };
+
+  const handleCancelQueue = async (visitId: string, reason: string, note?: string) => {
+    const fullReason = note ? `${reason}: ${note}` : reason;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('visits')
+      .update({
+        status_pembayaran: 'Batal',
+        alasan_batal: fullReason,
+        dibatalkan_pada: new Date().toISOString(),
+      })
+      .eq('id', visitId)
+      .select(`
+        *,
+        pasien:patients(*),
+        dokter:doctors(*)
+      `)
+      .single();
+
+    if (error) {
+      toast.error(`Gagal membatalkan antrean: ${error.message}`);
+      throw error;
+    }
+
+    const updated = data as unknown as Visit;
+    setVisits((prev) => {
+      const next = prev.map((v) => (v.id === visitId ? updated : v));
+      if (selectedPosVisit?.id === visitId) {
+        setSelectedPosVisit(null);
+      }
+      return next;
+    });
+
+    toast.success('Antrean kunjungan berhasil dibatalkan.');
+  };
+
+  const handleRestoreQueue = async (visit: Visit) => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('visits')
+      .update({
+        status_pembayaran: 'Menunggu Dokter',
+        alasan_batal: null,
+        dibatalkan_pada: null,
+      })
+      .eq('id', visit.id)
+      .select(`
+        *,
+        pasien:patients(*),
+        dokter:doctors(*)
+      `)
+      .single();
+
+    if (error) {
+      toast.error(`Gagal memulihkan antrean: ${error.message}`);
+      return;
+    }
+
+    const updated = data as unknown as Visit;
+    setVisits((prev) => prev.map((v) => (v.id === visit.id ? updated : v)));
+
+    toast.success('Antrean berhasil dipulihkan ke status Menunggu Dokter.');
+  };
+
   const todayFormatted = new Intl.DateTimeFormat('id-ID', {
     weekday: 'long',
     day: 'numeric',
@@ -455,6 +530,8 @@ function PendaftaranKasirContent() {
         onPrintTicket={handlePrintTicket}
         onEditPatient={handleEditPatient}
         onRegisterVisit={handleRegisterVisit}
+        onCancelVisit={handleOpenCancelModal}
+        onRestoreVisit={handleRestoreQueue}
       />
 
       {/* ============================================================== */}
@@ -506,6 +583,16 @@ function PendaftaranKasirContent() {
           setActiveTicketVisit(null);
         }}
         visit={activeTicketVisit}
+      />
+
+      <CancelQueueModal
+        isOpen={isCancelModalOpen}
+        visit={visitToCancel}
+        onClose={() => {
+          setIsCancelModalOpen(false);
+          setVisitToCancel(null);
+        }}
+        onConfirm={handleCancelQueue}
       />
     </div>
   );

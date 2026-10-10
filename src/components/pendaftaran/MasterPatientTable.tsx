@@ -11,6 +11,8 @@ import {
   Users,
   CheckCircle,
   PlusCircle,
+  XCircle,
+  ArrowCounterClockwise,
 } from '@phosphor-icons/react';
 import type { Visit, Patient } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
@@ -21,6 +23,7 @@ export type TableFilterTab =
   | 'menunggu_dokter'
   | 'menunggu_kasir'
   | 'selesai'
+  | 'batal'
   | 'master_pasien';
 
 export interface MasterPatientTableProps {
@@ -32,6 +35,8 @@ export interface MasterPatientTableProps {
   onPrintTicket: (visit: Visit) => void;
   onEditPatient: (patient: Patient) => void;
   onRegisterVisit: (patient: Patient) => void;
+  onCancelVisit?: (visit: Visit) => void;
+  onRestoreVisit?: (visit: Visit) => void;
 }
 
 interface SearchSuggestion {
@@ -51,6 +56,8 @@ export function MasterPatientTable({
   onPrintTicket,
   onEditPatient,
   onRegisterVisit,
+  onCancelVisit,
+  onRestoreVisit,
 }: MasterPatientTableProps) {
   const [activeTab, setActiveTab] = useState<TableFilterTab>('hari_ini');
   const [searchQuery, setSearchQuery] = useState('');
@@ -63,16 +70,20 @@ export function MasterPatientTable({
 
   const itemsPerPage = 10;
 
+  const isCancelled = (v: Visit) => v.status_pembayaran === 'Batal';
+
   const isSettled = (v: Visit) =>
-    v.status_pembayaran === 'Lunas' || v.status_pembayaran === 'Ditanggung BPJS';
+    !isCancelled(v) && (v.status_pembayaran === 'Lunas' || v.status_pembayaran === 'Ditanggung BPJS');
 
   const isWaitingDoctor = (v: Visit) => {
+    if (isCancelled(v)) return false;
     if (isSettled(v)) return false;
     if (v.status_pembayaran === 'Menunggu Kasir') return false;
     return v.status_pembayaran === 'Menunggu Dokter' || !v.kode_icd10;
   };
 
   const isWaitingPayment = (v: Visit) => {
+    if (isCancelled(v)) return false;
     if (isSettled(v)) return false;
     if (isWaitingDoctor(v)) return false;
     return (
@@ -92,6 +103,10 @@ export function MasterPatientTable({
   );
   const countSelesai = useMemo(
     () => visits.filter(isSettled).length,
+    [visits]
+  );
+  const countBatal = useMemo(
+    () => visits.filter(isCancelled).length,
     [visits]
   );
 
@@ -183,6 +198,7 @@ export function MasterPatientTable({
       if (activeTab === 'menunggu_dokter' && !isWaitingDoctor(v)) return false;
       if (activeTab === 'menunggu_kasir' && !isWaitingPayment(v)) return false;
       if (activeTab === 'selesai' && !isSettled(v)) return false;
+      if (activeTab === 'batal' && !isCancelled(v)) return false;
       if (activeTab === 'master_pasien') return false;
       return true;
     });
@@ -449,6 +465,20 @@ export function MasterPatientTable({
 
         <button
           type="button"
+          onClick={() => handleTabChange('batal')}
+          className={cn(
+            'px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all tactile-btn flex items-center gap-1',
+            activeTab === 'batal'
+              ? 'bg-white text-rose-800 shadow-btn-secondary'
+              : 'text-slate-600 hover:text-slate-900'
+          )}
+        >
+          <XCircle className="w-3.5 h-3.5 text-rose-600" weight="duotone" />
+          <span>Batal ({countBatal})</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => handleTabChange('master_pasien')}
           className={cn(
             'px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all tactile-btn flex items-center gap-1',
@@ -635,7 +665,18 @@ export function MasterPatientTable({
                     </td>
 
                     <td className="px-3.5 py-2.5 whitespace-nowrap">
-                      {isWaitingDoctor(visit) ? (
+                      {isCancelled(visit) ? (
+                        <div className="space-y-0.5">
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-50 text-rose-800 border border-rose-200">
+                            Batal
+                          </span>
+                          {visit.alasan_batal && (
+                            <p className="text-[10px] text-slate-500 truncate max-w-[140px]" title={visit.alasan_batal}>
+                              {visit.alasan_batal}
+                            </p>
+                          )}
+                        </div>
+                      ) : isWaitingDoctor(visit) ? (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200">
                           Menunggu Dokter
                         </span>
@@ -656,6 +697,19 @@ export function MasterPatientTable({
 
                     <td className="px-3.5 py-2.5 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
+                        {/* 0. Action: Pulihkan Antrean bila Batal */}
+                        {isCancelled(visit) && onRestoreVisit && (
+                          <button
+                            type="button"
+                            onClick={() => onRestoreVisit(visit)}
+                            className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-teal-700 border border-teal-300 rounded-xl text-[11px] font-bold shadow-btn-secondary transition-colors tactile-btn flex items-center gap-1 min-h-[32px]"
+                            title="Pulihkan antrean pasien ke status menunggu dokter"
+                          >
+                            <ArrowCounterClockwise className="w-3.5 h-3.5 text-teal-600" weight="bold" />
+                            <span>Pulihkan</span>
+                          </button>
+                        )}
+
                         {/* 1. Primary Action: Bayar Kasir */}
                         {isWaitingPayment(visit) && (
                           <button
@@ -692,6 +746,19 @@ export function MasterPatientTable({
                           >
                             <Ticket className="w-3.5 h-3.5 text-teal-600" weight="duotone" />
                             <span>Karcis</span>
+                          </button>
+                        )}
+
+                        {/* 4. Action: Batalkan Antrean untuk pasien yang belum selesai */}
+                        {(isWaitingDoctor(visit) || isWaitingPayment(visit)) && onCancelVisit && (
+                          <button
+                            type="button"
+                            onClick={() => onCancelVisit(visit)}
+                            className="p-1.5 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-slate-300 hover:border-rose-300 rounded-xl text-[11px] font-bold shadow-btn-secondary transition-colors tactile-btn min-h-[32px] min-w-[32px] flex items-center justify-center"
+                            title="Batalkan antrean kunjungan pasien ini"
+                            aria-label={`Batalkan antrean ${patientName}`}
+                          >
+                            <XCircle className="w-3.5 h-3.5 text-rose-500" weight="bold" />
                           </button>
                         )}
 

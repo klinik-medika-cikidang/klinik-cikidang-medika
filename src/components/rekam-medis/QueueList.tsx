@@ -9,6 +9,8 @@ import {
   CheckCircle,
   Stethoscope,
   MapPin,
+  XCircle,
+  ArrowCounterClockwise,
 } from '@phosphor-icons/react';
 import type { Visit } from '@/types/database';
 import { Badge } from '@/components/ui';
@@ -20,6 +22,8 @@ export interface QueueListProps {
   onSelectVisit: (visit: Visit) => void;
   isLoading: boolean;
   onRefresh: () => void;
+  onCancelVisit?: (visit: Visit) => void;
+  onRestoreVisit?: (visit: Visit) => void;
 }
 
 export function QueueList({
@@ -28,16 +32,21 @@ export function QueueList({
   onSelectVisit,
   isLoading,
   onRefresh,
+  onCancelVisit,
+  onRestoreVisit,
 }: QueueListProps) {
-  const [filterStatus, setFilterStatus] = useState<'all' | 'waiting' | 'done'>('waiting');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'waiting' | 'done' | 'cancelled'>('waiting');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const isVisitDone = (v: Visit) => v.status_pembayaran !== 'Menunggu Dokter' || Boolean(v.kode_icd10);
+  const isVisitCancelled = (v: Visit) => v.status_pembayaran === 'Batal';
+  const isVisitDone = (v: Visit) =>
+    !isVisitCancelled(v) && (v.status_pembayaran !== 'Menunggu Dokter' || Boolean(v.kode_icd10));
+  const isVisitWaiting = (v: Visit) => !isVisitCancelled(v) && !isVisitDone(v);
 
   const filteredVisits = visits.filter((v) => {
-    const done = isVisitDone(v);
-    if (filterStatus === 'waiting' && done) return false;
-    if (filterStatus === 'done' && !done) return false;
+    if (filterStatus === 'waiting' && !isVisitWaiting(v)) return false;
+    if (filterStatus === 'done' && !isVisitDone(v)) return false;
+    if (filterStatus === 'cancelled' && !isVisitCancelled(v)) return false;
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -50,8 +59,9 @@ export function QueueList({
     return true;
   });
 
-  const waitingCount = visits.filter((v) => !isVisitDone(v)).length;
-  const doneCount = visits.filter((v) => isVisitDone(v)).length;
+  const waitingCount = visits.filter(isVisitWaiting).length;
+  const doneCount = visits.filter(isVisitDone).length;
+  const cancelledCount = visits.filter(isVisitCancelled).length;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 shadow-card-double flex flex-col h-[520px] lg:h-[calc(100vh-140px)] min-h-0 overflow-hidden">
@@ -98,12 +108,12 @@ export function QueueList({
         </div>
 
         {/* Recessed Track Filter Tabs (Dashboard Style) */}
-        <div className="w-full bg-slate-100/80 p-0.5 rounded-xl border border-slate-200/90 shadow-2xs grid grid-cols-3 gap-0.5">
+        <div className="w-full bg-slate-100/80 p-0.5 rounded-xl border border-slate-200/90 shadow-2xs grid grid-cols-4 gap-0.5">
           <button
             type="button"
             onClick={() => setFilterStatus('waiting')}
             className={cn(
-              'h-7 sm:h-8 px-2 rounded-lg text-xs transition-all tactile-btn flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none',
+              'h-7 sm:h-8 px-1 rounded-lg text-xs transition-all tactile-btn flex items-center justify-center gap-1 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none',
               filterStatus === 'waiting'
                 ? 'bg-white text-teal-700 font-bold shadow-xs border border-slate-200/70'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 border border-transparent font-medium'
@@ -119,7 +129,7 @@ export function QueueList({
             type="button"
             onClick={() => setFilterStatus('done')}
             className={cn(
-              'h-7 sm:h-8 px-2 rounded-lg text-xs transition-all tactile-btn flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none',
+              'h-7 sm:h-8 px-1 rounded-lg text-xs transition-all tactile-btn flex items-center justify-center gap-1 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none',
               filterStatus === 'done'
                 ? 'bg-white text-teal-700 font-bold shadow-xs border border-slate-200/70'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 border border-transparent font-medium'
@@ -133,9 +143,25 @@ export function QueueList({
 
           <button
             type="button"
+            onClick={() => setFilterStatus('cancelled')}
+            className={cn(
+              'h-7 sm:h-8 px-1 rounded-lg text-xs transition-all tactile-btn flex items-center justify-center gap-1 focus-visible:ring-2 focus-visible:ring-rose-600 focus-visible:outline-none',
+              filterStatus === 'cancelled'
+                ? 'bg-white text-rose-700 font-bold shadow-xs border border-slate-200/70'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 border border-transparent font-medium'
+            )}
+          >
+            <span>Batal</span>
+            <span className="px-1.5 py-0.2 bg-rose-100 text-rose-900 rounded-full text-[10px] font-mono font-bold">
+              {cancelledCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setFilterStatus('all')}
             className={cn(
-              'h-7 sm:h-8 px-2 rounded-lg text-xs transition-all tactile-btn flex items-center justify-center gap-1 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none',
+              'h-7 sm:h-8 px-1 rounded-lg text-xs transition-all tactile-btn flex items-center justify-center gap-1 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none',
               filterStatus === 'all'
                 ? 'bg-white text-teal-700 font-bold shadow-xs border border-slate-200/70'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 border border-transparent font-medium'
@@ -163,19 +189,25 @@ export function QueueList({
               <h4 className="text-xs font-bold text-slate-900">
                 {filterStatus === 'waiting'
                   ? 'Tidak Ada Antrean Menunggu di Poli'
-                  : 'Belum Ada Pasien Terdata'}
+                  : filterStatus === 'cancelled'
+                    ? 'Tidak Ada Antrean yang Dibatalkan'
+                    : 'Belum Ada Pasien Terdata'}
               </h4>
               <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
                 {filterStatus === 'waiting'
                   ? 'Seluruh pasien yang terdaftar telah selesai diperiksa dokter. Pasien baru dari loket akan otomatis muncul di sini.'
-                  : 'Tidak ada data antrean pasien yang cocok dengan kriteria pencarian Anda.'}
+                  : filterStatus === 'cancelled'
+                    ? 'Tidak ada antrean pasien yang berstatus batal untuk tanggal periksa ini.'
+                    : 'Tidak ada data antrean pasien yang cocok dengan kriteria pencarian Anda.'}
               </p>
             </div>
           </div>
         ) : (
           filteredVisits.map((visit) => {
             const isSelected = selectedVisitId === visit.id;
+            const cancelled = isVisitCancelled(visit);
             const done = isVisitDone(visit);
+            const waiting = isVisitWaiting(visit);
             const fullName = visit.pasien
               ? [visit.pasien.gelar, visit.pasien.nama].filter(Boolean).join(' ')
               : 'Pasien';
@@ -189,7 +221,9 @@ export function QueueList({
                   'p-3 rounded-xl border transition-all cursor-pointer select-none space-y-2 tactile-card',
                   isSelected
                     ? 'border-teal-600 bg-teal-50/70 shadow-xs ring-2 ring-teal-500/20'
-                    : 'border-slate-200/90 bg-white hover:border-teal-300 hover:bg-slate-50/80 shadow-2xs'
+                    : cancelled
+                      ? 'border-rose-200/90 bg-rose-50/30 hover:border-rose-300 shadow-2xs'
+                      : 'border-slate-200/90 bg-white hover:border-teal-300 hover:bg-slate-50/80 shadow-2xs'
                 )}
               >
                 <div className="flex items-start justify-between gap-2.5">
@@ -198,9 +232,11 @@ export function QueueList({
                     <div
                       className={cn(
                         'w-9 h-9 rounded-lg font-mono font-bold text-xs flex items-center justify-center shrink-0 border shadow-2xs',
-                        done
-                          ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
-                          : 'bg-amber-100 border-amber-300 text-amber-900'
+                        cancelled
+                          ? 'bg-rose-50 border-rose-200 text-rose-800'
+                          : done
+                            ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
+                            : 'bg-amber-100 border-amber-300 text-amber-900'
                       )}
                     >
                       #{queueNumberStr}
@@ -239,7 +275,12 @@ export function QueueList({
                   </div>
 
                   {/* Status Indicator */}
-                  {done ? (
+                  {cancelled ? (
+                    <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                      <XCircle className="w-3 h-3 text-rose-600" weight="fill" />
+                      Batal
+                    </span>
+                  ) : done ? (
                     <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                       <CheckCircle className="w-3 h-3 text-emerald-600" weight="fill" />
                       Selesai
@@ -253,36 +294,77 @@ export function QueueList({
                 </div>
 
                 {/* Complaint Preview */}
-                {visit.keluhan_anamnesa && (
+                {visit.keluhan_anamnesa && !cancelled && (
                   <p className="text-[11px] text-slate-600 line-clamp-1 bg-slate-50/80 px-2.5 py-1.5 rounded-xl border border-slate-200/80 font-medium">
                     <span className="font-bold text-slate-700">Keluhan: </span>
                     {visit.keluhan_anamnesa}
                   </p>
                 )}
 
+                {/* Cancellation Reason Preview */}
+                {cancelled && visit.alasan_batal && (
+                  <p className="text-[11px] text-rose-800 bg-rose-50/80 px-2.5 py-1.5 rounded-xl border border-rose-200/80 font-medium leading-relaxed">
+                    <span className="font-bold text-rose-900">Alasan: </span>
+                    {visit.alasan_batal}
+                  </p>
+                )}
+
                 {/* Direct Action Bar */}
-                <div className="pt-1 flex items-center justify-between border-t border-slate-100">
+                <div className="pt-1 flex items-center justify-between gap-1 border-t border-slate-100">
                   <span className="text-[10px] text-slate-500 font-mono">
                     {visit.jam_periksa || 'Hari ini'}
                   </span>
 
-                  {!done ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectVisit(visit);
-                      }}
-                      className={cn(
-                        'px-2.5 py-1 rounded-lg text-xs font-bold transition tactile-btn flex items-center gap-1 min-h-[30px]',
-                        isSelected
-                          ? 'bg-teal-600 text-white shadow-btn-primary'
-                          : 'bg-white hover:bg-teal-50 text-teal-700 border border-teal-200 shadow-btn-secondary'
+                  {cancelled ? (
+                    onRestoreVisit && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRestoreVisit(visit);
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold transition tactile-btn flex items-center gap-1 min-h-[30px] bg-white hover:bg-slate-50 text-teal-700 border border-teal-200 shadow-btn-secondary"
+                        title="Pulihkan antrean pasien ke status menunggu dokter"
+                      >
+                        <ArrowCounterClockwise className="w-3.5 h-3.5 text-teal-600" weight="bold" />
+                        <span>Pulihkan Antrean</span>
+                      </button>
+                    )
+                  ) : waiting ? (
+                    <div className="flex items-center gap-1.5">
+                      {onCancelVisit && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onCancelVisit(visit);
+                          }}
+                          className="px-2 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-700 hover:bg-rose-50 border border-slate-200/80 hover:border-rose-200 transition tactile-btn min-h-[30px] flex items-center gap-1"
+                          title="Batalkan antrean pasien ini"
+                          aria-label={`Batalkan antrean ${fullName}`}
+                        >
+                          <XCircle className="w-3.5 h-3.5 text-rose-500" weight="bold" />
+                          <span>Batalkan</span>
+                        </button>
                       )}
-                    >
-                      <Stethoscope className="w-3.5 h-3.5" weight="bold" />
-                      <span>{isSelected ? 'Sedang Diperiksa' : 'Panggil & Periksa'}</span>
-                    </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectVisit(visit);
+                        }}
+                        className={cn(
+                          'px-2.5 py-1 rounded-lg text-xs font-bold transition tactile-btn flex items-center gap-1 min-h-[30px]',
+                          isSelected
+                            ? 'bg-teal-600 text-white shadow-btn-primary'
+                            : 'bg-white hover:bg-teal-50 text-teal-700 border border-teal-200 shadow-btn-secondary'
+                        )}
+                      >
+                        <Stethoscope className="w-3.5 h-3.5" weight="bold" />
+                        <span>{isSelected ? 'Sedang Diperiksa' : 'Panggil & Periksa'}</span>
+                      </button>
+                    </div>
                   ) : (
                     <span className="text-[10px] font-bold text-slate-500">
                       Telah Selesai

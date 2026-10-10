@@ -12,10 +12,12 @@ import {
   ArrowsIn,
 } from '@phosphor-icons/react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import type { Visit } from '@/types/database';
 import { QueueList } from '@/components/rekam-medis/QueueList';
 import { ExaminationForm } from '@/components/rekam-medis/ExaminationForm';
+import { CancelQueueModal } from '@/components/rekam-medis/CancelQueueModal';
 import { cn } from '@/lib/utils';
 
 export default function RekamMedisPage() {
@@ -27,6 +29,8 @@ export default function RekamMedisPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isExamExpanded, setIsExamExpanded] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [visitToCancel, setVisitToCancel] = useState<Visit | null>(null);
 
   const fetchVisits = useCallback(async () => {
     setIsLoading(true);
@@ -125,6 +129,83 @@ export default function RekamMedisPage() {
 
       return nextList;
     });
+  };
+
+  const handleOpenCancelModal = (visit: Visit) => {
+    setVisitToCancel(visit);
+    setIsCancelModalOpen(true);
+  };
+
+  const handleCancelQueue = async (visitId: string, reason: string, note?: string) => {
+    const fullReason = note ? `${reason}: ${note}` : reason;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('visits')
+      .update({
+        status_pembayaran: 'Batal',
+        alasan_batal: fullReason,
+        dibatalkan_pada: new Date().toISOString(),
+      })
+      .eq('id', visitId)
+      .select(`
+        *,
+        pasien:patients(*),
+        dokter:doctors(*)
+      `)
+      .single();
+
+    if (error) {
+      toast.error(`Gagal membatalkan antrean: ${error.message}`);
+      throw error;
+    }
+
+    const updated = data as unknown as Visit;
+    setVisits((prev) => {
+      const next = prev.map((v) => (v.id === visitId ? updated : v));
+      if (selectedVisit?.id === visitId) {
+        const nextWaiting = next.find(
+          (v) => v.id !== visitId && v.status_pembayaran === 'Menunggu Dokter' && !v.kode_icd10
+        );
+        setSelectedVisit(nextWaiting || null);
+      }
+      return next;
+    });
+
+    toast.success('Antrean pasien berhasil dibatalkan.');
+  };
+
+  const handleRestoreQueue = async (visit: Visit) => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('visits')
+      .update({
+        status_pembayaran: 'Menunggu Dokter',
+        alasan_batal: null,
+        dibatalkan_pada: null,
+      })
+      .eq('id', visit.id)
+      .select(`
+        *,
+        pasien:patients(*),
+        dokter:doctors(*)
+      `)
+      .single();
+
+    if (error) {
+      toast.error(`Gagal memulihkan antrean: ${error.message}`);
+      return;
+    }
+
+    const updated = data as unknown as Visit;
+    setVisits((prev) => {
+      const next = prev.map((v) => (v.id === visit.id ? updated : v));
+      if (!selectedVisit) {
+        setSelectedVisit(updated);
+      }
+      return next;
+    });
+
+    toast.success('Antrean berhasil dipulihkan ke status Menunggu Dokter.');
   };
 
   const hasWaitingPatients = visits.some(
@@ -228,6 +309,8 @@ export default function RekamMedisPage() {
             onSelectVisit={handleSelectVisit}
             isLoading={isLoading}
             onRefresh={fetchVisits}
+            onCancelVisit={handleOpenCancelModal}
+            onRestoreVisit={handleRestoreQueue}
           />
         </div>
 
@@ -300,6 +383,16 @@ export default function RekamMedisPage() {
           )}
         </div>
       </div>
+
+      <CancelQueueModal
+        isOpen={isCancelModalOpen}
+        visit={visitToCancel}
+        onClose={() => {
+          setIsCancelModalOpen(false);
+          setVisitToCancel(null);
+        }}
+        onConfirm={handleCancelQueue}
+      />
     </div>
   );
 }
