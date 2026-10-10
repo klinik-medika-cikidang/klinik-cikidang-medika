@@ -14,6 +14,7 @@ import {
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { CLINIC_DRUG_CATALOG, FAST_SIGNA_CHIPS, type PrescriptionPreset } from '@/constants/prescriptions';
+import { ALASAN_GRATIS_OPTIONS, DEFAULT_TARIFFS } from '@/constants/clinic';
 import { formatRupiah, cn } from '@/lib/utils';
 
 export interface PrescriptionItem {
@@ -34,6 +35,10 @@ export interface PrescriptionQuickPickerProps {
   keteranganPendapatan: string;
   onChangeKeteranganPendapatan: (val: string) => void;
   jenisPasien?: 'BPJS' | 'Umum' | string;
+  isGratis?: boolean;
+  onChangeIsGratis?: (val: boolean) => void;
+  alasanGratis?: string;
+  onChangeAlasanGratis?: (val: string) => void;
   className?: string;
   onOpenTherapyPackageModal?: () => void;
   items?: PrescriptionItem[];
@@ -85,6 +90,10 @@ export function PrescriptionQuickPicker({
   keteranganPendapatan,
   onChangeKeteranganPendapatan,
   jenisPasien,
+  isGratis = false,
+  onChangeIsGratis,
+  alasanGratis = '',
+  onChangeAlasanGratis,
   className,
   onOpenTherapyPackageModal,
   items,
@@ -491,21 +500,95 @@ export function PrescriptionQuickPicker({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              Biaya Periksa Dokter (Rp)
-            </label>
+            <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+              <label className="block text-[11px] font-bold text-slate-700">
+                Biaya Periksa Dokter (Rp)
+              </label>
+              {jenisPasien !== 'BPJS' && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onChangeIsGratis) onChangeIsGratis(true);
+                      onChangeBiayaPeriksa(0);
+                      onChangePendapatanLain(0);
+                      if (onChangeAlasanGratis && !alasanGratis) {
+                        onChangeAlasanGratis('Kontrol Pasca Tindakan');
+                      }
+                    }}
+                    className={cn(
+                      'text-[10px] px-2 py-0.5 rounded-lg font-bold border transition tactile-btn flex items-center gap-1 min-h-[26px]',
+                      isGratis
+                        ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                    )}
+                  >
+                    <span>✓ Free 100% (Rp 0)</span>
+                  </button>
+                  {isGratis && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onChangeIsGratis) onChangeIsGratis(false);
+                        onChangeBiayaPeriksa(DEFAULT_TARIFFS.umum);
+                        if (onChangeAlasanGratis) onChangeAlasanGratis('');
+                      }}
+                      className="text-[10px] px-2 py-0.5 rounded-lg font-medium border bg-white text-slate-600 border-slate-300 hover:bg-slate-50 transition min-h-[26px]"
+                    >
+                      Kembalikan Tarif Normal
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             <input
               type="number"
               value={biayaPeriksa}
-              onChange={(e) => onChangeBiayaPeriksa(Number(e.target.value))}
-              disabled={jenisPasien === 'BPJS'}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                onChangeBiayaPeriksa(val);
+                if (val > 0 && isGratis && onChangeIsGratis) {
+                  onChangeIsGratis(false);
+                }
+              }}
+              disabled={jenisPasien === 'BPJS' || isGratis}
               className="w-full px-3 py-1.5 min-h-[36px] text-xs font-mono font-bold bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-600 outline-none disabled:bg-slate-100 disabled:text-slate-500"
             />
-            {jenisPasien === 'BPJS' && (
+
+            {jenisPasien === 'BPJS' ? (
               <span className="text-[10px] text-emerald-700 font-bold block mt-1">
                 ✓ Pasien BPJS Kesehatan (Tercover Kapitasi Rp 0)
               </span>
-            )}
+            ) : isGratis ? (
+              <div className="mt-2 p-2.5 bg-emerald-50 border border-emerald-200/90 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-emerald-900 font-bold">
+                  <span>✓ Pasien Umum Bebas Biaya (Diskon 100%)</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-emerald-800 font-semibold block">Pilih Alasan Bebas Biaya:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {ALASAN_GRATIS_OPTIONS.map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => {
+                          if (onChangeAlasanGratis) onChangeAlasanGratis(opt);
+                        }}
+                        className={cn(
+                          'text-[10px] px-2 py-1 rounded-md font-medium border transition tactile-btn min-h-[24px]',
+                          alasanGratis === opt
+                            ? 'bg-emerald-700 text-white border-emerald-800 font-bold shadow-2xs'
+                            : 'bg-white text-emerald-900 border-emerald-300 hover:bg-emerald-100'
+                        )}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div>

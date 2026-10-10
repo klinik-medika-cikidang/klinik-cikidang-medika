@@ -79,9 +79,15 @@ features:
     status: completed
     spec_path: docs/specs/F-015-laporan-puskesmas-program-kesehatan
     active_phase: completed
+  - id: F-016
+    name: Pembebasan Biaya Pasien Umum (Free 100% / Rp 0)
+    track: engineering
+    status: completed
+    spec_path: docs/specs/F-016-pasien-umum-bebas-biaya
+    active_phase: completed
 
 active:
-  feature_id: "F-015"
+  feature_id: "F-016"
   task_id: "COMPLETED"
   branch: "main"
 

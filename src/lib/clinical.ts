@@ -42,3 +42,64 @@ export function classifyPtm(record: {
 
   return 'Lainnya';
 }
+
+export interface BillingVisitInput {
+  jenis_pasien: 'UMUM' | 'BPJS' | string;
+  biaya_periksa?: number | null;
+  pendapatan_lain?: number | null;
+  is_gratis?: boolean | null;
+  alasan_gratis?: string | null;
+}
+
+export interface ResolvedBilling {
+  isGratis: boolean;
+  biayaPeriksa: number;
+  pendapatanLain: number;
+  totalTagihan: number;
+  alasanGratis: string;
+}
+
+export function resolveVisitBilling(
+  visit: BillingVisitInput,
+  defaultUmumTariff = 150000
+): ResolvedBilling {
+  const isFree = Boolean(
+    visit.is_gratis ||
+      (visit.jenis_pasien === 'UMUM' && visit.biaya_periksa === 0)
+  );
+
+  if (visit.jenis_pasien === 'BPJS') {
+    return {
+      isGratis: false,
+      biayaPeriksa: 0,
+      pendapatanLain: 0,
+      totalTagihan: 0,
+      alasanGratis: '',
+    };
+  }
+
+  if (isFree) {
+    return {
+      isGratis: true,
+      biayaPeriksa: 0,
+      pendapatanLain: 0,
+      totalTagihan: 0,
+      alasanGratis: visit.alasan_gratis || 'Kontrol Pasca Tindakan',
+    };
+  }
+
+  const biayaPeriksa =
+    visit.biaya_periksa !== null && visit.biaya_periksa !== undefined
+      ? Number(visit.biaya_periksa)
+      : defaultUmumTariff;
+  const pendapatanLain = Number(visit.pendapatan_lain || 0);
+
+  return {
+    isGratis: false,
+    biayaPeriksa,
+    pendapatanLain,
+    totalTagihan: biayaPeriksa + pendapatanLain,
+    alasanGratis: '',
+  };
+}
+

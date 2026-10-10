@@ -29,6 +29,7 @@ Mutable execution status, active task, blockers, and commits belong in `docs/con
 | `F-013` | Surat Keterangan Sakit - Alamat Tambahan | `docs/specs/F-013-surat-keterangan-sakit/` | P2 | draft | Change Request |
 | `F-014` | Batal & Pulihkan Antrean Pasien | `docs/specs/F-014-batal-antrean-pasien/` | P1 | implemented | Change Request |
 | `F-015` | Peningkatan Laporan Puskesmas & Register Program Kesehatan | `docs/specs/F-015-laporan-puskesmas-program-kesehatan/` | P1 | implemented | Change Request |
+| `F-016` | Pembebasan Biaya Pasien Umum (Free 100% / Rp 0) | `docs/specs/F-016-pasien-umum-bebas-biaya/` | P1 | implemented | Change Request |
 
 ## Lifecycle gate meaning
 

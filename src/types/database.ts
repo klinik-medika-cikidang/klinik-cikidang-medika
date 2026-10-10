@@ -63,6 +63,8 @@ export type Visit = {
     | 'Batal';
   alasan_batal?: string;
   dibatalkan_pada?: string;
+  is_gratis?: boolean;
+  alasan_gratis?: string;
   payment_state?: 'Menunggu Pembayaran' | 'Lunas' | 'Ditanggung BPJS' | 'Belum Bayar' | 'Piutang';
   piutang_nominal?: number;
   piutang_note?: string;

@@ -94,6 +94,10 @@ export function ExaminationForm({
   });
   const [pendapatanLain, setPendapatanLain] = useState<number>(Number(visit.pendapatan_lain || 0));
   const [keteranganPendapatan, setKeteranganPendapatan] = useState(visit.keterangan_pendapatan || '');
+  const [isGratis, setIsGratis] = useState<boolean>(() =>
+    Boolean(visit.is_gratis || (visit.jenis_pasien === 'UMUM' && visit.biaya_periksa === 0))
+  );
+  const [alasanGratis, setAlasanGratis] = useState<string>(visit.alasan_gratis || '');
 
   // UI state
   const [isSaving, setIsSaving] = useState(false);
@@ -140,10 +144,20 @@ export function ExaminationForm({
     );
     setPendapatanLain(Number(visit.pendapatan_lain || 0));
     setKeteranganPendapatan(visit.keterangan_pendapatan || '');
+    setIsGratis(Boolean(visit.is_gratis || (visit.jenis_pasien === 'UMUM' && visit.biaya_periksa === 0)));
+    setAlasanGratis(visit.alasan_gratis || '');
     setErrorMessage(null);
     setPendingPackages([]);
     setPrescriptionItems([]);
-  }, [visit.id, visit.biaya_periksa, visit.pendapatan_lain, visit.keterangan_pendapatan, visit.jenis_pasien]);
+  }, [
+    visit.id,
+    visit.biaya_periksa,
+    visit.pendapatan_lain,
+    visit.keterangan_pendapatan,
+    visit.jenis_pasien,
+    visit.is_gratis,
+    visit.alasan_gratis,
+  ]);
 
   const patient = visit.pasien;
   const isFinished = visit.status_pembayaran !== 'Menunggu Dokter';
@@ -274,9 +288,11 @@ export function ExaminationForm({
           keterangan_tindakan: keteranganTindakan.trim() || null,
           lab: lab.trim() || null,
           lab_hasil: labHasil.trim() || null,
-          biaya_periksa: visit.jenis_pasien === 'BPJS' ? 0 : Number(biayaPeriksa || 0),
-          pendapatan_lain: Number(pendapatanLain || 0),
+          biaya_periksa: visit.jenis_pasien === 'BPJS' || isGratis ? 0 : Number(biayaPeriksa || 0),
+          pendapatan_lain: isGratis ? 0 : Number(pendapatanLain || 0),
           keterangan_pendapatan: keteranganPendapatan.trim() || null,
+          is_gratis: isGratis,
+          alasan_gratis: isGratis ? (alasanGratis.trim() || 'Bebas Biaya') : null,
           status_pembayaran: targetStatus,
         })
         .eq('id', visit.id)
@@ -579,6 +595,10 @@ export function ExaminationForm({
             keteranganPendapatan={keteranganPendapatan}
             onChangeKeteranganPendapatan={setKeteranganPendapatan}
             jenisPasien={visit.jenis_pasien}
+            isGratis={isGratis}
+            onChangeIsGratis={setIsGratis}
+            alasanGratis={alasanGratis}
+            onChangeAlasanGratis={setAlasanGratis}
             onOpenTherapyPackageModal={() => setIsPackageModalOpen(true)}
             items={prescriptionItems}
             onItemsChange={setPrescriptionItems}

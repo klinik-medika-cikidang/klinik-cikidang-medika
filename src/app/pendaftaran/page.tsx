@@ -208,18 +208,27 @@ function PendaftaranKasirContent() {
     keteranganPendapatan: string,
     uangDiterima: number,
     jenisPembayaran: 'Tunai' | 'TF',
-    paymentState: 'Lunas' | 'Piutang' | 'Belum Bayar'
+    paymentState: 'Lunas' | 'Piutang' | 'Belum Bayar',
+    isGratis?: boolean,
+    alasanGratis?: string
   ) => {
     setIsSubmittingPos(true);
 
     try {
       const supabase = createClient();
-      const finalBiayaPeriksa = visit.jenis_pasien === 'BPJS' ? 0 : Number(biayaPeriksa || 0);
-      const finalPendapatanLain = Number(pendapatanLain || 0);
+      const isFreeVisit = Boolean(
+        isGratis || (visit.jenis_pasien === 'UMUM' && biayaPeriksa === 0 && pendapatanLain === 0)
+      );
+      const finalBiayaPeriksa = visit.jenis_pasien === 'BPJS' || isFreeVisit ? 0 : Number(biayaPeriksa || 0);
+      const finalPendapatanLain = isFreeVisit ? 0 : Number(pendapatanLain || 0);
       const totalTagihan = finalBiayaPeriksa + finalPendapatanLain;
 
       const finalStatus =
-        visit.jenis_pasien === 'BPJS' && totalTagihan === 0 ? 'Ditanggung BPJS' : paymentState;
+        visit.jenis_pasien === 'BPJS' && totalTagihan === 0
+          ? 'Ditanggung BPJS'
+          : isFreeVisit
+            ? 'Lunas'
+            : paymentState;
       const remainingPiutang = Math.max(0, totalTagihan - uangDiterima);
 
       const { data, error } = await supabase
@@ -228,7 +237,9 @@ function PendaftaranKasirContent() {
           biaya_periksa: finalBiayaPeriksa,
           pendapatan_lain: finalPendapatanLain,
           keterangan_pendapatan: keteranganPendapatan.trim() || null,
-          jenis_pembayaran: jenisPembayaran,
+          is_gratis: isFreeVisit,
+          alasan_gratis: isFreeVisit ? (alasanGratis?.trim() || 'Bebas Biaya') : null,
+          jenis_pembayaran: isFreeVisit ? 'Tunai' : jenisPembayaran,
           status_pembayaran: finalStatus,
           payment_state: finalStatus,
           piutang_nominal: finalStatus === 'Piutang' ? remainingPiutang : 0,
@@ -245,7 +256,9 @@ function PendaftaranKasirContent() {
       if (error) throw error;
 
       toast.success('Transaksi kasir berhasil diselesaikan!', {
-        description: `Pasien ${visit.pasien?.nama || ''} • Total: ${formatRupiah(totalTagihan)} (${jenisPembayaran})`,
+        description: isFreeVisit
+          ? `Pasien ${visit.pasien?.nama || ''} • Bebas Biaya (Rp 0) • ${alasanGratis || 'Diskon 100%'}`
+          : `Pasien ${visit.pasien?.nama || ''} • Total: ${formatRupiah(totalTagihan)} (${jenisPembayaran})`,
       });
 
       // Refresh data

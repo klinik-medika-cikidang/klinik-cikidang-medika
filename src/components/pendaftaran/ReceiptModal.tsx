@@ -26,6 +26,10 @@ export function ReceiptModal({ isOpen, onClose, visit }: ReceiptModalProps) {
     ? `KUI-${visit.tanggal_periksa.replace(/-/g, '')}-${String(visit.nomor_antrian || '1').padStart(3, '0')}`
     : 'KUI-000';
   const totalAmount = Number(visit?.biaya_periksa || 0) + Number(visit?.pendapatan_lain || 0);
+  const isFreeVisit = Boolean(
+    visit?.is_gratis ||
+    (visit?.jenis_pasien === 'UMUM' && totalAmount === 0 && visit?.status_pembayaran === 'Lunas')
+  );
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -132,11 +136,22 @@ export function ReceiptModal({ isOpen, onClose, visit }: ReceiptModalProps) {
                   <td className="py-2 text-right font-mono font-bold text-slate-900 text-xs">
                     {visit.jenis_pasien === 'BPJS' ? (
                       <span className="text-emerald-700 font-bold">Rp 0 (BPJS)</span>
+                    ) : isFreeVisit ? (
+                      <span className="text-emerald-700 font-bold">Rp 0 (Diskon 100%)</span>
                     ) : (
                       formatRupiah(Number(visit.biaya_periksa || 0))
                     )}
                   </td>
                 </tr>
+
+                {isFreeVisit && (visit.alasan_gratis || visit.keterangan_pendapatan) && (
+                  <tr>
+                    <td colSpan={2} className="py-1.5 px-2.5 bg-emerald-50/80 rounded-lg text-emerald-950 text-[11px] font-medium border border-emerald-200/60">
+                      Alasan Pembebasan Biaya:{' '}
+                      <span className="font-bold">{visit.alasan_gratis || visit.keterangan_pendapatan || 'Kontrol Pasca Tindakan'}</span>
+                    </td>
+                  </tr>
+                )}
 
                 {Number(visit.pendapatan_lain || 0) > 0 && (
                   <tr>
@@ -169,10 +184,15 @@ export function ReceiptModal({ isOpen, onClose, visit }: ReceiptModalProps) {
           <div className="flex justify-between items-center px-3.5 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs print:bg-transparent print:border-slate-300">
             <div className="flex items-center gap-1.5 text-emerald-800 font-bold text-xs">
               <CheckCircle className="w-4 h-4 text-emerald-600 print:hidden" weight="bold" />
-              <span>STATUS: LUNAS</span>
+              <span>
+                {isFreeVisit ? 'STATUS: LUNAS (BEBAS BIAYA / DISKON 100%)' : 'STATUS: LUNAS'}
+              </span>
             </div>
             <div className="text-slate-700 text-xs font-medium">
-              Metode: <span className="font-bold text-slate-900">{visit.jenis_pembayaran || 'Tunai'}</span>
+              Metode:{' '}
+              <span className="font-bold text-slate-900">
+                {isFreeVisit ? 'Bebas Biaya' : (visit.jenis_pembayaran || 'Tunai')}
+              </span>
             </div>
           </div>
 

@@ -13,6 +13,7 @@ import {
   FirstAid,
 } from '@phosphor-icons/react';
 import type { TherapyPackage, Visit } from '@/types/database';
+import { ALASAN_GRATIS_OPTIONS, DEFAULT_TARIFFS } from '@/constants/clinic';
 import { Button } from '@/components/ui/Button';
 import { ApplyPackageModal } from '@/components/paket-terapi/ApplyPackageModal';
 import { formatRupiah, cn } from '@/lib/utils';
@@ -28,7 +29,9 @@ export interface CashierPosPanelProps {
     keteranganPendapatan: string,
     uangDiterima: number,
     jenisPembayaran: 'Tunai' | 'TF',
-    paymentState: 'Lunas' | 'Piutang' | 'Belum Bayar'
+    paymentState: 'Lunas' | 'Piutang' | 'Belum Bayar',
+    isGratis?: boolean,
+    alasanGratis?: string
   ) => Promise<void>;
   onApplyPackage?: (visit: Visit, pkg: TherapyPackage) => Promise<void>;
   isSubmitting?: boolean;
@@ -52,6 +55,8 @@ export function CashierPosPanel({
   const [biayaPeriksa, setBiayaPeriksa] = useState<number>(0);
   const [pendapatanLain, setPendapatanLain] = useState<number>(0);
   const [keteranganPendapatan, setKeteranganPendapatan] = useState<string>('');
+  const [isGratis, setIsGratis] = useState<boolean>(false);
+  const [alasanGratis, setAlasanGratis] = useState<string>('');
   const [jenisPembayaran, setJenisPembayaran] = useState<'Tunai' | 'TF'>('Tunai');
   const [paymentState, setPaymentState] = useState<'Lunas' | 'Piutang' | 'Belum Bayar'>('Lunas');
   const [uangDiterimaStr, setUangDiterimaStr] = useState<string>('');
@@ -64,6 +69,8 @@ export function CashierPosPanel({
       setBiayaPeriksa(0);
       setPendapatanLain(0);
       setKeteranganPendapatan('');
+      setIsGratis(false);
+      setAlasanGratis('');
       setJenisPembayaran('Tunai');
       setPaymentState('Lunas');
       setUangDiterimaStr('');
@@ -71,12 +78,20 @@ export function CashierPosPanel({
       return;
     }
 
+    const isFree = Boolean(
+      selectedVisit.is_gratis ||
+      (selectedVisit.jenis_pasien === 'UMUM' && selectedVisit.biaya_periksa === 0)
+    );
     const periksa =
-      selectedVisit.jenis_pasien === 'BPJS'
+      selectedVisit.jenis_pasien === 'BPJS' || isFree
         ? 0
-        : Number(selectedVisit.biaya_periksa || 35000);
-    const lain = Number(selectedVisit.pendapatan_lain || 0);
+        : selectedVisit.biaya_periksa !== null && selectedVisit.biaya_periksa !== undefined
+          ? Number(selectedVisit.biaya_periksa)
+          : DEFAULT_TARIFFS.umum;
+    const lain = isFree ? 0 : Number(selectedVisit.pendapatan_lain || 0);
 
+    setIsGratis(isFree);
+    setAlasanGratis(selectedVisit.alasan_gratis || (isFree ? 'Kontrol Pasca Tindakan' : ''));
     setBiayaPeriksa(periksa);
     setPendapatanLain(lain);
     setKeteranganPendapatan(selectedVisit.keterangan_pendapatan || '');
@@ -90,16 +105,17 @@ export function CashierPosPanel({
     );
     setErrorMessage(null);
 
-    const total = periksa + lain;
+    const total = isFree ? 0 : periksa + lain;
     setUangDiterimaStr(total > 0 ? formatRupiahInput(total) : '0');
   }, [selectedVisit]);
 
   const totalTagihan = useMemo(() => {
     if (!selectedVisit) return 0;
-    const periksa = selectedVisit.jenis_pasien === 'BPJS' ? 0 : Number(biayaPeriksa || 0);
+    if (selectedVisit.jenis_pasien === 'BPJS' || isGratis) return 0;
+    const periksa = Number(biayaPeriksa || 0);
     const lain = Number(pendapatanLain || 0);
     return periksa + lain;
-  }, [selectedVisit, biayaPeriksa, pendapatanLain]);
+  }, [selectedVisit, isGratis, biayaPeriksa, pendapatanLain]);
 
   const nominalDiterima = parseRupiahInput(uangDiterimaStr);
   const uangKembalian = Math.max(0, nominalDiterima - totalTagihan);
@@ -169,12 +185,14 @@ export function CashierPosPanel({
     try {
       await onSettlePayment(
         selectedVisit,
-        biayaPeriksa,
-        pendapatanLain,
+        isGratis ? 0 : biayaPeriksa,
+        isGratis ? 0 : pendapatanLain,
         keteranganPendapatan,
-        nominalDiterima,
+        isGratis ? 0 : nominalDiterima,
         jenisPembayaran,
-        selectedVisit.jenis_pasien === 'BPJS' && totalTagihan === 0 ? 'Lunas' : paymentState
+        (selectedVisit.jenis_pasien === 'BPJS' || isGratis) && totalTagihan === 0 ? 'Lunas' : paymentState,
+        isGratis,
+        alasanGratis
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Gagal memproses transaksi kasir.';
@@ -252,9 +270,18 @@ export function CashierPosPanel({
                   ? [p.gelar, p.nama].filter(Boolean).join(' ')
                   : 'Pasien Tanpa Nama';
 
+                const isVisitGratis = Boolean(
+                  visit.is_gratis ||
+                  (visit.jenis_pasien === 'UMUM' && visit.biaya_periksa === 0)
+                );
+                const visitPeriksa =
+                  visit.jenis_pasien === 'BPJS' || isVisitGratis
+                    ? 0
+                    : visit.biaya_periksa !== null && visit.biaya_periksa !== undefined
+                      ? Number(visit.biaya_periksa)
+                      : DEFAULT_TARIFFS.umum;
                 const visitTagihan =
-                  (visit.jenis_pasien === 'BPJS' ? 0 : Number(visit.biaya_periksa || 35000)) +
-                  Number(visit.pendapatan_lain || 0);
+                  visitPeriksa + (isVisitGratis ? 0 : Number(visit.pendapatan_lain || 0));
 
                 const isBpjs = visit.jenis_pasien === 'BPJS';
 
@@ -273,7 +300,7 @@ export function CashierPosPanel({
                       <div
                         className={cn(
                           'w-9 h-9 rounded-xl font-mono font-bold text-xs flex items-center justify-center shrink-0 border',
-                          isBpjs
+                          isBpjs || isVisitGratis
                             ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
                             : 'bg-teal-100 border-teal-300 text-teal-900'
                         )}
@@ -289,13 +316,18 @@ export function CashierPosPanel({
                           <span
                             className={cn(
                               'text-[9px] font-bold font-mono px-1.5 py-0.2 rounded-full border',
-                              isBpjs
+                              isBpjs || isVisitGratis
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                 : 'bg-teal-50 text-teal-800 border-teal-200'
                             )}
                           >
                             {visit.jenis_pasien}
                           </span>
+                          {isVisitGratis && (
+                            <span className="text-[9px] font-bold bg-emerald-100 text-emerald-900 px-1.5 py-0.2 rounded-full border border-emerald-300">
+                              Free 100%
+                            </span>
+                          )}
                         </div>
                         <p className="text-[11px] text-slate-600 mt-0.5 truncate font-medium">
                           {visit.terapi_obat ? (
@@ -312,6 +344,10 @@ export function CashierPosPanel({
                             <span className="text-emerald-700 font-bold">
                               Tercover BPJS (Rp 0)
                             </span>
+                          ) : isVisitGratis || visitTagihan === 0 ? (
+                            <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                              Bebas Biaya (Rp 0)
+                            </span>
                           ) : (
                             <span className="text-slate-900 font-bold">
                               {formatRupiah(visitTagihan)}
@@ -327,7 +363,7 @@ export function CashierPosPanel({
                           <CheckCircle className="w-3 h-3" weight="bold" />
                           Dipilih
                         </span>
-                      ) : isBpjs && visitTagihan === 0 ? (
+                      ) : (isBpjs || isVisitGratis) && visitTagihan === 0 ? (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -336,7 +372,7 @@ export function CashierPosPanel({
                           }}
                           className="px-3 py-1.5 bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-xs font-bold shadow-btn-primary border border-emerald-700/80 transition-colors tactile-btn min-h-[32px]"
                         >
-                          Serahkan Obat
+                          {isVisitGratis ? 'Proses Bebas Biaya' : 'Serahkan Obat'}
                         </button>
                       ) : (
                         <span className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold shadow-btn-secondary transition-colors tactile-btn min-h-[32px] inline-flex items-center">
@@ -527,41 +563,116 @@ export function CashierPosPanel({
                   </div>
                 )}
 
-                {/* 1. Rincian Komponen Biaya Box */}
+                {/* 1. Opsi Bebas Biaya (Free 100%) Kasir */}
+                {selectedVisit.jenis_pasien === 'UMUM' && (
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-200/90 rounded-xl space-y-2 text-xs shadow-2xs">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="font-bold text-emerald-950 flex items-center gap-1.5">
+                        <CheckCircle className="w-4 h-4 text-emerald-600" weight="bold" />
+                        Opsi Bebas Biaya (Free 100%)
+                      </span>
+                      {isGratis ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsGratis(false);
+                            const originalPeriksa =
+                              selectedVisit.biaya_periksa !== null && selectedVisit.biaya_periksa !== undefined
+                                ? Number(selectedVisit.biaya_periksa)
+                                : DEFAULT_TARIFFS.umum;
+                            const restoredPeriksa = originalPeriksa > 0 ? originalPeriksa : DEFAULT_TARIFFS.umum;
+                            const restoredLain = Number(selectedVisit.pendapatan_lain || 0);
+                            setBiayaPeriksa(restoredPeriksa);
+                            setPendapatanLain(restoredLain);
+                            setAlasanGratis('');
+                            const restoredTotal = restoredPeriksa + restoredLain;
+                            setUangDiterimaStr(formatRupiahInput(restoredTotal));
+                          }}
+                          className="text-[10px] px-2.5 py-1 rounded-lg font-bold border bg-white text-slate-700 border-slate-300 hover:bg-slate-50 transition min-h-[26px] tactile-btn"
+                        >
+                          Batal Gratis (Kembalikan Tarif)
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsGratis(true);
+                            setBiayaPeriksa(0);
+                            setPendapatanLain(0);
+                            if (!alasanGratis) setAlasanGratis('Kontrol Pasca Tindakan');
+                            setUangDiterimaStr('0');
+                          }}
+                          className="text-[10px] px-2.5 py-1 rounded-lg font-bold border bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 transition shadow-2xs min-h-[26px] tactile-btn flex items-center gap-1"
+                        >
+                          <span>✓ Bebaskan Biaya (Rp 0)</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {isGratis && (
+                      <div className="space-y-1.5 pt-1.5 border-t border-emerald-200/80">
+                        <span className="text-[10px] text-emerald-900 font-bold block">
+                          Pilih Alasan Bebas Biaya:
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {ALASAN_GRATIS_OPTIONS.map((opt) => (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => setAlasanGratis(opt)}
+                              className={cn(
+                                'text-[10px] px-2 py-0.5 rounded-md font-medium border transition tactile-btn min-h-[24px]',
+                                alasanGratis === opt
+                                  ? 'bg-emerald-700 text-white border-emerald-800 font-bold shadow-2xs'
+                                  : 'bg-white text-emerald-900 border-emerald-300 hover:bg-emerald-100'
+                              )}
+                            >
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 2. Rincian Komponen Biaya Box */}
                 <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1.5 text-xs shadow-2xs">
                   <div className="flex justify-between items-center text-slate-600 font-medium">
                     <span>Jasa Pemeriksaan</span>
                     <span className="font-mono font-bold text-slate-900">
                       {selectedVisit.jenis_pasien === 'BPJS'
                         ? 'Rp 0 (BPJS)'
-                        : formatRupiah(biayaPeriksa)}
+                        : isGratis
+                          ? 'Rp 0 (Diskon 100%)'
+                          : formatRupiah(biayaPeriksa)}
                     </span>
                   </div>
 
                   <div className="flex justify-between items-center text-slate-600 font-medium">
                     <span>Tindakan / Resep Obat</span>
                     <span className="font-mono font-bold text-slate-900">
-                      {formatRupiah(pendapatanLain)}
+                      {isGratis ? 'Rp 0 (Bebas Biaya)' : formatRupiah(pendapatanLain)}
                     </span>
                   </div>
 
-                  {keteranganPendapatan && (
-                    <div className="text-[10px] text-slate-500 bg-slate-50 p-1.5 rounded border border-slate-200 font-mono">
-                      Ket: {keteranganPendapatan}
+                  {(keteranganPendapatan || (isGratis && alasanGratis)) && (
+                    <div className="text-[10px] text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-200 font-mono">
+                      {isGratis && alasanGratis ? `Bebas Biaya: ${alasanGratis}` : `Ket: ${keteranganPendapatan}`}
                     </div>
                   )}
 
                   <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-bold text-slate-900">
                     <span>Total Tagihan:</span>
                     <span className="text-sm sm:text-base text-teal-700 font-mono font-bold">
-                      {selectedVisit.jenis_pasien === 'BPJS' && totalTagihan === 0
+                      {selectedVisit.jenis_pasien === 'BPJS' || isGratis || totalTagihan === 0
                         ? 'Rp 0'
                         : formatRupiah(totalTagihan)}
                     </span>
                   </div>
                 </div>
 
-                {/* 2. Metode Pembayaran Toggle (Consistent Min-H and Button Style) */}
+                {/* 3. Metode Pembayaran Toggle */}
                 <div>
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -593,8 +704,8 @@ export function CashierPosPanel({
                   </div>
                 </div>
 
-                {/* 3. Status Pembayaran */}
-                {selectedVisit.jenis_pasien !== 'BPJS' && (
+                {/* 4. Status Pembayaran */}
+                {selectedVisit.jenis_pasien !== 'BPJS' && !isGratis && (
                   <div>
                     <div className="grid grid-cols-3 gap-2">
                       {(['Lunas', 'Piutang', 'Belum Bayar'] as const).map((state) => (
@@ -616,82 +727,96 @@ export function CashierPosPanel({
                   </div>
                 )}
 
-                {/* 4. Tender Section (Tunai) */}
+                {/* 5. Tender Section (Tunai) */}
                 {jenisPembayaran === 'Tunai' && (
-                  <div className="space-y-2.5">
-                    {/* Quick Cash Buttons */}
-                    <div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {quickCashOptions.map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => {
-                              setPaymentState('Lunas');
-                              setUangDiterimaStr(formatRupiahInput(opt.value));
-                            }}
-                            className={cn(
-                              'px-2.5 py-1.5 bg-white hover:bg-slate-50 border rounded-xl text-xs font-bold font-mono shadow-btn-secondary tactile-btn text-left truncate min-h-[34px]',
-                              nominalDiterima === opt.value
-                                ? 'border-teal-600 text-teal-700 ring-2 ring-teal-500/10'
-                                : 'border-slate-300 text-slate-800'
-                            )}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
+                  totalTagihan === 0 ? (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-1">
+                      <div className="text-xs font-bold text-emerald-900 flex items-center justify-center gap-1.5">
+                        <CheckCircle className="w-4 h-4 text-emerald-600" weight="bold" />
+                        <span>Pasien Bebas Biaya (Total Tagihan Rp 0)</span>
                       </div>
+                      <p className="text-[11px] text-emerald-700">
+                        {isGratis
+                          ? `Alasan: ${alasanGratis || 'Bebas Biaya Pelayanan'}`
+                          : 'Layanan tercover BPJS Kesehatan'}
+                      </p>
                     </div>
-
-                    {/* Uang Diterima & Kembalian */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
+                  ) : (
+                    <div className="space-y-2.5">
+                      {/* Quick Cash Buttons */}
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                          Uang Diterima
-                        </label>
-                        <div className="relative flex items-center">
-                          <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                            <span className="text-xs font-mono font-bold text-teal-700">Rp</span>
-                          </div>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={uangDiterimaStr}
-                            onChange={(e) => {
-                              const parsed = parseRupiahInput(e.target.value);
-                              setUangDiterimaStr(parsed > 0 ? formatRupiahInput(parsed) : '');
-                            }}
-                            placeholder="200.000"
-                            className="w-full pl-8 pr-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold font-mono text-slate-900 focus:ring-4 focus:ring-teal-500/10 focus:border-teal-600 transition-colors min-h-[38px]"
-                          />
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {quickCashOptions.map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => {
+                                setPaymentState('Lunas');
+                                setUangDiterimaStr(formatRupiahInput(opt.value));
+                              }}
+                              className={cn(
+                                'px-2.5 py-1.5 bg-white hover:bg-slate-50 border rounded-xl text-xs font-bold font-mono shadow-btn-secondary tactile-btn text-left truncate min-h-[34px]',
+                                nominalDiterima === opt.value
+                                  ? 'border-teal-600 text-teal-700 ring-2 ring-teal-500/10'
+                                  : 'border-slate-300 text-slate-800'
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
                         </div>
                       </div>
 
-                      <div
-                        className={cn(
-                          'p-2 rounded-xl border shadow-well flex flex-col justify-center min-h-[38px]',
-                          isKurangBayar
-                            ? 'bg-rose-50 border-rose-200 text-rose-900'
-                            : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                        )}
-                      >
-                        <div className="text-[9px] font-bold uppercase tracking-wider">
-                          {isKurangBayar ? 'Kurang Bayar' : paymentState === 'Piutang' ? 'Sisa Piutang' : 'Kembalian Pasien'}
+                      {/* Uang Diterima & Kembalian */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Uang Diterima
+                          </label>
+                          <div className="relative flex items-center">
+                            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                              <span className="text-xs font-mono font-bold text-teal-700">Rp</span>
+                            </div>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={uangDiterimaStr}
+                              onChange={(e) => {
+                                const parsed = parseRupiahInput(e.target.value);
+                                setUangDiterimaStr(parsed > 0 ? formatRupiahInput(parsed) : '');
+                              }}
+                              placeholder="200.000"
+                              className="w-full pl-8 pr-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold font-mono text-slate-900 focus:ring-4 focus:ring-teal-500/10 focus:border-teal-600 transition-colors min-h-[38px]"
+                            />
+                          </div>
                         </div>
-                        <div className="text-sm font-bold font-mono">
-                          {formatRupiah(
-                            isKurangBayar || paymentState === 'Piutang'
-                              ? Math.max(0, totalTagihan - nominalDiterima)
-                              : uangKembalian
+
+                        <div
+                          className={cn(
+                            'p-2 rounded-xl border shadow-well flex flex-col justify-center min-h-[38px]',
+                            isKurangBayar
+                              ? 'bg-rose-50 border-rose-200 text-rose-900'
+                              : 'bg-emerald-50 border-emerald-200 text-emerald-900'
                           )}
+                        >
+                          <div className="text-[9px] font-bold uppercase tracking-wider">
+                            {isKurangBayar ? 'Kurang Bayar' : paymentState === 'Piutang' ? 'Sisa Piutang' : 'Kembalian Pasien'}
+                          </div>
+                          <div className="text-sm font-bold font-mono">
+                            {formatRupiah(
+                              isKurangBayar || paymentState === 'Piutang'
+                                ? Math.max(0, totalTagihan - nominalDiterima)
+                                : uangKembalian
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )
                 )}
               </div>
 
-              {/* 4. Action Submit Button (Matching Dashboard Primary Button Specs) */}
+              {/* Action Submit Button */}
               <div className="pt-2">
                 <button
                   type="submit"
@@ -712,8 +837,10 @@ export function CashierPosPanel({
                     <>
                       <Receipt className="w-4 h-4 text-white" weight="bold" />
                       <span>
-                        {selectedVisit.jenis_pasien === 'BPJS' && totalTagihan === 0
-                          ? 'Konfirmasi Obat & Selesaikan'
+                        {totalTagihan === 0
+                          ? isGratis
+                            ? 'Konfirmasi Bebas Biaya & Cetak Kuitansi'
+                            : 'Konfirmasi Obat & Selesaikan'
                           : 'Konfirmasi Bayar & Cetak Kuitansi'}
                       </span>
                     </>

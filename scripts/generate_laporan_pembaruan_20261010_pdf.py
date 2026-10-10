@@ -68,30 +68,31 @@ class NumberedCanvas(canvas.Canvas):
         self.setStrokeColor(RULE)
         self.setLineWidth(0.5)
         if self._pageNumber > 1:
-            self.line(1.5 * cm, 28.6 * cm, 19.5 * cm, 28.6 * cm)
+            self.line(1.8 * cm, 28.5 * cm, 19.2 * cm, 28.5 * cm)
             self.setFont("Helvetica", 7.5)
-            self.drawString(1.5 * cm, 28.8 * cm, DOC_RUNNING)
-        self.line(1.5 * cm, 1.6 * cm, 19.5 * cm, 1.6 * cm)
+            self.drawString(1.8 * cm, 28.7 * cm, DOC_RUNNING)
+        self.line(1.8 * cm, 1.6 * cm, 19.2 * cm, 1.6 * cm)
         self.setFont("Helvetica", 7.5)
-        self.drawString(1.5 * cm, 1.2 * cm, "Klinik Pratama Cikidang Medika")
-        self.drawRightString(19.5 * cm, 1.2 * cm, "Halaman %d dari %d" % (self._pageNumber, page_count))
+        self.drawString(1.8 * cm, 1.2 * cm, "Klinik Pratama Cikidang Medika")
+        self.drawRightString(19.2 * cm, 1.2 * cm, "Halaman %d dari %d" % (self._pageNumber, page_count))
         self.restoreState()
 
 
 S = {
-    "title": ParagraphStyle("title", fontName="Helvetica-Bold", fontSize=17, leading=21, textColor=BLACK, spaceAfter=2),
-    "subtitle": ParagraphStyle("subtitle", fontName="Helvetica", fontSize=11, leading=15, textColor=MUTED, spaceAfter=10),
-    "h2": ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=11.5, leading=15, textColor=BLACK, spaceBefore=12, spaceAfter=5),
-    "body": ParagraphStyle("body", fontName="Helvetica", fontSize=9.5, leading=13.5, textColor=BODY, alignment=TA_LEFT, spaceAfter=4),
-    "small": ParagraphStyle("small", fontName="Helvetica", fontSize=8.5, leading=12, textColor=MUTED),
-    "cell": ParagraphStyle("cell", fontName="Helvetica", fontSize=8.6, leading=11.5, textColor=BODY),
-    "cellhead": ParagraphStyle("cellhead", fontName="Helvetica-Bold", fontSize=8.6, leading=11.5, textColor=WHITE),
-    "answer": ParagraphStyle("answer", fontName="Helvetica-Oblique", fontSize=9, leading=16, textColor=MUTED, spaceBefore=2, spaceAfter=6),
+    "title": ParagraphStyle("title", fontName="Helvetica-Bold", fontSize=16, leading=20, textColor=BLACK, spaceAfter=2),
+    "subtitle": ParagraphStyle("subtitle", fontName="Helvetica", fontSize=10.5, leading=14, textColor=MUTED, spaceAfter=8),
+    "h2": ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=11, leading=14.5, textColor=BLACK, spaceBefore=11, spaceAfter=4),
+    "h3": ParagraphStyle("h3", fontName="Helvetica-Bold", fontSize=9.5, leading=13, textColor=BLACK, spaceBefore=6, spaceAfter=2),
+    "body": ParagraphStyle("body", fontName="Helvetica", fontSize=9, leading=13, textColor=BODY, alignment=TA_LEFT, spaceAfter=4),
+    "small": ParagraphStyle("small", fontName="Helvetica", fontSize=8, leading=11, textColor=MUTED),
+    "cell": ParagraphStyle("cell", fontName="Helvetica", fontSize=8.5, leading=11.5, textColor=BODY),
+    "cellhead": ParagraphStyle("cellhead", fontName="Helvetica-Bold", fontSize=8.5, leading=11.5, textColor=WHITE),
+    "answer": ParagraphStyle("answer", fontName="Helvetica-Oblique", fontSize=8.5, leading=15, textColor=MUTED, spaceBefore=2, spaceAfter=5),
 }
 
 
 def h2(text):
-    return [Spacer(1, 2), Paragraph(text, S["h2"]), HRFlowable(width="100%", thickness=0.5, color=RULE, spaceAfter=6)]
+    return [Spacer(1, 3), Paragraph(text, S["h2"]), HRFlowable(width="100%", thickness=0.5, color=RULE, spaceAfter=5)]
 
 
 def body(text):
@@ -115,8 +116,8 @@ def data_table(header, rows, widths):
         ("BACKGROUND", (0, 0), (-1, 0), BLACK),
         ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 3.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3.5),
         ("LEFTPADDING", (0, 0), (-1, -1), 5),
         ("RIGHTPADDING", (0, 0), (-1, -1), 5),
         ("LINEBELOW", (0, 0), (-1, -1), 0.4, RULE),
@@ -132,7 +133,7 @@ def data_table(header, rows, widths):
 def question(number, text):
     return KeepTogether([
         Paragraph("%d. %s" % (number, text), S["body"]),
-        Paragraph("Jawaban: ______________________________________________________", S["answer"]),
+        Paragraph("Jawaban: ____________________________________________________________________________", S["answer"]),
     ])
 
 
@@ -201,43 +202,44 @@ def build(out_path):
     doc = SimpleDocTemplate(
         out_path, pagesize=A4, leftMargin=1.8 * cm, rightMargin=1.8 * cm,
         topMargin=2.0 * cm, bottomMargin=2.0 * cm, title=DOC_TITLE,
-        author="Pengembang Klinik Cikidang Medika",
+        author="Pengembang Sistem Klinik Cikidang Medika",
     )
 
     story = []
     story.append(Paragraph(DOC_TITLE, S["title"]))
     story.append(Paragraph(DOC_SUBTITLE, S["subtitle"]))
-    story.append(HRFlowable(width="100%", thickness=1.0, color=BLACK, spaceAfter=8))
+    story.append(HRFlowable(width="100%", thickness=1.0, color=BLACK, spaceAfter=6))
     story.append(data_table(
         ["Keterangan", "Isi"],
         [
             ["Tanggal", "10 Oktober 2026"],
             ["Untuk", "dr. Ovan, dr. Neneng, dan staf klinik"],
-            ["Dari", "Pengembang"],
-            ["Isi", "Perbaikan data No RM, fitur Paket Terapi, dan perbaikan aplikasi"],
-            ["Perlu tindakan", "Ada pertanyaan untuk dokter pada Bagian E"],
+            ["Dari", "Pengembang Sistem"],
+            ["Isi Laporan", "Penataan No RM, Paket Terapi, Batal Antrean, Laporan Puskesmas (F-015), dan Ketentuan Layanan"],
+            ["Perlu Tindakan", "Pemeriksaan dan konfirmasi dokter pada Bagian H"],
         ],
-        [3.4 * cm, 13.4 * cm],
+        [3.4 * cm, 14.0 * cm],
     ))
 
-    story += h2("Ringkasan Singkat")
+    story += h2("Ringkasan Singkat Pembaruan")
     story += bullets([
-        "Nomor RM pasien di aplikasi sudah dirapikan seluruhnya dan sekarang mengikuti berkas "
-        "DATAPASIEN dan REKAMMEDIS yang dokter perbarui.",
-        "Fitur baru Paket Terapi sudah dipasang. Sepuluh paket awal tersedia dan siap ditinjau.",
-        "Pencarian pasien di menu Loket & Kasir sekarang menjangkau seluruh data pasien.",
-        "Data lama tidak ada yang hilang. Semua data produksi dicadangkan sebelum perubahan.",
+        "Nomor RM pasien di aplikasi telah diselaraskan penuh dengan berkas resmi DATAPASIEN dan REKAMMEDIS (3.750 pasien aktif, tanpa nomor ganda).",
+        "Fitur Paket Terapi telah terpasang dan terintegrasi ke formulir rekam medis dokter serta meja kasir.",
+        "Fitur Pembatalan Antrean Pasien (F-014) telah aktif: melayani pencatatan alasan batal dan opsi pemulihan antrean.",
+        "Format Laporan Puskesmas & Register Program (F-015) disesuaikan penuh untuk pelaporan bulanan ke PKM (filter bulan, Tanggal, No RM, Desa, Triple Eliminasi, ANC GPA, dan PTM Hipertensi & Diabetes).",
+        "Ketentuan Layanan Pasca Go-Live: jaminan stabilitas & bebas biaya perbaikan bug, serta kebijakan penambahan fitur baru berbayar (Rp 150.000 per fitur) setelah sistem aktif digunakan operasional.",
+        "Seluruh data riil klinik dicadangkan menyeluruh sebelum pembaruan diterapkan ke sistem produksi.",
     ], numbered=True)
 
     story += h2("Bagian A. Nomor RM Pasien Sudah Dirapikan")
     story.append(body(
-        "<b>Masalah sebelumnya.</b> Nomor RM beberapa pasien tidak sama dengan berkas DATAPASIEN, "
+        "<b>Masalah sebelumnya:</b> Nomor RM beberapa pasien tidak sama dengan berkas DATAPASIEN, "
         "sehingga muncul nomor ganda dan nama bertukar. Contoh yang dokter temukan: Septiani auleria "
         "dan Reny nurdiany di Desa Nangka Koneng. Septiani muncul dua kali, dan nomor RM Reny bergeser "
         "menjadi 020802710."
     ))
     story.append(body(
-        "<b>Yang kami lakukan.</b> Aplikasi dibangun ulang agar sumber nomor RM adalah berkas "
+        "<b>Yang kami lakukan:</b> Aplikasi dibangun ulang agar sumber nomor RM adalah berkas "
         "DATAPASIEN, dan daftar kunjungan diambil dari REKAMMEDIS. Dicoba dulu di lingkungan uji, baru "
         "diterapkan ke data produksi, dan seluruh data produksi dicadangkan lebih dahulu."
     ))
@@ -251,22 +253,22 @@ def build(out_path):
             ["Pasien dengan nomor RM tidak seragam", "849 kelompok", "43 kelompok"],
             ["Kunjungan tanpa pasien", "ada", "0"],
         ],
-        [7.6 * cm, 4.6 * cm, 4.6 * cm],
+        [8.0 * cm, 4.7 * cm, 4.7 * cm],
     ))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 3))
     story.append(body(
         "Jumlah pasien turun dari 4.703 ke 3.750 karena catatan ganda (satu orang tercatat dua kali) "
-        "digabung menjadi satu, sesuai berkas DATAPASIEN. Tidak ada orang yang hilang; yang hilang "
-        "hanyalah salinan gandanya."
+        "digabung menjadi satu, sesuai berkas DATAPASIEN. Tidak ada data orang yang hilang; yang hilang "
+        "hanyalah salinan duplikatnya."
     ))
     story.append(Spacer(1, 2))
     story.append(data_table(
-        ["Nomor RM", "Nama", "Jumlah kunjungan"],
+        ["Nomor RM", "Nama", "Jumlah Kunjungan"],
         [["020802708", "Septiani auleria", "3"], ["020802709", "Reny nurdiany", "6"]],
-        [4.0 * cm, 8.4 * cm, 4.4 * cm],
+        [4.2 * cm, 8.7 * cm, 4.5 * cm],
     ))
-    story.append(Spacer(1, 3))
-    story.append(body("Nomor 020802710 sudah tidak dipakai lagi. Kedua pasien kini sama persis dengan berkas yang dokter kirim."))
+    story.append(Spacer(1, 2))
+    story.append(body("Nomor 020802710 sudah dinonaktifkan. Kedua pasien kini sama persis dengan berkas yang dokter kirim."))
 
     story += h2("Bagian B. Fitur Baru: Paket Terapi")
     story.append(body(
@@ -274,112 +276,145 @@ def build(out_path):
         "pasien dilayani, staf cukup memilih paket, dan seluruh rinciannya langsung masuk ke tagihan "
         "kunjungan. Tindakan, obat, dan harga total ikut terisi otomatis."
     ))
-    story.append(Paragraph("Cara memakai paket saat pembayaran:", S["body"]))
+    story.append(Paragraph("Cara memakai paket saat pembayaran / pemeriksaan:", S["body"]))
     story += bullets([
-        "Buka menu Loket & Kasir, lalu pilih pasien.",
+        "Buka menu Loket & Kasir atau Rekam Medis, lalu pilih pasien.",
         "Tekan tombol Terapkan Paket Terapi.",
         "Pilih paket, periksa rincian item dan totalnya, lalu konfirmasi.",
     ], numbered=True)
     story.append(Spacer(1, 2))
     story.append(body(
         "Sepuluh paket awal dibuat dari pola terapi yang paling sering muncul di rekam medis. Harga obat "
-        "mengacu daftar harga obat klinik. Paket yang harganya masih kosong, berarti tarifnya belum diisi "
-        "dan mohon disesuaikan."
+        "mengacu daftar harga obat klinik. Paket yang harganya masih kosong, berarti tarif tindakannya belum diisi "
+        "dan dapat disesuaikan langsung melalui menu Paket Terapi."
     ))
     story.append(data_table(
-        ["Kode", "Nama paket", "Item", "Harga total"],
+        ["Kode", "Nama Paket", "Item", "Harga Total"],
         [list(row) for row in PAKET],
-        [4.3 * cm, 7.0 * cm, 1.4 * cm, 4.1 * cm],
+        [4.2 * cm, 7.3 * cm, 1.4 * cm, 4.5 * cm],
     ))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 3))
     story.append(body(
-        "Catatan: paket tindakan seperti nebulizer, infus, dan USG belum punya tarif karena tarif "
-        "tindakan tidak ada di berkas harga obat. Tarifnya diisi klinik melalui menu Paket Terapi."
-    ))
-    story.append(body(
-        "Sepuluh paket ini dipasang dalam status nonaktif. Paket belum bisa dipilih di kasir sampai "
-        "ditinjau harganya lalu diaktifkan. Menu Paket Terapi saat ini hanya tersedia untuk akun Owner. "
-        "Pertanyaan soal peran ada di Bagian E."
+        "Paket ini dipasang dalam status nonaktif dan dapat diaktifkan melalui menu Paket Terapi setelah "
+        "tarifnya ditinjau oleh pihak manajemen klinik."
     ))
 
-    story += h2("Bagian C. Perbaikan Aplikasi")
+    story += h2("Bagian C. Fitur Pembatalan Antrean Pasien (F-014)")
+    story.append(body(
+        "<b>Kebutuhan operasional:</b> Sering terjadi pasien yang sudah mendaftar di loket terpaksa membatalkan "
+        "pemeriksaan karena urusan mendadak, waktu tunggu, atau salah input. Sebelumnya antrean tersebut menggantung."
+    ))
     story += bullets([
-        "Pencarian pasien di menu Loket & Kasir sekarang menjangkau seluruh 3.750 pasien. Sebelumnya "
-        "pencarian hanya mencakup 300 pasien terbaru, sehingga pasien lama sulit ditemukan.",
-        "Daftar pasien kini dibagi per halaman, sehingga bisa ditelusuri sampai pasien terakhir.",
-        "Tombol Daftarkan Kunjungan dari kartu cepat pasien sekarang langsung membuka formulir pendaftaran.",
-        "Halaman baru Paket Terapi untuk membuat, mengubah, menonaktifkan, dan menghapus paket.",
+        "<b>Tombol Batalkan Antrean:</b> Disediakan tombol batalkan pada antrean loket pendaftaran dan antrean dokter.",
+        "<b>Pencatatan Alasan Pembatalan:</b> Dialog pilihan alasan terstruktur (pulang sendiri, waktu tunggu, salah input loket, atau alasan lainnya).",
+        "<b>Keamanan Data (Soft Cancel):</b> Data antrean tidak dihapus permanen, melainkan berstatus Dibatalkan demi menjaga akuntabilitas nomor urut antrean.",
+        "<b>Opsi Pemulihan (Restore):</b> Staf dapat memulihkan kembali antrean ke antrean aktif jika pasien ternyata kembali atau terjadi salah pencet.",
     ])
 
-    story += h2("Bagian D. Informasi Penting untuk Dibaca Dokter")
+    story += h2("Bagian D. Penyesuaian Format Laporan Puskesmas (F-015)")
+    story.append(body(
+        "Menindaklanjuti arahan dokter untuk pelaporan bulanan ke Puskesmas Cikidang (PKM) per akhir bulan, "
+        "sistem register program kesehatan telah disempurnakan secara menyeluruh:"
+    ))
     story += bullets([
-        "Nomor RM pasien baru ke depan mengikuti pola resmi klinik: jenis kelamin, desa, lalu urutan. "
-        "Aplikasi menghitung nomornya otomatis.",
-        "Ada 18 baris kunjungan lama yang perlu dipastikan karena nama pada kunjungan berbeda dari berkas "
-        "DATAPASIEN (daftarnya di Lampiran 1). Ini hanya perlu dipastikan, bukan kunjungan baru.",
-        "Ada 23 anak sunat yang belum ada di berkas DATAPASIEN, sehingga aplikasi membuatkan nomor RM "
-        "baru otomatis (daftarnya di Lampiran 2). Mohon dipastikan nama dan nomornya.",
-        "Harga paket terapi masih berupa acuan dan perlu ditinjau sebelum dipakai menagih pasien.",
-        "Seluruh data produksi dicadangkan sebelum perubahan, sehingga bisa dikembalikan bila ada kekeliruan.",
+        "<b>Penyaring Periode Bulanan:</b> Pilihan filter bulan (contoh: Oktober 2026) pada menu Program Khusus dan Laporan Puskesmas, menyajikan data dan unduhan Excel yang otomatis teragregasi per bulan pelaporan.",
+        "<b>Kolom Dasar Lengkap:</b> Setiap lembar laporan wajib memuat Tanggal Periksa, Nomor Rekam Medis (No RM), dan Desa/Alamat Domisili Pasien.",
+        "<b>Register Triple Eliminasi Bumil:</b> Parameter hasil laboratorium mandiri untuk HBsAg, HIV, dan Sifilis (Non-Reaktif / Reaktif), dilengkapi tombol pintas 'Set Semua Non-Reaktif'.",
+        "<b>Register ANC (Pemeriksaan Kehamilan):</b> Ditambahkan kotak isian manual notasi GPA bumil (contoh: G3P2A0 untuk Gravida 3, Para 2, Abortus 0).",
+        "<b>Register PTM (Penyakit Tidak Menular):</b> Penambahan sub-kategori spesifik untuk Hipertensi (kardiovaskular) dan Diabetes Melitus sesuai format baku Puskesmas.",
+        "<b>Format Unduhan Excel Rapi:</b> Berkas Excel otomatis terbagi ke lembar kerja (sheet) per program dengan format judul berstempel bulan yang siap dikirim ke Puskesmas.",
     ])
 
-    story += h2("Bagian E. Pertanyaan untuk Dokter")
-    story.append(question(1, "Menu Paket Terapi sebaiknya hanya untuk Owner, atau dokter juga perlu akses? Bila perlu, apakah dokter hanya melihat daftar, atau ikut mengelola paket?"))
-    story.append(question(2, "Harga paket terapi ditetapkan siapa, dan apakah kami boleh mengaktifkan paket setelah harganya diisi dokter?"))
-    story.append(question(3, "Mohon dipastikan 18 baris kunjungan pada Lampiran 1. Apakah cukup dikonfirmasi di sini, atau dokter ingin kami kirimkan daftarnya dalam bentuk Excel untuk dicentang?"))
-    story.append(question(4, "Mohon dipastikan nama dan nomor RM pada 23 anak sunat di Lampiran 2."))
-    story.append(question(5, "Bila ada pasien dalam daftar yang memang orang berbeda dengan nama yang sama, mohon ditandai, karena sistem tidak pernah menggabungkan dua orang secara otomatis."))
-
-    story += h2("Bagian F. Langkah Berikutnya")
+    story += h2("Bagian E. Perbaikan & Penyempurnaan Aplikasi")
     story += bullets([
-        "Dokter meninjau paket terapi dan menjawab pertanyaan pada Bagian E.",
-        "Pengembang mengaktifkan paket terapi yang sudah disetujui.",
-        "Pengembang menindaklanjuti koreksi dari Lampiran 1 dan Lampiran 2 sesuai jawaban dokter.",
-        "Pemeriksaan tampilan pada ponsel, tablet, dan komputer dijadwalkan menyusul.",
+        "Pencarian pasien di menu Loket & Kasir sekarang menjangkau seluruh 3.750 pasien (tidak lagi terbatas pada 300 data terbaru).",
+        "Daftar pasien kini dibagi bertahap per halaman (paginasi), sehingga penelusuran data tetap cepat dan ringan.",
+        "Tombol Daftarkan Kunjungan dari kartu cepat pasien langsung membuka formulir kunjungan baru secara instan.",
+        "Halaman pengelolaan Paket Terapi untuk membuat, mengubah tarif, mengaktifkan, dan menonaktifkan paket.",
+    ])
+
+    story += h2("Bagian F. Ketentuan Layanan Pemeliharaan & Pengembangan Pasca Go-Live")
+    story.append(body(
+        "Tahap implementasi awal, migrasi ribuan data historis, serta penyesuaian kebutuhan khusus klinik telah "
+        "kami selesaikan penuh. Seiring dengan masuknya aplikasi ke tahap <b>penggunaan operasional harian secara aktif (go-live)</b>, "
+        "berikut adalah ketentuan pemeliharaan dan pengembangan lanjutan yang disepakati:"
+    ))
+    story += bullets([
+        "<b>Jaminan Stabilitas Sistem (Bebas Biaya Perbaikan Bug):</b> Seluruh modul yang telah diserahkan (pendaftaran, rekam medis, kasir, buku kas, paket terapi, batal antrean, dan laporan Puskesmas) dijamin beroperasi dengan baik. Apabila di kemudian hari ditemukan kendala teknis atau eror program (bug) pada fitur yang ada, perbaikan tetap menjadi tanggung jawab pengembang tanpa biaya tambahan (gratis).",
+        "<b>Kebijakan Pembaruan Fitur Baru (Pembaruan Berbayar):</b> Setelah sistem aktif digunakan untuk operasional harian, permintaan penambahan fitur baru atau perubahan alur di luar ruang lingkup yang telah disepakati tidak lagi termasuk dalam pembaruan gratis. Setiap penambahan 1 (satu) fitur baru dikenakan biaya pengembangan sebesar Rp 150.000,- (atau disesuaikan transparan apabila memiliki kompleksitas teknis yang lebih luas).",
+        "<b>Prosedur Pengajuan Fitur Baru:</b> Pihak klinik dapat menghimpun daftar kebutuhan fitur baru, kemudian menyampaikannya kepada pengembang untuk ditinjau estimasi dan kesiapan teknisnya sebelum dikerjakan.",
+    ], numbered=True)
+    story.append(Spacer(1, 2))
+    story.append(body(
+        "<i>Ketentuan ini bertujuan menjaga kepastian batasan kerja, menjamin fokus perawatan sistem yang prima, "
+        "serta memastikan keberlanjutan dukungan teknis profesional jangka panjang bagi Klinik Cikidang Medika.</i>"
+    ))
+
+    story += h2("Bagian G. Informasi Penting untuk Dibaca Dokter")
+    story += bullets([
+        "Nomor RM pasien baru ke depan mengikuti pola resmi klinik: jenis kelamin, desa, lalu nomor urut. Sistem menghitung nomornya secara otomatis.",
+        "Ada 18 baris kunjungan lama yang perlu dipastikan karena nama pada kunjungan berbeda dari berkas DATAPASIEN (daftarnya di Lampiran 1). Ini hanya konfirmasi data lama, bukan kunjungan baru.",
+        "Ada 23 anak sunat yang belum ada di berkas DATAPASIEN, sehingga sistem membuatkan nomor RM baru otomatis (daftarnya di Lampiran 2).",
+        "Harga paket terapi masih berupa nilai acuan dan dapat disesuaikan manajemen sebelum diaktifkan.",
+    ])
+
+    story += h2("Bagian H. Pertanyaan & Konfirmasi Dokter")
+    story.append(question(1, "Menu Paket Terapi sebaiknya hanya untuk Owner, atau dokter pemeriksa juga perlu akses mengelola paket?"))
+    story.append(question(2, "Apakah tarif acuan paket terapi pada Bagian B sudah sesuai untuk diaktifkan di sistem kasir?"))
+    story.append(question(3, "Terkait 18 baris kunjungan pada Lampiran 1, apakah cukup dikonfirmasi di lembar ini, atau dokter menghendaki berkas Excel terpisah?"))
+    story.append(question(4, "Mohon konfirmasi nama dan nomor RM pada 23 anak pasien sunat di Lampiran 2."))
+    story.append(question(5, "Bila ada pasien dalam daftar yang merupakan dua orang berbeda dengan nama yang sama, mohon ditandai agar nomor RM tetap dipisahkan."))
+
+    story += h2("Bagian I. Langkah Berikutnya")
+    story += bullets([
+        "Dokter meninjau paket terapi dan memberikan jawaban konfirmasi pada Bagian H.",
+        "Pengembang mengaktifkan paket terapi yang telah disetujui pihak klinik.",
+        "Pengembang menindaklanjuti catatan konfirmasi dari Lampiran 1 dan Lampiran 2.",
+        "Sistem mulai dijalankan secara penuh untuk melayani operasional harian klinik.",
     ], numbered=True)
 
     story += h2("Lampiran 1. Daftar 18 Kunjungan yang Perlu Dipastikan")
     story.append(body(
-        "Nomor pada kolom pertama adalah nomor baris pada berkas REKAMMEDIS yang dokter kirim. Kolom "
-        "terakhir menjelaskan alasannya."
+        "Nomor baris mengacu pada berkas REKAMMEDIS yang dokter kirimkan. Kolom terakhir menjelaskan catatan pemeriksaannya."
     ))
     story.append(data_table(
-        ["Baris", "No RM kunjungan", "Nama kunjungan", "No RM hasil", "Catatan"],
+        ["Baris", "No RM Kunjungan", "Nama Kunjungan", "No RM Hasil", "Catatan Verifikasi"],
         [[str(r[0]), r[1], r[2], r[3], r[4]] for r in REVIEW_ROWS],
-        [1.3 * cm, 2.6 * cm, 3.2 * cm, 2.6 * cm, 7.1 * cm],
+        [1.3 * cm, 2.7 * cm, 3.2 * cm, 2.7 * cm, 7.5 * cm],
     ))
 
-    story += h2("Lampiran 2. Daftar 23 Anak Sunat yang Dibuatkan Nomor Baru")
+    story += h2("Lampiran 2. Daftar 23 Pasien Sunat yang Dibuatkan Nomor Baru")
     story.append(body(
-        "Anak berikut tercatat pada berkas tindakan sunat tetapi belum ada di berkas DATAPASIEN, "
-        "sehingga aplikasi membuatkan nomor RM baru. Mohon dipastikan nama dan nomornya."
+        "Pasien berikut tercatat pada berkas tindakan sunat tetapi belum terdaftar di berkas DATAPASIEN, "
+        "sehingga sistem membuatkan nomor RM baru otomatis. Mohon konfirmasi kesesuaiannya."
     ))
     story.append(data_table(
-        ["Nomor RM", "Nama", "Tanggal lahir", "Desa"],
+        ["Nomor RM", "Nama Pasien", "Tanggal Lahir", "Desa"],
         [list(r) for r in SUNAT_ROWS],
-        [2.8 * cm, 6.8 * cm, 2.8 * cm, 4.4 * cm],
+        [3.0 * cm, 7.0 * cm, 2.8 * cm, 4.6 * cm],
     ))
 
     story += h2("Lampiran 3. Keterangan Istilah")
     story.append(data_table(
-        ["Istilah", "Arti"],
+        ["Istilah", "Penjelasan Sederhana"],
         [
-            ["Nomor RM", "Nomor rekam medis, kode identitas pasien di klinik"],
-            ["Data produksi", "Data asli yang dipakai klinik sehari-hari"],
-            ["Lingkungan uji", "Salinan data untuk mencoba perubahan tanpa menyentuh data asli"],
-            ["Pencadangan", "Salinan data yang disimpan untuk berjaga bila perlu dikembalikan"],
-            ["Paket Terapi", "Sekumpulan tindakan dan obat yang diberi satu nama dan satu harga"],
+            ["Nomor RM", "Nomor rekam medis resmi (9 digit), kode unik pengenal pasien di klinik"],
+            ["Data Produksi", "Sistem utama yang digunakan aktif oleh staf klinik setiap hari"],
+            ["Lingkungan Uji", "Salinan sistem untuk mencoba fitur pembaruan tanpa menyentuh data asli"],
+            ["Pencadangan (Backup)", "Salinan data yang disimpan aman untuk berjaga-jaga bila diperlukan"],
+            ["Paket Terapi", "Kombinasi tindakan medis dan obat yang diberi satu nama dan satu tarif"],
+            ["Soft Cancel", "Pembatalan antrean tanpa menghapus data agar riwayat register tetap rapi"],
+            ["Triple Eliminasi", "Program skrining bumil Kemenkes meliputi HBsAg, HIV, dan Sifilis"],
+            ["ANC & GPA", "Pemeriksaan kehamilan dengan notasi Gravida (hamil), Para (lahir), Abortus (keguguran)"],
         ],
-        [3.6 * cm, 13.2 * cm],
+        [3.8 * cm, 13.6 * cm],
     ))
 
-    story += h2("Catatan Teknis")
+    story += h2("Catatan Teknis & Kerahasiaan")
     story += bullets([
-        "Seluruh data produksi dicadangkan sebelum perubahan. Cadangan disimpan di luar aplikasi dan "
-        "tidak dibagikan.",
-        "Satu data kunjungan uji yang tidak sengaja tersimpan di aplikasi sudah dibersihkan.",
-        "Dokumen ini memuat nama pasien pada Lampiran 1 dan Lampiran 2. Mohon dipakai hanya untuk "
-        "keperluan validasi klinik dan tidak disebarkan ke luar.",
+        "Seluruh data produksi dicadangkan sebelum setiap perubahan diterapkan ke sistem.",
+        "Data kunjungan uji coba yang sempat tersimpan selama pengujian telah dibersihkan sepenuhnya.",
+        "Dokumen ini memuat nama pasien pada Lampiran 1 dan Lampiran 2 khusus untuk validasi internal klinik dan dilarang disebarluaskan ke pihak luar.",
     ])
 
     doc.build(story, canvasmaker=NumberedCanvas)

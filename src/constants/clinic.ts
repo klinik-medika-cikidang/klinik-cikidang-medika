@@ -187,3 +187,15 @@ export const TRIPLE_ELIMINASI_LABS = [
   { key: 'hbsag', label: 'HBsAg' },
   { key: 'syphilis', label: 'Sipilis' },
 ] as const;
+
+// F-016: Options for 100% free / discounted visit reasons
+export const ALASAN_GRATIS_OPTIONS = [
+  'Kontrol Pasca Tindakan',
+  'Keluarga Dokter / Staf',
+  'Bakti Sosial / Dhuafa',
+  'Instruksi Khusus Dokter',
+  'Garansi Pemeriksaan Ulang',
+  'Lainnya',
+] as const;
+
+export type AlasanGratis = (typeof ALASAN_GRATIS_OPTIONS)[number];
