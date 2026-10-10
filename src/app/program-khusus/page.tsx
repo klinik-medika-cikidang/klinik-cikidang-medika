@@ -87,8 +87,8 @@ export default function ProgramKhususPage() {
       // 4. Fetch Public Health Records (PTM, ANC, KB, 3 Eliminasi)
       const { data: healthData, error: healthErr } = await supabase
         .from('public_health_records')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*, pasien:patients(id, no_rm, nama, desa, usia, jenis_kelamin)')
+        .order('tanggal_periksa', { ascending: false });
       if (healthErr) throw healthErr;
       setPublicHealthList((healthData as unknown as PublicHealthRecord[]) || []);
     } catch (err) {

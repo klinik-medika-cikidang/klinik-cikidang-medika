@@ -137,12 +137,16 @@ export type PublicHealthRecord = {
   id: string;
   program_type: PublicHealthProgramType;
   pasien_id?: string;
+  tanggal_periksa?: string;
+  no_rm?: string;
   nama: string;
   jenis_kelamin?: 'Laki-laki' | 'Perempuan' | string;
   ttl?: string;
+  desa?: string;
   alamat?: string;
   no_nik?: string;
   diagnosa?: string;
+  kategori_ptm?: 'Hipertensi' | 'Diabetes' | 'Lainnya' | string;
   lab?: string;
   terapi?: string;
   hbsag?: string;

@@ -73,10 +73,16 @@ features:
     status: completed
     spec_path: docs/specs/F-014-batal-antrean-pasien
     active_phase: completed
+  - id: F-015
+    name: Peningkatan Laporan Puskesmas & Register Program Kesehatan
+    track: engineering
+    status: completed
+    spec_path: docs/specs/F-015-laporan-puskesmas-program-kesehatan
+    active_phase: completed
 
 active:
-  feature_id: "F-014"
-  task_id: "TASK-008"
+  feature_id: "F-015"
+  task_id: "COMPLETED"
   branch: "main"
 
 blockers: []
@@ -118,6 +124,7 @@ migration:
         - supabase/migrations/20261009_f012_therapy_packages.sql
         - supabase/migrations/20261010_f012_activate_packages.sql
         - supabase/migrations/20261010_f014_cancel_queue_support.sql
+        - supabase/migrations/20261011_f015_puskesmas_reporting_enhancement.sql
     - name: production
       project_ref: aszjzvdmxudmoomdxttx
       backup: docs/data/prod-pref009-2026-10-01T09-31-10-869Z.json
@@ -132,7 +139,8 @@ migration:
         - supabase/migrations/20261009_f012_therapy_packages.sql
         - supabase/migrations/20261010_f012_activate_packages.sql
         - supabase/migrations/20261010_f014_cancel_queue_support.sql
-      latest_change: "2026-10-10: F-014 selesai; fitur soft-cancel dan pulihkan antrean diterapkan di staging & produksi via 20261010_f014_cancel_queue_support.sql, terintegrasi pada QueueList rekam medis dan MasterPatientTable loket pendaftaran."
+        - supabase/migrations/20261011_f015_puskesmas_reporting_enhancement.sql
+      latest_change: "2026-10-10: F-015 selesai; peningkatan Laporan Puskesmas & Register Program Kesehatan diterapkan di staging & produksi via 20261011_f015_puskesmas_reporting_enhancement.sql, mencakup filter bulanan, input manual GPA untuk ANC, skrining 3 Eliminasi, kategorisasi PTM, serta Universal Baseline Tanggal, No RM, dan Desa."
   result:
     patients: 3750
     visits: 7827

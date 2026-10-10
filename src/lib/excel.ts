@@ -289,15 +289,22 @@ export function exportFullClinicWorkbook(params: {
 
 export interface PublicHealthExportRow {
   program_type: string;
+  tanggal_periksa?: string;
+  no_rm?: string;
   nama: string;
   jenis_kelamin: string;
   ttl: string;
+  desa?: string;
   alamat: string;
   no_nik: string;
   diagnosa: string;
+  kategori_ptm?: string;
   lab: string;
   terapi: string;
+  gpa?: string;
   hbsag: string;
+  hiv?: string;
+  syphilis?: string;
   jenis_kb: string;
   tanggal_kembali: string;
 }
@@ -309,42 +316,140 @@ const PUBLIC_HEALTH_SHEET_CONFIG: Record<
   PTM: {
     sheetName: 'PTM',
     title: 'LAPORAN PTM (PENYAKIT TIDAK MENULAR)',
-    headers: ['Nama', 'JK', 'TTL', 'Alamat', 'No NIK', 'Diagnosa', 'Lab'],
+    headers: [
+      'Tanggal Periksa',
+      'No RM',
+      'Nama Pasien',
+      'JK',
+      'TTL',
+      'Desa',
+      'Alamat',
+      'No NIK',
+      'Kategori PTM',
+      'Diagnosa',
+      'Hasil Lab / Terapi',
+    ],
   },
   ANC: {
     sheetName: 'ANC',
     title: 'LAPORAN ANC (ANTENATAL CARE)',
-    headers: ['Nama', 'JK', 'TTL', 'Alamat', 'No NIK', 'Diagnosa', 'Terapi', 'HbSAg'],
+    headers: [
+      'Tanggal Periksa',
+      'No RM',
+      'Nama Pasien',
+      'JK',
+      'TTL',
+      'Desa',
+      'Alamat',
+      'No NIK',
+      'Diagnosa',
+      'GPA',
+      'Terapi',
+      'HbSAg',
+    ],
   },
   KB: {
     sheetName: 'KB',
     title: 'LAPORAN KB (KELUARGA BERENCANA)',
-    headers: ['Nama', 'TTL', 'Alamat', 'No NIK', 'Jenis KB', 'Tanggal Kembali'],
+    headers: [
+      'Tanggal Periksa',
+      'No RM',
+      'Nama Pasien',
+      'TTL',
+      'Desa',
+      'Alamat',
+      'No NIK',
+      'Jenis KB',
+      'Tanggal Kembali',
+    ],
   },
   ELIMINASI_3: {
     sheetName: '3 Eliminasi',
     title: 'LAPORAN 3 ELIMINASI',
-    headers: ['Nama', 'JK', 'TTL', 'Alamat', 'No NIK', 'Diagnosa', 'Lab'],
+    headers: [
+      'Tanggal Periksa',
+      'No RM',
+      'Nama Pasien',
+      'JK',
+      'TTL',
+      'Desa',
+      'Alamat',
+      'No NIK',
+      'Diagnosa',
+      'GPA',
+      'Terapi',
+      'HbSAg',
+      'HIV',
+      'Sifilis',
+    ],
   },
 };
 
 function buildPublicHealthRow(row: PublicHealthExportRow, program: string): (string | number)[] {
+  const tgl = row.tanggal_periksa || '-';
+  const rm = row.no_rm || '-';
+  const desa = row.desa || '-';
+
   if (program === 'KB') {
-    return [row.nama, row.ttl, row.alamat, row.no_nik, row.jenis_kb, row.tanggal_kembali];
+    return [
+      tgl,
+      rm,
+      row.nama,
+      row.ttl,
+      desa,
+      row.alamat,
+      row.no_nik,
+      row.jenis_kb || '-',
+      row.tanggal_kembali || '-',
+    ];
   }
   if (program === 'ANC') {
     return [
+      tgl,
+      rm,
       row.nama,
       row.jenis_kelamin,
       row.ttl,
+      desa,
       row.alamat,
       row.no_nik,
-      row.diagnosa,
-      row.terapi,
-      row.hbsag,
+      row.diagnosa || '-',
+      row.gpa || '-',
+      row.terapi || '-',
+      row.hbsag || '-',
     ];
   }
-  return [row.nama, row.jenis_kelamin, row.ttl, row.alamat, row.no_nik, row.diagnosa, row.lab];
+  if (program === 'ELIMINASI_3') {
+    return [
+      tgl,
+      rm,
+      row.nama,
+      row.jenis_kelamin,
+      row.ttl,
+      desa,
+      row.alamat,
+      row.no_nik,
+      row.diagnosa || '-',
+      row.gpa || '-',
+      row.terapi || '-',
+      row.hbsag || '-',
+      row.hiv || '-',
+      row.syphilis || '-',
+    ];
+  }
+  return [
+    tgl,
+    rm,
+    row.nama,
+    row.jenis_kelamin,
+    row.ttl,
+    desa,
+    row.alamat,
+    row.no_nik,
+    row.kategori_ptm || '-',
+    row.diagnosa || '-',
+    row.lab || row.terapi || '-',
+  ];
 }
 
 export function exportPublicHealthToExcel(

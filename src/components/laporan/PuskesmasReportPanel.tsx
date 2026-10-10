@@ -49,13 +49,13 @@ export function PuskesmasReportPanel({
         let query = supabase
           .from('public_health_records')
           .select(
-            'id, program_type, nama, jenis_kelamin, ttl, alamat, no_nik, diagnosa, lab, terapi, hbsag, gpa, uk, tp, hiv, syphilis, visits!inner(tanggal_periksa, bulan, kode_icd10, doctors(nama)), patients(no_rm, gelar, usia, desa, alamat, no_ktp, no_bpjs)'
+            'id, program_type, tanggal_periksa, no_rm, desa, nama, jenis_kelamin, ttl, alamat, no_nik, diagnosa, lab, terapi, hbsag, gpa, uk, tp, hiv, syphilis, visits(tanggal_periksa, bulan, kode_icd10, doctors(nama)), patients(no_rm, gelar, usia, desa, alamat, no_ktp, no_bpjs)'
           )
-          .order('created_at', { ascending: false })
+          .order('tanggal_periksa', { ascending: false })
           .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-        if (startDate) query = query.gte('visits.tanggal_periksa', startDate);
-        if (endDate) query = query.lte('visits.tanggal_periksa', endDate);
+        if (startDate) query = query.gte('tanggal_periksa', startDate);
+        if (endDate) query = query.lte('tanggal_periksa', endDate);
 
         const { data, error } = await query;
         if (error) throw error;
@@ -66,17 +66,17 @@ export function PuskesmasReportPanel({
           const patient = record.patients || {};
           collected.push({
             program_type: record.program_type,
-            no_rm: text(patient.no_rm),
+            no_rm: text(record.no_rm, text(patient.no_rm)),
             gelar_jk: text(patient.gelar),
-            nama: text(record.nama, text(patient.no_rm, 'Tanpa Nama')),
+            nama: text(record.nama, text(record.no_rm, text(patient.no_rm, 'Tanpa Nama'))),
             jenis_kelamin: text(record.jenis_kelamin || patient.jenis_kelamin),
             tanggal_lahir: text(patient.tanggal_lahir || record.ttl),
             usia: patient.usia === null || patient.usia === undefined ? '-' : String(patient.usia),
-            desa: text(patient.desa),
+            desa: text(record.desa, text(patient.desa)),
             alamat: text(record.alamat || patient.alamat),
             no_ktp: text(record.no_nik || patient.no_ktp),
             no_bpjs: text(patient.no_bpjs),
-            tanggal_periksa: text(visit.tanggal_periksa),
+            tanggal_periksa: text(record.tanggal_periksa, text(visit.tanggal_periksa)),
             bulan: text(visit.bulan),
             kode_icd10: text(visit.kode_icd10),
             petugas: text(visit.doctors?.nama),

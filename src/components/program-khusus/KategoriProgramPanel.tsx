@@ -149,6 +149,8 @@ export function KategoriProgramPanel({ visit, onSaved, className }: KategoriProg
         onClose={() => setIsProgramModalOpen(false)}
         onSuccess={() => setIsProgramModalOpen(false)}
         defaultProgram={asHealthProgram(kategori)}
+        initialVisit={visit}
+        initialPatient={visit.pasien}
       />
       <NewPostCareModal
         isOpen={isObservasiModalOpen}
