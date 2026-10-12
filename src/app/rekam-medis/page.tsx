@@ -260,13 +260,30 @@ export default function RekamMedisPage() {
 
           <button
             type="button"
-            onClick={() => setIsExamExpanded((prev) => !prev)}
+            onClick={() => {
+              if (!isExamExpanded && !selectedVisit) {
+                const firstWaiting = visits.find(
+                  (v) => v.status_pembayaran === 'Menunggu Dokter' && !v.kode_icd10
+                );
+                if (firstWaiting) {
+                  setSelectedVisit(firstWaiting);
+                  setIsExamExpanded(true);
+                } else if (visits.length > 0) {
+                  setSelectedVisit(visits[0]);
+                  setIsExamExpanded(true);
+                } else {
+                  toast.info('Pilih pasien di antrean terlebih dahulu untuk membuka ruang periksa.');
+                }
+              } else {
+                setIsExamExpanded((prev) => !prev);
+              }
+            }}
             className="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-btn-secondary tactile-btn min-h-[36px] inline-flex items-center gap-1.5"
-            title={isExamExpanded ? 'Kembalikan layout 2 kolom' : 'Perbesar area periksa dokter'}
-            aria-label={isExamExpanded ? 'Kembalikan layout 2 kolom' : 'Perbesar area periksa dokter'}
+            title={isExamExpanded ? 'Kembalikan layout 2 kolom' : 'Perbesar seluruh layar laptop (fokus periksa)'}
+            aria-label={isExamExpanded ? 'Kembalikan layout 2 kolom' : 'Perbesar seluruh layar laptop'}
           >
             {isExamExpanded ? <ArrowsIn className="w-4 h-4 text-teal-600" weight="bold" /> : <ArrowsOut className="w-4 h-4 text-teal-600" weight="bold" />}
-            <span>{isExamExpanded ? 'Tampilan Normal' : 'Perbesar Area Periksa'}</span>
+            <span>{isExamExpanded ? 'Tampilan Normal' : 'Layar Penuh Dokter'}</span>
           </button>
 
           <button
@@ -325,6 +342,10 @@ export default function RekamMedisPage() {
               visit={selectedVisit}
               onSaveSuccess={handleSaveSuccess}
               className="h-full"
+              isExpanded={isExamExpanded}
+              onToggleExpand={() => setIsExamExpanded((prev) => !prev)}
+              queueVisits={visits}
+              onSelectVisit={handleSelectVisit}
             />
           ) : (
             <div className="bg-white rounded-2xl border border-slate-200/90 p-8 sm:p-14 text-center shadow-card-double space-y-4">

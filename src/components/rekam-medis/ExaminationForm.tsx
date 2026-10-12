@@ -20,6 +20,10 @@ import {
   CaretUp,
   FirstAid,
   HandHeart,
+  ArrowsIn,
+  ArrowsOut,
+  CaretLeft,
+  CaretRight,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
@@ -47,6 +51,10 @@ export interface ExaminationFormProps {
   visit: Visit;
   onSaveSuccess?: (updatedVisit: Visit, isHandover?: boolean) => void;
   className?: string;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+  queueVisits?: Visit[];
+  onSelectVisit?: (visit: Visit) => void;
 }
 
 function parseInitialDiagnoses(codesStr?: string | null, descStr?: string | null): DiagnosisItem[] {
@@ -64,6 +72,10 @@ export function ExaminationForm({
   visit,
   onSaveSuccess,
   className,
+  isExpanded = false,
+  onToggleExpand,
+  queueVisits,
+  onSelectVisit,
 }: ExaminationFormProps) {
   // Anamnesis notes
   const [keluhan, setKeluhan] = useState('');
@@ -122,6 +134,61 @@ export function ExaminationForm({
   const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
   const [pendingPackages, setPendingPackages] = useState<TherapyPackage[]>([]);
   const [prescriptionItems, setPrescriptionItems] = useState<PrescriptionItem[]>([]);
+
+  // Waiting queue list and position for quick queue switcher
+  const waitingVisits = useMemo(() => {
+    if (!queueVisits) return [];
+    return queueVisits.filter(
+      (v) => v.status_pembayaran === 'Menunggu Dokter' || v.id === visit.id
+    );
+  }, [queueVisits, visit.id]);
+
+  const currentQueueIndex = waitingVisits.findIndex((v) => v.id === visit.id);
+  const prevVisit = currentQueueIndex > 0 ? waitingVisits[currentQueueIndex - 1] : null;
+  const nextVisit =
+    currentQueueIndex >= 0 && currentQueueIndex < waitingVisits.length - 1
+      ? waitingVisits[currentQueueIndex + 1]
+      : null;
+
+  // Fullscreen keyboard escape listener (active only when no child modal is open)
+  useEffect(() => {
+    if (!isExpanded) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (
+          !isSuratSakitOpen &&
+          !isSuratRujukanOpen &&
+          !isTbcModalOpen &&
+          !isCircumcisionModalOpen &&
+          !isPackageModalOpen
+        ) {
+          onToggleExpand?.();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isExpanded,
+    onToggleExpand,
+    isSuratSakitOpen,
+    isSuratRujukanOpen,
+    isTbcModalOpen,
+    isCircumcisionModalOpen,
+    isPackageModalOpen,
+  ]);
+
+  // Fullscreen body overflow lock
+  useEffect(() => {
+    if (isExpanded) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isExpanded]);
 
   useEffect(() => {
     async function loadDoctors() {
@@ -353,7 +420,14 @@ export function ExaminationForm({
 
   return (
     <>
-      <div className={cn('bg-white border border-slate-200/90 rounded-2xl shadow-card-double overflow-hidden flex flex-col h-full min-h-0', className)}>
+      <div
+        className={cn(
+          isExpanded
+            ? 'fixed inset-0 z-50 bg-slate-100 flex flex-col overflow-hidden w-screen h-screen'
+            : 'bg-white border border-slate-200/90 rounded-2xl shadow-card-double overflow-hidden flex flex-col h-full min-h-0',
+          className
+        )}
+      >
         {/* Banner Status Selesai / Sedang Diperiksa */}
         {isFinished && (
           <div className="bg-emerald-50 border-b border-emerald-200 px-5 py-2.5 flex items-center justify-between text-xs text-emerald-900">
@@ -391,6 +465,11 @@ export function ExaminationForm({
                     Sedang Diperiksa
                   </span>
                 )}
+                {isExpanded && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-800 text-white border border-teal-700 flex items-center gap-1 shadow-2xs">
+                    Layar Penuh
+                  </span>
+                )}
               </div>
 
               <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
@@ -421,7 +500,52 @@ export function ExaminationForm({
               </div>
             </div>
 
-            {/* Administrative Quick Action Buttons */}
+            {/* Center: Quick Queue Switcher (Prev/Select/Next) */}
+            {waitingVisits.length > 0 && onSelectVisit && (
+              <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-xl p-1 shadow-2xs self-start lg:self-center">
+                <button
+                  type="button"
+                  onClick={() => prevVisit && onSelectVisit(prevVisit)}
+                  disabled={!prevVisit}
+                  className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-600 transition tactile-btn"
+                  title={prevVisit ? `Pindah ke antrean sebelumnya: ${prevVisit.pasien?.nama}` : 'Tidak ada pasien sebelumnya'}
+                  aria-label="Pasien sebelumnya"
+                >
+                  <CaretLeft className="w-3.5 h-3.5" weight="bold" />
+                </button>
+
+                <div className="relative">
+                  <select
+                    value={visit.id}
+                    onChange={(e) => {
+                      const selected = waitingVisits.find((v) => v.id === e.target.value);
+                      if (selected) onSelectVisit(selected);
+                    }}
+                    className="text-xs font-bold text-slate-800 bg-transparent pr-4 pl-1 py-1 outline-none cursor-pointer font-mono"
+                    aria-label="Pilih pasien antrean"
+                  >
+                    {waitingVisits.map((v, idx) => (
+                      <option key={v.id} value={v.id}>
+                        #{String(v.nomor_antrian || idx + 1).padStart(2, '0')} - {v.pasien?.nama || 'Pasien'} ({v.jenis_pasien})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => nextVisit && onSelectVisit(nextVisit)}
+                  disabled={!nextVisit}
+                  className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-600 transition tactile-btn"
+                  title={nextVisit ? `Panggil pasien berikutnya: ${nextVisit.pasien?.nama}` : 'Tidak ada pasien berikutnya'}
+                  aria-label="Pasien berikutnya"
+                >
+                  <CaretRight className="w-3.5 h-3.5" weight="bold" />
+                </button>
+              </div>
+            )}
+
+            {/* Administrative Quick Action Buttons & Fullscreen Toggle */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 type="button"
@@ -472,6 +596,33 @@ export function ExaminationForm({
                 <FirstAid className="w-3.5 h-3.5 text-teal-600" weight="duotone" />
                 <span>Paket Terapi</span>
               </button>
+
+              {onToggleExpand && (
+                <button
+                  type="button"
+                  onClick={onToggleExpand}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-xl text-xs font-bold transition tactile-btn border shadow-btn-secondary',
+                    isExpanded
+                      ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+                      : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                  )}
+                  title={isExpanded ? 'Kembalikan ke tampilan normal (ESC)' : 'Perbesar seluruh layar laptop (fokus periksa)'}
+                  aria-label={isExpanded ? 'Kembalikan ke tampilan normal' : 'Perbesar seluruh layar laptop'}
+                >
+                  {isExpanded ? (
+                    <>
+                      <ArrowsIn className="w-4 h-4 text-amber-700" weight="bold" />
+                      <span>Tampilan Normal (ESC)</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowsOut className="w-4 h-4 text-teal-600" weight="bold" />
+                      <span>Layar Penuh</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
