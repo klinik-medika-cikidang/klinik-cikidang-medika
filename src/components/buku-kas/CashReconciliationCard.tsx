@@ -59,7 +59,7 @@ export function CashReconciliationCard({
               )}
             </h3>
             <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-              Mencocokkan penerimaan uang tunai loket kasir dengan catatan setoran bank harian
+              Mencocokkan penerimaan uang tunai fisik di laci kasir loket dengan catatan mutasi setoran bank di Buku Kas
             </p>
           </div>
         </div>
@@ -79,7 +79,7 @@ export function CashReconciliationCard({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
         <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
           <div className="flex items-center justify-between text-slate-500 text-[11px] font-medium">
-            <span>Uang Tunai di Loket Kasir</span>
+            <span>Uang Tunai di Laci Kasir (Fisik)</span>
             <span className="font-mono font-bold text-slate-700">
               {todayCashVisitsCount} Pasien
             </span>
@@ -88,20 +88,20 @@ export function CashReconciliationCard({
             {formatRupiah(todayCashVisitsTotal)}
           </div>
           <p className="text-[10px] text-slate-400">
-            Total biaya periksa tunai hari ini
+            Penerimaan uang cash fisik di laci loket kasir hari ini
           </p>
         </div>
 
         <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
           <div className="flex items-center justify-between text-slate-500 text-[11px] font-medium">
-            <span>Tercatat Disetor ke Bank</span>
+            <span>Tercatat Disetor ke Bank (Buku Kas)</span>
             <span className="text-emerald-600 font-bold text-[10px]">Buku Kas</span>
           </div>
           <div className="text-lg font-bold font-mono text-emerald-700">
             {formatRupiah(todayCashDepositsTotal)}
           </div>
           <p className="text-[10px] text-slate-400">
-            Mutasi masuk kategori Setor Tunai
+            Mutasi masuk kategori Setor Tunai ke rekening klinik
           </p>
         </div>
 
@@ -126,9 +126,9 @@ export function CashReconciliationCard({
               }
             >
               {isBalanced
-                ? 'Status Kasir'
+                ? 'Status Rekonsiliasi'
                 : hasRemainingCash
-                ? 'Sisa Fisik di Laci'
+                ? 'Sisa Fisik di Laci Kasir'
                 : 'Selisih Kas'}
             </span>
             {isBalanced ? (
@@ -150,17 +150,25 @@ export function CashReconciliationCard({
                 : 'text-slate-700'
             )}
           >
-            {isBalanced ? 'Rp 0 (Selesai)' : formatRupiah(selisih)}
+            {isBalanced ? 'Rp 0 (Selesai Disetor)' : formatRupiah(selisih)}
           </div>
 
           <p className="text-[10px] text-slate-500">
             {isBalanced
-              ? 'Seluruh kasir tunai hari ini telah disetor rapi'
+              ? 'Seluruh uang tunai loket kasir hari ini telah disetor rapi ke bank'
               : hasRemainingCash
               ? 'Uang fisik dipegang kasir yang belum disetor ke bank'
               : 'Tidak ada selisih kas yang belum disetor'}
           </p>
         </div>
+      </div>
+
+      {/* Catatan Edukasi Alur Kas */}
+      <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-[11px] text-slate-600 flex items-start gap-2">
+        <span className="font-bold text-teal-700 shrink-0">💡 Catatan Alur:</span>
+        <span className="leading-relaxed">
+          <strong>Loket Kasir</strong> mengumpulkan uang tunai (cash fisik di laci kasir). Saat uang tersebut disetorkan ke rekening bank klinik, staf mencatat <strong>Setor Tunai</strong> agar saldo di <strong>Buku Kas</strong> bertambah dan sisa fisik di laci menjadi seimbang (Rp 0).
+        </span>
       </div>
     </div>
   );

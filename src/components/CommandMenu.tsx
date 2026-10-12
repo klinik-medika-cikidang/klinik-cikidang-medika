@@ -29,6 +29,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Patient } from '@/types/database';
 import { PatientQuickProfileModal } from '@/components/pendaftaran/PatientQuickProfileModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { formatDateShort } from '@/lib/utils';
 
 interface MenuItem {
   id: string;
@@ -316,6 +317,14 @@ export function CommandMenu() {
                           <span>Desa {p.desa}</span>
                           <span>•</span>
                           <span>Usia {p.usia || '-'} thn</span>
+                          {p.tanggal_lahir && (
+                            <>
+                              <span>•</span>
+                              <span className="font-semibold text-teal-700 bg-teal-50/80 px-1 rounded border border-teal-200/60">
+                                Lahir: {formatDateShort(p.tanggal_lahir)}
+                              </span>
+                            </>
+                          )}
                           {p.no_ktp && (
                             <>
                               <span>•</span>

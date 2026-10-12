@@ -19,11 +19,17 @@ import {
   CaretDown,
   CaretUp,
   FirstAid,
+  HandHeart,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import type { Visit, Doctor, TherapyPackage } from '@/types/database';
-import { DEFAULT_TARIFFS } from '@/constants/clinic';
+import {
+  DEFAULT_TARIFFS,
+  BIDAN_REFERRAL_SOURCES,
+  bidanDisplayName,
+  normalizeBidanName,
+} from '@/constants/clinic';
 import { Badge } from '@/components/ui';
 import { Icd10QuickPicker, type DiagnosisItem } from '@/components/rekam-medis/Icd10QuickPicker';
 import { VitalsWidget } from '@/components/rekam-medis/VitalsWidget';
@@ -84,6 +90,7 @@ export function ExaminationForm({
   const [keteranganTindakan, setKeteranganTindakan] = useState('');
   const [lab, setLab] = useState('');
   const [labHasil, setLabHasil] = useState('');
+  const [bidanRujukan, setBidanRujukan] = useState<string>(visit.bidan_rujukan || '');
 
   // Billing & Tariffs
   const [biayaPeriksa, setBiayaPeriksa] = useState<number>(() => {
@@ -137,6 +144,7 @@ export function ExaminationForm({
     setKeteranganTindakan(visit.keterangan_tindakan || '');
     setLab(visit.lab || '');
     setLabHasil(visit.lab_hasil || '');
+    setBidanRujukan(visit.bidan_rujukan || '');
     setBiayaPeriksa(
       visit.biaya_periksa !== undefined && visit.biaya_periksa !== null
         ? normalizeRupiah(Number(visit.biaya_periksa))
@@ -286,6 +294,7 @@ export function ExaminationForm({
           terapi_obat: terapiObat.trim() || null,
           tindakan: tindakan.trim() || null,
           keterangan_tindakan: keteranganTindakan.trim() || null,
+          bidan_rujukan: normalizeBidanName(bidanRujukan),
           lab: lab.trim() || null,
           lab_hasil: labHasil.trim() || null,
           biaya_periksa: visit.jenis_pasien === 'BPJS' || isGratis ? 0 : normalizeRupiah(Number(biayaPeriksa || 0)),
@@ -669,6 +678,75 @@ export function ExaminationForm({
                   onChange={(e) => setKeteranganTindakan(e.target.value)}
                   className="w-full px-3 py-1.5 min-h-[36px] text-xs bg-white border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-teal-600 font-medium"
                 />
+              </div>
+
+              {/* Rujukan Bidan (Jika Pasien Dirujuk oleh Bidan) */}
+              <div className="md:col-span-2 space-y-2.5 p-3.5 bg-teal-50/50 rounded-xl border border-teal-200/80">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <HandHeart className="w-4 h-4 text-teal-600 shrink-0" weight="duotone" />
+                    <span className="text-xs font-bold text-slate-900">
+                      Rujukan Bidan (Untuk Tindakan Medis &amp; Rekap Bingkisan)
+                    </span>
+                  </div>
+                  {bidanRujukan && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-teal-800 bg-white px-2 py-0.5 rounded-md border border-teal-200">
+                        Dipilih: {bidanDisplayName(bidanRujukan)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setBidanRujukan('')}
+                        className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold underline hover:no-underline"
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-slate-500">
+                  Klik nama bidan di bawah jika kunjungan/tindakan ini merupakan rujukan dari bidan (digunakan untuk pemantauan rujukan &amp; bingkisan tahunan):
+                </p>
+
+                {/* Quick Chips of Registered Midwives */}
+                <div className="flex flex-wrap gap-1.5">
+                  {BIDAN_REFERRAL_SOURCES.map((b) => {
+                    const isSelected = bidanRujukan.toLowerCase() === b.id.toLowerCase();
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setBidanRujukan(isSelected ? '' : b.id)}
+                        className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition tactile-btn min-h-[32px] ${
+                          isSelected
+                            ? 'bg-teal-600 text-white border-teal-600 shadow-2xs scale-[1.02]'
+                            : 'bg-white text-slate-700 border-slate-200/90 hover:bg-teal-50 hover:border-teal-300'
+                        }`}
+                      >
+                        {b.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Input Bidan Lain jika di luar daftar */}
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  <span className="text-[11px] text-slate-500 font-medium shrink-0">
+                    Atau ketik nama bidan lain:
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Bdn. Nina / Bidan Desa Cikidang"
+                    value={
+                      BIDAN_REFERRAL_SOURCES.some((b) => b.id.toLowerCase() === bidanRujukan.toLowerCase())
+                        ? ''
+                        : bidanRujukan
+                    }
+                    onChange={(e) => setBidanRujukan(e.target.value)}
+                    className="px-3 py-1.5 min-h-[34px] text-xs bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-teal-600 flex-1 min-w-[200px] font-medium"
+                  />
+                </div>
               </div>
             </div>
           </div>

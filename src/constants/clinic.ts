@@ -141,6 +141,27 @@ export function bidanDisplayName(stored: string | null | undefined): string {
   return known ? known.label : raw.replace(/^bdn\.\s*/i, 'Bidan ');
 }
 
+export function normalizeBidanName(input: string | null | undefined): string | null {
+  if (!input) return null;
+  const raw = input.trim();
+  if (!raw || raw === '-') return null;
+
+  const known = BIDAN_REFERRAL_SOURCES.find(
+    (b) => b.id.toLowerCase() === raw.toLowerCase() || b.label.toLowerCase() === raw.toLowerCase()
+  );
+  if (known) return known.id;
+
+  const stripped = raw.replace(/^(bidan|bdn\.?)\s*/i, '').trim();
+  if (!stripped) return null;
+
+  const formatted = stripped
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+
+  return `Bdn.${formatted}`;
+}
+
 // Mirrors the MONITOR column of the visit log, which is what the Puskesmas register
 // reports are built from.
 export const PUBLIC_HEALTH_PROGRAM_LABELS: Record<string, string> = {

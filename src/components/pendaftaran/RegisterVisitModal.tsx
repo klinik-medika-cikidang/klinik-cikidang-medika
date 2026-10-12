@@ -10,10 +10,16 @@ import {
   MapPin,
   Ticket,
   Info,
+  HandHeart,
 } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
 import type { Patient, Doctor, Visit } from '@/types/database';
-import { DEFAULT_TARIFFS } from '@/constants/clinic';
+import {
+  DEFAULT_TARIFFS,
+  BIDAN_REFERRAL_SOURCES,
+  bidanDisplayName,
+  normalizeBidanName,
+} from '@/constants/clinic';
 import { Modal } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
 
@@ -42,6 +48,7 @@ export function RegisterVisitModal({
   const [nomorAntrian, setNomorAntrian] = useState<string>('1');
   const [keluhan, setKeluhan] = useState('');
   const [jenisPasien, setJenisPasien] = useState<'BPJS' | 'UMUM'>('UMUM');
+  const [bidanRujukan, setBidanRujukan] = useState<string>('');
 
   const [isLoadingDoctors, setIsLoadingDoctors] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,6 +65,7 @@ export function RegisterVisitModal({
     setErrorMessage(null);
     setFieldErrors({});
     setKeluhan('');
+    setBidanRujukan('');
 
     if (patient.no_bpjs && patient.no_bpjs.trim().length > 0) {
       setJenisPasien('BPJS');
@@ -160,6 +168,7 @@ export function RegisterVisitModal({
         jam_periksa: jamStr,
         bulan: bulanStr,
         keluhan_anamnesa: validData.keluhan || null,
+        bidan_rujukan: normalizeBidanName(bidanRujukan),
         jenis_pasien: validData.jenisPasien,
         biaya_periksa: initialTariff,
         pendapatan_lain: 0,
@@ -332,6 +341,45 @@ export function RegisterVisitModal({
             placeholder="Contoh: Demam tinggi sejak 2 hari yang lalu disertai batuk kering dan pusing"
             className="w-full px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-600 focus:bg-white transition-colors"
           />
+        </div>
+
+        {/* 4. Rujukan Bidan (Opsional) */}
+        <div className="p-3 bg-slate-50/80 border border-slate-200/90 rounded-2xl space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <HandHeart className="w-4 h-4 text-teal-600" weight="duotone" />
+              Rujukan Bidan <span className="text-[10px] text-slate-400 font-normal">(Opsional)</span>
+            </span>
+            {bidanRujukan && (
+              <button
+                type="button"
+                onClick={() => setBidanRujukan('')}
+                className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold underline hover:no-underline"
+              >
+                Batal
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {BIDAN_REFERRAL_SOURCES.map((b) => {
+              const isSelected = bidanRujukan.toLowerCase() === b.id.toLowerCase();
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => setBidanRujukan(isSelected ? '' : b.id)}
+                  className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition tactile-btn min-h-[30px] ${
+                    isSelected
+                      ? 'bg-teal-600 text-white border-teal-600 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-200/90 hover:bg-teal-50 hover:border-teal-300'
+                  }`}
+                >
+                  {b.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* 4. Information Card */}

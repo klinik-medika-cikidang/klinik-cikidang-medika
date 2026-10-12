@@ -16,6 +16,7 @@ import type { Patient } from '@/types/database';
 import { DESA_OPTIONS, GELAR_OPTIONS, JENIS_KELAMIN_OPTIONS } from '@/constants/clinic';
 import { Modal } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
+import { FlexibleDateInput } from '@/components/ui/FlexibleDateInput';
 
 const editPatientSchema = z.object({
   gelar: z.string().trim().default('Tn.'),
@@ -323,11 +324,15 @@ export function EditPatientModal({
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                 Tanggal Lahir
               </label>
-              <input
-                type="date"
+              <FlexibleDateInput
                 value={tanggalLahir}
-                onChange={(e) => handleDateChange(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-600 transition-colors min-h-[44px]"
+                onChange={(isoDate, calculatedAge) => {
+                  setTanggalLahir(isoDate);
+                  if (calculatedAge !== undefined && calculatedAge !== null) {
+                    setUsia(calculatedAge);
+                    if (fieldErrors.usia) setFieldErrors((prev) => ({ ...prev, usia: '' }));
+                  }
+                }}
               />
             </div>
 

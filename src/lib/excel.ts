@@ -689,3 +689,112 @@ export function exportReferralCommissionsToExcel(
   const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
   XLSX.writeFile(wb, `Laporan_Komisi_Rujukan_Cikidang_${year}_${fileNameDate}.xlsx`);
 }
+
+export interface BidanAnnualSummaryRow {
+  rank: number;
+  bidan: string;
+  label: string;
+  referrals: number;
+  patients: number;
+}
+
+export interface BidanAnnualDetailRow {
+  bidan: string;
+  tanggal_periksa: string;
+  no_rm: string;
+  nama_pasien: string;
+  desa: string;
+  kode_icd10: string;
+  tindakan: string;
+}
+
+export function exportBidanAnnualRecapToExcel(
+  summaryRows: BidanAnnualSummaryRow[],
+  detailRows: BidanAnnualDetailRow[],
+  year: number
+) {
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Rekap Bingkisan
+  const summaryHeaders = [
+    'Peringkat',
+    'Nama Bidan',
+    'Kode Bidan',
+    'Jumlah Rujukan',
+    'Jumlah Pasien Unik',
+    'Alokasi Bingkisan Akhir Tahun',
+  ];
+
+  const summaryData = summaryRows.map((s, idx) => [
+    idx + 1,
+    s.label,
+    s.bidan,
+    s.referrals,
+    s.patients,
+    s.referrals >= 15
+      ? 'Bingkisan Utama (Tier 1)'
+      : s.referrals >= 5
+      ? 'Bingkisan Standar (Tier 2)'
+      : s.referrals > 0
+      ? 'Bingkisan Apresiasi (Tier 3)'
+      : 'Belum Ada Rujukan',
+  ]);
+
+  const totalReferrals = summaryRows.reduce((acc, r) => acc + r.referrals, 0);
+
+  const sheet1Data = [
+    ...createMetadataHeader(
+      `REKAPITULASI RUJUKAN & ALOKASI BINGKISAN BIDAN TAHUN ${year}`,
+      { start: `${year}-01-01`, end: `${year}-12-31` }
+    ),
+    summaryHeaders,
+    ...summaryData,
+    [],
+    ['TOTAL RUJUKAN TAHUNAN', '', '', totalReferrals, '', ''],
+  ];
+
+  const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
+  ws1['!cols'] = calculateColumnWidths(sheet1Data);
+  XLSX.utils.book_append_sheet(wb, ws1, `Rekap Bingkisan ${year}`);
+
+  // Sheet 2: Rincian Kunjungan Rujukan Pasien
+  if (detailRows.length > 0) {
+    const detailHeaders = [
+      'No',
+      'Bidan Perujuk',
+      'Tanggal Periksa',
+      'No. RM',
+      'Nama Pasien',
+      'Desa',
+      'Kode ICD-10',
+      'Tindakan Medis / Prosedur',
+    ];
+
+    const detailData = detailRows.map((d, idx) => [
+      idx + 1,
+      d.bidan,
+      d.tanggal_periksa,
+      d.no_rm,
+      d.nama_pasien,
+      d.desa,
+      d.kode_icd10 || '-',
+      d.tindakan || '-',
+    ]);
+
+    const sheet2Data = [
+      ...createMetadataHeader(
+        `RINCIAN KUNJUNGAN PASIEN RUJUKAN BIDAN TAHUN ${year}`,
+        { start: `${year}-01-01`, end: `${year}-12-31` }
+      ),
+      detailHeaders,
+      ...detailData,
+    ];
+
+    const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
+    ws2['!cols'] = calculateColumnWidths(sheet2Data);
+    XLSX.utils.book_append_sheet(wb, ws2, 'Rincian Kunjungan Pasien');
+  }
+
+  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  XLSX.writeFile(wb, `Rekap_Bingkisan_Bidan_${year}_${fileNameDate}.xlsx`);
+}

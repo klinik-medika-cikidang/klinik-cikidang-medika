@@ -12,7 +12,7 @@ import {
 } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
 import type { Patient } from '@/types/database';
-import { cn } from '@/lib/utils';
+import { cn, formatDateShort } from '@/lib/utils';
 
 export interface PatientSearchAutocompleteProps {
   onSelectPatient: (patient: Patient) => void;
@@ -274,6 +274,14 @@ export function PatientSearchAutocomplete({
                             <>
                               <span>•</span>
                               <span>{patient.usia} thn</span>
+                            </>
+                          )}
+                          {patient.tanggal_lahir && (
+                            <>
+                              <span>•</span>
+                              <span className="font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 text-[10px]">
+                                Lahir: {formatDateShort(patient.tanggal_lahir)}
+                              </span>
                             </>
                           )}
                           {patient.no_bpjs && (

@@ -16,7 +16,7 @@ import {
 } from '@phosphor-icons/react';
 import type { Visit, Patient } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
-import { cn } from '@/lib/utils';
+import { cn, formatDateShort } from '@/lib/utils';
 
 export type TableFilterTab =
   | 'hari_ini'
@@ -569,9 +569,19 @@ export function MasterPatientTable({
 
                     <td className="px-3.5 py-2.5">
                       <div className="font-bold text-slate-900">{fullName}</div>
-                      <div className="text-[10px] text-slate-500 font-mono">
-                        {patient.usia !== undefined ? `${patient.usia} thn` : '-'},{' '}
-                        {patient.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}
+                      <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1.5 flex-wrap">
+                        <span>
+                          {patient.usia !== undefined ? `${patient.usia} thn` : '-'},{' '}
+                          {patient.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}
+                        </span>
+                        {patient.tanggal_lahir && (
+                          <>
+                            <span>•</span>
+                            <span className="text-teal-700 font-semibold bg-teal-50 px-1 rounded border border-teal-200/60">
+                              Lahir: {formatDateShort(patient.tanggal_lahir)}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </td>
 
@@ -642,9 +652,19 @@ export function MasterPatientTable({
 
                     <td className="px-3.5 py-2.5">
                       <div className="font-bold text-slate-900">{patientName}</div>
-                      <div className="text-[10px] text-slate-500 font-mono">
-                        {p?.usia !== undefined ? `${p.usia} thn` : '-'},{' '}
-                        {p?.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}
+                      <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1.5 flex-wrap">
+                        <span>
+                          {p?.usia !== undefined ? `${p.usia} thn` : '-'},{' '}
+                          {p?.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}
+                        </span>
+                        {p?.tanggal_lahir && (
+                          <>
+                            <span>•</span>
+                            <span className="text-teal-700 font-semibold bg-teal-50 px-1 rounded border border-teal-200/60">
+                              Lahir: {formatDateShort(p.tanggal_lahir)}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </td>
 
