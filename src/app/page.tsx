@@ -13,7 +13,7 @@ import {
   Heartbeat,
 } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
-import { normalizeRupiah } from '@/lib/utils';
+import { normalizeRupiah, formatLocalDateToYMD } from '@/lib/utils';
 import {
   DashboardKpiCards,
   type DashboardKpiData,
@@ -123,14 +123,14 @@ export default function DashboardPage() {
 
     if (selectedPeriod === 'this_month') {
       return {
-        start: new Date(currentYear, currentMonth, 1).toISOString().split('T')[0],
-        end: new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0],
+        start: formatLocalDateToYMD(new Date(currentYear, currentMonth, 1)),
+        end: formatLocalDateToYMD(new Date(currentYear, currentMonth + 1, 0)),
       };
     }
     if (selectedPeriod === 'last_month') {
       return {
-        start: new Date(currentYear, currentMonth - 1, 1).toISOString().split('T')[0],
-        end: new Date(currentYear, currentMonth, 0).toISOString().split('T')[0],
+        start: formatLocalDateToYMD(new Date(currentYear, currentMonth - 1, 1)),
+        end: formatLocalDateToYMD(new Date(currentYear, currentMonth, 0)),
       };
     }
     if (selectedPeriod === 'this_year') {
@@ -148,7 +148,7 @@ export default function DashboardPage() {
 
     try {
       const supabase = createClient();
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = formatLocalDateToYMD();
 
       let startDate: string | null = periodRange.start || null;
       let endDate: string | null = periodRange.end || null;
@@ -220,7 +220,7 @@ export default function DashboardPage() {
         .select('id', { count: 'exact', head: true })
         .gte(
           'tanggal_tindakan',
-          new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
+          formatLocalDateToYMD(new Date(Date.now() - 7 * 86400000))
         );
 
       let mangkirTbc = 0;

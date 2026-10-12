@@ -19,7 +19,7 @@ import { CashFlowTable } from '@/components/buku-kas/CashFlowTable';
 import { AddCashFlowModal } from '@/components/buku-kas/AddCashFlowModal';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
-import { cn, normalizeRupiah } from '@/lib/utils';
+import { cn, normalizeRupiah, formatLocalDateToYMD } from '@/lib/utils';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function BukuKasPage() {
@@ -30,7 +30,7 @@ export default function BukuKasPage() {
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1;
   const currentYear = currentDate.getFullYear();
-  const todayStr = currentDate.toISOString().split('T')[0];
+  const todayStr = formatLocalDateToYMD(currentDate);
 
   const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);

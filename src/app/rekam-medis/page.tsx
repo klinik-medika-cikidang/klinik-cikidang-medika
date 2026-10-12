@@ -18,10 +18,10 @@ import type { Visit } from '@/types/database';
 import { QueueList } from '@/components/rekam-medis/QueueList';
 import { ExaminationForm } from '@/components/rekam-medis/ExaminationForm';
 import { CancelQueueModal } from '@/components/rekam-medis/CancelQueueModal';
-import { cn } from '@/lib/utils';
+import { cn, formatLocalDateToYMD } from '@/lib/utils';
 
 export default function RekamMedisPage() {
-  const getTodayString = () => new Date().toISOString().split('T')[0];
+  const getTodayString = () => formatLocalDateToYMD();
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
   const [visits, setVisits] = useState<Visit[]>([]);

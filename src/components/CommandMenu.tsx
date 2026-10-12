@@ -16,6 +16,7 @@ import {
   ArrowRight,
   Sparkle,
   CircleNotch,
+  UserGear,
 } from '@phosphor-icons/react';
 import {
   CommandDialog,
@@ -28,6 +29,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import type { Patient } from '@/types/database';
 import { PatientQuickProfileModal } from '@/components/pendaftaran/PatientQuickProfileModal';
+import { MasterDoctorModal } from '@/components/pendaftaran/MasterDoctorModal';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { formatDateShort } from '@/lib/utils';
 
@@ -48,6 +50,7 @@ export function CommandMenu() {
   const [loading, setLoading] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isQuickProfileOpen, setIsQuickProfileOpen] = useState(false);
+  const [isDoctorModalOpen, setIsDoctorModalOpen] = useState(false);
   const router = useRouter();
 
   // Keyboard shortcut Ctrl+K or Cmd+K
@@ -146,6 +149,25 @@ export function CommandMenu() {
         iconColor: 'text-teal-600',
         href: '/paket-terapi',
         keywords: ['paket', 'terapi', 'tindakan', 'obat', 'master', 'bundle'],
+      },
+      {
+        id: 'act-manage-doctors',
+        title: 'Kelola Master Dokter & Tenaga Medis',
+        subtitle: 'Atur nama dokter, spesialisasi, dan status aktif praktik',
+        icon: UserGear,
+        iconColor: 'text-teal-600',
+        href: '#doctors',
+        keywords: [
+          'dokter',
+          'dr ovan',
+          'dr ade sofyan',
+          'dr neneng',
+          'tenaga medis',
+          'kelola dokter',
+          'tambah dokter',
+          'bidan resa',
+          'master dokter',
+        ],
       },
     ],
     []
@@ -246,6 +268,10 @@ export function CommandMenu() {
 
   const handleSelectNav = (href: string) => {
     setOpen(false);
+    if (href === '#doctors') {
+      setIsDoctorModalOpen(true);
+      return;
+    }
     router.push(href);
   };
 
@@ -471,6 +497,12 @@ export function CommandMenu() {
           setIsQuickProfileOpen(false);
           setSelectedPatient(null);
         }}
+      />
+
+      {/* Master Doctor Management Modal */}
+      <MasterDoctorModal
+        isOpen={isDoctorModalOpen}
+        onClose={() => setIsDoctorModalOpen(false)}
       />
     </>
   );

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarBlank, Info, WarningCircle } from '@phosphor-icons/react';
+import { formatLocalDateToYMD } from '@/lib/utils';
 
 export type PeriodMode = 'single' | 'range';
 export type PeriodPreset = 'this_month' | 'last_month' | 'this_year' | 'all' | 'custom';
@@ -16,7 +17,7 @@ interface DateRangePickerProps {
 }
 
 function toDateInputValue(date: Date) {
-  return date.toISOString().split('T')[0];
+  return formatLocalDateToYMD(date);
 }
 
 function presetRange(preset: Exclude<PeriodPreset, 'custom'>) {

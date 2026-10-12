@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { z } from 'zod';
 import {
   WarningCircle,
@@ -11,6 +11,7 @@ import {
   Ticket,
   Info,
   HandHeart,
+  UserGear,
 } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
 import type { Patient, Doctor, Visit } from '@/types/database';
@@ -22,6 +23,7 @@ import {
 } from '@/constants/clinic';
 import { Modal } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
+import { MasterDoctorModal } from './MasterDoctorModal';
 
 const visitSchema = z.object({
   dokterId: z.string().trim().min(1, 'Pilih dokter pemeriksa terlebih dahulu.'),
@@ -54,6 +56,38 @@ export function RegisterVisitModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [isDoctorModalOpen, setIsDoctorModalOpen] = useState(false);
+
+  const fetchDoctorsList = useCallback(async () => {
+    setIsLoadingDoctors(true);
+    try {
+      const supabase = createClient();
+      const { data: docData, error: docError } = await supabase
+        .from('doctors')
+        .select('id, nama, spesialisasi, aktif')
+        .eq('aktif', true)
+        .order('nama', { ascending: true });
+
+      if (docError) throw docError;
+
+      const sortedDocs = [...(docData || [])].sort((a, b) => {
+        const isADr = a.nama.toLowerCase().startsWith('dr');
+        const isBDr = b.nama.toLowerCase().startsWith('dr');
+        if (isADr && !isBDr) return -1;
+        if (!isADr && isBDr) return 1;
+        return a.nama.localeCompare(b.nama);
+      });
+
+      setDoctors(sortedDocs);
+      if (sortedDocs.length > 0) {
+        setSelectedDoctorId((prev) => (prev && sortedDocs.some((d) => d.id === prev) ? prev : sortedDocs[0].id));
+      }
+    } catch (err) {
+      console.error('Error fetching doctors:', err);
+    } finally {
+      setIsLoadingDoctors(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isOpen || !patient) {
@@ -74,32 +108,9 @@ export function RegisterVisitModal({
     }
 
     const initData = async () => {
-      setIsLoadingDoctors(true);
+      await fetchDoctorsList();
       try {
         const supabase = createClient();
-
-        const { data: docData, error: docError } = await supabase
-          .from('doctors')
-          .select('id, nama, spesialisasi, aktif')
-          .eq('aktif', true)
-          .order('nama', { ascending: true });
-
-        if (docError) throw docError;
-
-        // Sort physicians (dr.) to the top of the list
-        const sortedDocs = [...(docData || [])].sort((a, b) => {
-          const isADr = a.nama.toLowerCase().startsWith('dr');
-          const isBDr = b.nama.toLowerCase().startsWith('dr');
-          if (isADr && !isBDr) return -1;
-          if (!isADr && isBDr) return 1;
-          return a.nama.localeCompare(b.nama);
-        });
-
-        setDoctors(sortedDocs);
-        if (sortedDocs.length > 0) {
-          setSelectedDoctorId(sortedDocs[0].id);
-        }
-
         // Canonical Indonesian date (WIB / Asia/Jakarta)
         const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
         const { count, error: countError } = await supabase
@@ -110,14 +121,12 @@ export function RegisterVisitModal({
         if (countError) throw countError;
         setNomorAntrian(String((count || 0) + 1));
       } catch (err) {
-        console.error('Error initializing visit modal:', err);
-      } finally {
-        setIsLoadingDoctors(false);
+        console.error('Error initializing queue count:', err);
       }
     };
 
     initData();
-  }, [isOpen, patient]);
+  }, [isOpen, patient, fetchDoctorsList]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -272,9 +281,20 @@ export function RegisterVisitModal({
         {/* 2. Doctor & Patient Category Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Dokter Pemeriksa <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Dokter Pemeriksa <span className="text-rose-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsDoctorModalOpen(true)}
+                className="text-[11px] text-teal-700 hover:text-teal-800 font-semibold flex items-center gap-1 tactile-btn"
+                title="Kelola daftar nama dokter & spesialisasi"
+              >
+                <UserGear className="w-3.5 h-3.5" weight="bold" />
+                <span>Kelola Dokter</span>
+              </button>
+            </div>
             <Select
               value={selectedDoctorId}
               onChange={(e) => {
@@ -413,6 +433,12 @@ export function RegisterVisitModal({
           </button>
         </div>
       </form>
+
+      <MasterDoctorModal
+        isOpen={isDoctorModalOpen}
+        onClose={() => setIsDoctorModalOpen(false)}
+        onDoctorsUpdated={fetchDoctorsList}
+      />
     </Modal>
   );
 }

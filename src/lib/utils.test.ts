@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFlexibleDate, calculateAgeFromDob, formatDateShort } from './utils';
+import { parseFlexibleDate, calculateAgeFromDob, formatDateShort, formatLocalDateToYMD } from './utils';
 
 describe('parseFlexibleDate', () => {
   it('parses standard ISO YYYY-MM-DD', () => {
@@ -58,5 +58,24 @@ describe('formatDateShort', () => {
   it('returns dash for null/empty', () => {
     expect(formatDateShort(null)).toBe('-');
     expect(formatDateShort('')).toBe('-');
+  });
+});
+
+describe('formatLocalDateToYMD', () => {
+  it('formats 1st of month correctly without shifting back to previous month', () => {
+    // 1st of October 2026 at midnight local time
+    const oct1 = new Date(2026, 9, 1, 0, 0, 0);
+    expect(formatLocalDateToYMD(oct1)).toBe('2026-10-01');
+  });
+
+  it('formats last day of month correctly', () => {
+    // Last day of October 2026
+    const octEnd = new Date(2026, 10, 0, 23, 59, 59);
+    expect(formatLocalDateToYMD(octEnd)).toBe('2026-10-31');
+  });
+
+  it('formats arbitrary dates with zero padding', () => {
+    const date = new Date(2026, 0, 5);
+    expect(formatLocalDateToYMD(date)).toBe('2026-01-05');
   });
 });

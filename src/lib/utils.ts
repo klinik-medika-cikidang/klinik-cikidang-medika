@@ -145,3 +145,14 @@ export function describePeriod(startDate: string, endDate: string): string {
   if (startDate) return `Mulai ${formatDateIndo(startDate)}`;
   return `Sampai ${formatDateIndo(endDate)}`;
 }
+
+/**
+ * Formats a Date object to YYYY-MM-DD using local calendar components.
+ * Prevents UTC timezone shift (e.g. UTC+7 WIB shifting 1st of month to previous month in toISOString).
+ */
+export function formatLocalDateToYMD(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}

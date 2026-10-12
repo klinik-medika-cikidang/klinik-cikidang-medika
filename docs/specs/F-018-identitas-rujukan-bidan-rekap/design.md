@@ -28,10 +28,23 @@ last_updated: 2026-10-12
 │                                │ • exportBidanAnnualRecapToExcel       │
 ├────────────────────────────────┼───────────────────────────────────────┤
 │ 4. Cashier Reconciliation      │ • CashReconciliationCard.tsx          │
+├────────────────────────────────┼───────────────────────────────────────┤
+│ 5. Timezone Date Range Fix     │ • formatLocalDateToYMD (src/lib/utils)│
+│                                │ • DateRangePicker.tsx                 │
+│                                │ • src/app/laporan/page.tsx            │
+│                                │ • src/app/page.tsx                    │
+├────────────────────────────────┼───────────────────────────────────────┤
+│ 6. Master Doctor Management    │ • MasterDoctorModal.tsx               │
+│                                │ • RegisterVisitModal.tsx trigger      │
+│                                │ • CommandMenu.tsx (#doctors action)   │
+│                                │ • Supabase doctors table              │
+├────────────────────────────────┼───────────────────────────────────────┤
+│ 7. ICD-10 BPJS FKTP Standards  │ • src/constants/icd10.ts (144 codes)  │
+│                                │ • Icd10QuickPicker.tsx                │
 └────────────────────────────────┴───────────────────────────────────────┘
                                    │
                                    ▼
-                 Supabase Cloud PostgreSQL (visits, patients)
+          Supabase Cloud PostgreSQL (visits, patients, doctors, cash_flows)
 ```
 
 ---
@@ -114,6 +127,30 @@ Update microcopy in `CashReconciliationCard.tsx`:
 - Card 1: "Uang Tunai di Loket Kasir (Laci Fisik)" -> Total uang cash fisik yang diterima kasir hari ini.
 - Card 2: "Tercatat Disetor ke Bank (Buku Kas)" -> Mutasi masuk kategori Setor Tunai di Buku Kas.
 - Card 3: "Sisa Tunai di Kasir (Belum Disetor)" -> Uang tunai yang masih dipegang di laci kasir klinik.
+
+### F. Timezone Normalization (`formatLocalDateToYMD`)
+
+- Problem: In browser running in UTC+7 (WIB), calling `new Date(2026, 9, 1).toISOString().split('T')[0]` converts midnight WIB (`2026-09-30 17:00:00Z`) to UTC, causing the date string to roll back to `2026-09-30`. This caused reports for October 2026 to include September 30 (8 visits, Rp 950.000).
+- Solution: `formatLocalDateToYMD(date: Date)` extracts `date.getFullYear()`, `date.getMonth() + 1`, and `date.getDate()` with zero padding, ensuring 100% adherence to local calendar dates.
+- Applied to: `DateRangePicker.tsx`, `src/app/laporan/page.tsx`, `src/app/page.tsx`, `src/app/buku-kas/page.tsx`, and `src/app/rekam-medis/page.tsx`.
+
+### G. Master Doctor Management (`MasterDoctorModal.tsx`)
+
+- Database: Supabase `doctors` table (`id`, `nama`, `spesialisasi`, `aktif`, `created_at`).
+- Staging and production records updated: `UPDATE doctors SET nama = 'dr. Ade Sofyan' WHERE nama = 'dr. Ovan'`.
+- Component: `MasterDoctorModal.tsx` provides:
+  - Form to create new doctors (`INSERT INTO doctors (nama, spesialisasi, aktif)`).
+  - Inline edit for existing doctors (`UPDATE doctors SET nama, spesialisasi, aktif WHERE id = ...`).
+  - Active toggle switch to activate/deactivate doctors from queue selection.
+- Triggers:
+  - Quick button "Kelola Dokter" in `RegisterVisitModal.tsx` above the doctor dropdown.
+  - Global Command Menu (`Ctrl+K`) action "Kelola Master Dokter & Tenaga Medis" (`#doctors`).
+
+### H. Comprehensive 144 BPJS FKTP Standard Diagnoses (`src/constants/icd10.ts`)
+
+- Primary reference: Permenkes No. 5 Tahun 2014 & Panduan Praktik Klinis Dokter di Faskes Primer (BPJS Kesehatan).
+- Catalog contains 144 core outpatient competencies with official ICD-10 codes across 13 medical categories (Infeksi Tropis, Respirasi, Pencernaan, Kardiovaskular, Endokrin, Kulit, Mata, THT, Urologi, Kebidanan, Saraf, Muskuloskeletal, Trauma/Tindakan).
+- Consumed by `Icd10QuickPicker.tsx` with instant multi-attribute search across code, Indonesian disease name, and category.
 
 ---
 

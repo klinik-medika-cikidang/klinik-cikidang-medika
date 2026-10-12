@@ -10,7 +10,7 @@ import {
 } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { normalizeRupiah } from '@/lib/utils';
+import { normalizeRupiah, formatLocalDateToYMD } from '@/lib/utils';
 import {
   exportVisitsToExcel,
   exportCashFlowsToExcel,
@@ -36,12 +36,8 @@ export default function LaporanPage() {
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
 
-  const defaultStartDate = new Date(currentYear, currentMonth, 1)
-    .toISOString()
-    .split('T')[0];
-  const defaultEndDate = new Date(currentYear, currentMonth + 1, 0)
-    .toISOString()
-    .split('T')[0];
+  const defaultStartDate = formatLocalDateToYMD(new Date(currentYear, currentMonth, 1));
+  const defaultEndDate = formatLocalDateToYMD(new Date(currentYear, currentMonth + 1, 0));
   const { role } = useAuth();
   const isDokterAdmin = role === 'dokter_admin';
   // The bidan and Puskesmas views are clinical, so both roles read them; only the
@@ -232,15 +228,15 @@ export default function LaporanPage() {
     const mo = now.getMonth();
 
     if (preset === 'today') {
-      const today = now.toISOString().split('T')[0];
+      const today = formatLocalDateToYMD(now);
       setStartDate(today);
       setEndDate(today);
     } else if (preset === 'this_month') {
-      setStartDate(new Date(yr, mo, 1).toISOString().split('T')[0]);
-      setEndDate(new Date(yr, mo + 1, 0).toISOString().split('T')[0]);
+      setStartDate(formatLocalDateToYMD(new Date(yr, mo, 1)));
+      setEndDate(formatLocalDateToYMD(new Date(yr, mo + 1, 0)));
     } else if (preset === 'last_month') {
-      setStartDate(new Date(yr, mo - 1, 1).toISOString().split('T')[0]);
-      setEndDate(new Date(yr, mo, 0).toISOString().split('T')[0]);
+      setStartDate(formatLocalDateToYMD(new Date(yr, mo - 1, 1)));
+      setEndDate(formatLocalDateToYMD(new Date(yr, mo, 0)));
     } else if (preset === 'this_year') {
       setStartDate(`${yr}-01-01`);
       setEndDate(`${yr}-12-31`);
