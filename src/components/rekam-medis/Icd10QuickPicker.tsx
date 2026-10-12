@@ -343,7 +343,7 @@ export function Icd10QuickPicker({
                   const selected = isCodeSelected(item.code);
                   return (
                     <button
-                      key={item.code}
+                      key={`${item.code}-${item.name}`}
                       type="button"
                       onClick={() => handleToggleDiagnosis(item)}
                       className={cn(
@@ -506,7 +506,7 @@ export function Icd10QuickPicker({
 
                     {secondaryDiagnoses.map((diag) => (
                       <div
-                        key={diag.code}
+                        key={`${diag.code}-${diag.name}`}
                         className="p-3 bg-white border border-slate-300 rounded-xl shadow-2xs space-y-1.5 transition hover:border-slate-400"
                       >
                         <div className="flex items-center justify-between gap-2">

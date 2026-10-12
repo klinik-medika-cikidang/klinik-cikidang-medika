@@ -444,9 +444,11 @@ export function ExaminationForm({
         )}
 
         {/* Patient Clinical Identity Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-200/90 bg-slate-50/70 shrink-0 space-y-2.5">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div className="space-y-1">
+        <div className="p-4 sm:p-5 border-b border-slate-200/90 bg-slate-50/70 shrink-0 space-y-3.5">
+          {/* Top Row: Patient Details & Queue Switcher / Fullscreen */}
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+            {/* Left: Patient Primary Clinical Identity */}
+            <div className="space-y-1.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold bg-teal-100 text-teal-900 border border-teal-200">
                   Antrean #{queueNumStr}
@@ -472,7 +474,7 @@ export function ExaminationForm({
                 )}
               </div>
 
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
                 {patient ? `${patient.gelar ? patient.gelar + ' ' : ''}${patient.nama}` : 'Pasien'}
               </h2>
 
@@ -482,7 +484,7 @@ export function ExaminationForm({
                 </span>
                 <span>&bull;</span>
                 <span>
-                  {patient?.jenis_kelamin === 'Laki-laki' ? 'Laki-laki' : 'Perempuan'}, {patient?.usia || '-'} tahun
+                  {patient?.jenis_kelamin === 'Laki-laki' ? 'Laki-laki' : 'Perempuan'}, {patient?.usia ? `${patient.usia} tahun` : '-'}
                 </span>
                 <span>&bull;</span>
                 <span className="flex items-center gap-1">
@@ -500,102 +502,51 @@ export function ExaminationForm({
               </div>
             </div>
 
-            {/* Center: Quick Queue Switcher (Prev/Select/Next) */}
-            {waitingVisits.length > 0 && onSelectVisit && (
-              <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-xl p-1 shadow-2xs self-start lg:self-center">
-                <button
-                  type="button"
-                  onClick={() => prevVisit && onSelectVisit(prevVisit)}
-                  disabled={!prevVisit}
-                  className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-600 transition tactile-btn"
-                  title={prevVisit ? `Pindah ke antrean sebelumnya: ${prevVisit.pasien?.nama}` : 'Tidak ada pasien sebelumnya'}
-                  aria-label="Pasien sebelumnya"
-                >
-                  <CaretLeft className="w-3.5 h-3.5" weight="bold" />
-                </button>
-
-                <div className="relative">
-                  <select
-                    value={visit.id}
-                    onChange={(e) => {
-                      const selected = waitingVisits.find((v) => v.id === e.target.value);
-                      if (selected) onSelectVisit(selected);
-                    }}
-                    className="text-xs font-bold text-slate-800 bg-transparent pr-4 pl-1 py-1 outline-none cursor-pointer font-mono"
-                    aria-label="Pilih pasien antrean"
+            {/* Right: Quick Queue Switcher & Fullscreen Toggle */}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0 self-start">
+              {waitingVisits.length > 0 && onSelectVisit && (
+                <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-xl p-1 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => prevVisit && onSelectVisit(prevVisit)}
+                    disabled={!prevVisit}
+                    className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-600 transition tactile-btn min-h-[32px] min-w-[32px] flex items-center justify-center"
+                    title={prevVisit ? `Pindah ke antrean sebelumnya: ${prevVisit.pasien?.nama}` : 'Tidak ada pasien sebelumnya'}
+                    aria-label="Pasien sebelumnya"
                   >
-                    {waitingVisits.map((v, idx) => (
-                      <option key={v.id} value={v.id}>
-                        #{String(v.nomor_antrian || idx + 1).padStart(2, '0')} - {v.pasien?.nama || 'Pasien'} ({v.jenis_pasien})
-                      </option>
-                    ))}
-                  </select>
+                    <CaretLeft className="w-3.5 h-3.5" weight="bold" />
+                  </button>
+
+                  <div className="relative">
+                    <select
+                      value={visit.id}
+                      onChange={(e) => {
+                        const selected = waitingVisits.find((v) => v.id === e.target.value);
+                        if (selected) onSelectVisit(selected);
+                      }}
+                      className="text-xs font-bold text-slate-800 bg-transparent pr-4 pl-1 py-1 outline-none cursor-pointer font-mono min-h-[32px] max-w-[220px] truncate"
+                      aria-label="Pilih pasien antrean"
+                    >
+                      {waitingVisits.map((v, idx) => (
+                        <option key={v.id} value={v.id}>
+                          #{String(v.nomor_antrian || idx + 1).padStart(2, '0')} - {v.pasien?.nama || 'Pasien'} ({v.jenis_pasien})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => nextVisit && onSelectVisit(nextVisit)}
+                    disabled={!nextVisit}
+                    className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-600 transition tactile-btn min-h-[32px] min-w-[32px] flex items-center justify-center"
+                    title={nextVisit ? `Panggil pasien berikutnya: ${nextVisit.pasien?.nama}` : 'Tidak ada pasien berikutnya'}
+                    aria-label="Pasien berikutnya"
+                  >
+                    <CaretRight className="w-3.5 h-3.5" weight="bold" />
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => nextVisit && onSelectVisit(nextVisit)}
-                  disabled={!nextVisit}
-                  className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-600 transition tactile-btn"
-                  title={nextVisit ? `Panggil pasien berikutnya: ${nextVisit.pasien?.nama}` : 'Tidak ada pasien berikutnya'}
-                  aria-label="Pasien berikutnya"
-                >
-                  <CaretRight className="w-3.5 h-3.5" weight="bold" />
-                </button>
-              </div>
-            )}
-
-            {/* Administrative Quick Action Buttons & Fullscreen Toggle */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setIsSuratSakitOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-btn-secondary tactile-btn"
-                title="Cetak Surat Izin Sakit Resmi Dokter"
-              >
-                <FileText className="w-3.5 h-3.5 text-teal-600" weight="duotone" />
-                <span>Surat Sakit</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsSuratRujukanOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-btn-secondary tactile-btn"
-                title="Cetak Surat Rujukan Eksternal Faskes Lanjutan"
-              >
-                <ShareNetwork className="w-3.5 h-3.5 text-teal-600" weight="duotone" />
-                <span>Rujukan</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsTbcModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-btn-secondary tactile-btn"
-                title="Daftarkan Pasien ke Program OAT TBC"
-              >
-                <Plus className="w-3.5 h-3.5 text-rose-600" weight="bold" />
-                <span>Register TBC</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsCircumcisionModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-btn-secondary tactile-btn"
-                title="Catat Prosedur Sirkumsisi / Sunat"
-              >
-                <Scissors className="w-3.5 h-3.5 text-indigo-600" weight="duotone" />
-                <span>Sirkumsisi</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsPackageModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-xl text-xs font-bold transition shadow-btn-secondary tactile-btn"
-                title="Terapkan Paket Terapi Master Klinik"
-              >
-                <FirstAid className="w-3.5 h-3.5 text-teal-600" weight="duotone" />
-                <span>Paket Terapi</span>
-              </button>
+              )}
 
               {onToggleExpand && (
                 <button
@@ -624,6 +575,63 @@ export function ExaminationForm({
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Bottom Row: Clinical Quick Action Buttons Toolbar */}
+          <div className="flex items-center gap-2 flex-wrap pt-2.5 border-t border-slate-200/80">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1 hidden sm:inline">
+              Aksi Medis:
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setIsSuratSakitOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-btn-secondary tactile-btn"
+              title="Cetak Surat Izin Sakit Resmi Dokter"
+            >
+              <FileText className="w-3.5 h-3.5 text-teal-600" weight="duotone" />
+              <span>Surat Sakit</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsSuratRujukanOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-btn-secondary tactile-btn"
+              title="Cetak Surat Rujukan Eksternal Faskes Lanjutan"
+            >
+              <ShareNetwork className="w-3.5 h-3.5 text-teal-600" weight="duotone" />
+              <span>Rujukan</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsTbcModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-btn-secondary tactile-btn"
+              title="Daftarkan Pasien ke Program OAT TBC"
+            >
+              <Plus className="w-3.5 h-3.5 text-rose-600" weight="bold" />
+              <span>Register TBC</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsCircumcisionModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-btn-secondary tactile-btn"
+              title="Catat Prosedur Sirkumsisi / Sunat"
+            >
+              <Scissors className="w-3.5 h-3.5 text-indigo-600" weight="duotone" />
+              <span>Sirkumsisi</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsPackageModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-xl text-xs font-bold transition shadow-btn-secondary tactile-btn"
+              title="Terapkan Paket Terapi Master Klinik"
+            >
+              <FirstAid className="w-3.5 h-3.5 text-teal-600" weight="duotone" />
+              <span>Paket Terapi</span>
+            </button>
           </div>
 
           {/* Allergy Warning Strip */}

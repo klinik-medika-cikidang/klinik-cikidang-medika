@@ -223,7 +223,7 @@ export const COMMON_ICD10_LIST: readonly Icd10Item[] = [
   { code: 'T14.1', name: 'Vulnus Laceratum / Luka Robek Terbuka', category: 'Trauma & Tindakan' },
   { code: 'T14.0', name: 'Vulnus Excoriatum / Luka Lecet & Memar', category: 'Trauma & Tindakan' },
   { code: 'T20.0', name: 'Luka Bakar Derajat 1-2 (Combustio Ringan)', category: 'Trauma & Tindakan' },
-  { code: 'T14.0', name: 'Vulnus Morsum / Gigitan Serangga & Binatang', category: 'Trauma & Tindakan' },
+  { code: 'W57', name: 'Vulnus Morsum / Gigitan Serangga & Binatang', category: 'Trauma & Tindakan' },
   { code: 'Z41.2', name: 'Sirkumsisi Rutin / Khitanan / Sunat', category: 'Trauma & Tindakan' },
   { code: 'Z48.0', name: 'Perawatan Pasca Bedah / Jahitan / Ganti Perban', category: 'Trauma & Tindakan' },
   { code: 'Z00.0', name: 'Pemeriksaan Kesehatan Umum / Medical Check-Up', category: 'Pemeriksaan' },
