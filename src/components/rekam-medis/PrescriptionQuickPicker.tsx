@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { CLINIC_DRUG_CATALOG, FAST_SIGNA_CHIPS, type PrescriptionPreset } from '@/constants/prescriptions';
 import { ALASAN_GRATIS_OPTIONS, DEFAULT_TARIFFS } from '@/constants/clinic';
 import { formatRupiah, normalizeRupiah, cn } from '@/lib/utils';
+import { RupiahShorthandHint } from '@/components/ui/RupiahShorthandHint';
 
 export interface PrescriptionItem {
   id: string;
@@ -555,6 +556,9 @@ export function PrescriptionQuickPicker({
               disabled={jenisPasien === 'BPJS' || isGratis}
               className="w-full px-3 py-1.5 min-h-[36px] text-xs font-mono font-bold bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-600 outline-none disabled:bg-slate-100 disabled:text-slate-500"
             />
+            {jenisPasien !== 'BPJS' && !isGratis && (
+              <RupiahShorthandHint value={biayaPeriksa} onApply={onChangeBiayaPeriksa} />
+            )}
 
             {jenisPasien === 'BPJS' ? (
               <span className="text-[10px] text-emerald-700 font-bold block mt-1">
@@ -602,6 +606,9 @@ export function PrescriptionQuickPicker({
               placeholder="0"
               className="w-full px-3 py-1.5 min-h-[36px] text-xs font-mono font-bold bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-600 outline-none"
             />
+            {!isGratis && (
+              <RupiahShorthandHint value={pendapatanLain} onApply={onChangePendapatanLain} />
+            )}
           </div>
         </div>
 

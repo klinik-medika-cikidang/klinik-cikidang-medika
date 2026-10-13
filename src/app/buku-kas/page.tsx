@@ -24,10 +24,10 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import {
   cn,
-  normalizeRupiah,
   formatLocalDateToYMD,
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
+  isSettledCashVisit,
 } from '@/lib/utils';
 import { useAuth } from '@/lib/auth/AuthContext';
 
@@ -96,22 +96,9 @@ export default function BukuKasPage() {
 
       const loadedFlows = (flowsRes.data as unknown as CashFlow[]) || [];
       const loadedVisits = ((visitsRes.data as unknown as CashVisitRow[]) || []).filter((v) => {
-        const status = v.status_pembayaran || '';
-        if (
-          [
-            'Batal',
-            'Belum Bayar',
-            'Menunggu Dokter',
-            'Menunggu Kasir',
-            'Menunggu Pembayaran',
-          ].includes(status)
-        ) {
-          return false;
-        }
-        const payMethod = (v.jenis_pembayaran || 'Tunai').trim();
-        if (payMethod === 'TF' || payMethod === 'Transfer') return false;
-        const biaya = v.jenis_pasien === 'BPJS' ? 0 : normalizeRupiah(Number(v.biaya_periksa) || 0);
-        const lain = normalizeRupiah(Number(v.pendapatan_lain) || 0);
+        if (!isSettledCashVisit(v)) return false;
+        const biaya = v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa) || 0;
+        const lain = Number(v.pendapatan_lain) || 0;
         return biaya + lain > 0;
       });
 
@@ -145,8 +132,8 @@ export default function BukuKasPage() {
   }, [selectedMonth, selectedYear, selectedReconciliationDate, todayStr]);
 
   const computeVisitCashAmount = (v: CashVisitRow) => {
-    const biaya = v.jenis_pasien === 'BPJS' ? 0 : normalizeRupiah(Number(v.biaya_periksa) || 0);
-    const lain = normalizeRupiah(Number(v.pendapatan_lain) || 0);
+    const biaya = v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa) || 0;
+    const lain = Number(v.pendapatan_lain) || 0;
     return biaya + lain;
   };
 
@@ -162,21 +149,21 @@ export default function BukuKasPage() {
   const depositFlows = cashFlows.filter((cf) => isCashHandoverToOwnerOrBank(cf));
 
   const otherMasukTotal = otherMasukFlows.reduce(
-    (acc, cf) => acc + (normalizeRupiah(Number(cf.nominal)) || 0),
+    (acc, cf) => acc + (Number(cf.nominal) || 0),
     0
   );
 
   const totalMasuk = monthCashVisitsTotal + otherMasukTotal;
 
   const totalKeluar = operationalExpenseFlows.reduce(
-    (acc, cf) => acc + (normalizeRupiah(Number(cf.nominal)) || 0),
+    (acc, cf) => acc + (Number(cf.nominal) || 0),
     0
   );
 
   const saldoBersih = totalMasuk - totalKeluar;
 
   const totalSetorTunai = depositFlows.reduce(
-    (acc, cf) => acc + (normalizeRupiah(Number(cf.nominal)) || 0),
+    (acc, cf) => acc + (Number(cf.nominal) || 0),
     0
   );
 
@@ -203,12 +190,12 @@ export default function BukuKasPage() {
     cashVisitsTotal: dailyCashVisits.reduce((acc, v) => acc + computeVisitCashAmount(v), 0),
     cashVisitsCount: dailyCashVisits.length,
     cashExpensesTotal: dailyExpenseFlows.reduce(
-      (acc, cf) => acc + (normalizeRupiah(Number(cf.nominal)) || 0),
+      (acc, cf) => acc + (Number(cf.nominal) || 0),
       0
     ),
     cashExpensesCount: dailyExpenseFlows.length,
     cashDepositsTotal: dailyDepositFlows.reduce(
-      (acc, cf) => acc + (normalizeRupiah(Number(cf.nominal)) || 0),
+      (acc, cf) => acc + (Number(cf.nominal) || 0),
       0
     ),
     cashDepositsCount: dailyDepositFlows.length,
@@ -379,6 +366,8 @@ export default function BukuKasPage() {
       {!isDokterAdmin && (
         <CashReconciliationCard
           monthLabel={`${selectedMonthName} ${selectedYear}`}
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
           monthlyMetrics={monthlyMetrics}
           dailyMetrics={dailyMetrics}
           selectedDate={selectedReconciliationDate}

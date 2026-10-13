@@ -72,21 +72,41 @@ export function CashLiquidityCard({ data, isLoading }: CashLiquidityCardProps) {
         {/* 2 Cash Buckets: Laci vs Bank */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
           {/* 1. Kas Tunai Laci Kasir */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+          <div
+            className={`p-3.5 rounded-xl border space-y-1.5 ${
+              data.laciCash < 0
+                ? 'bg-rose-50/70 border-rose-200'
+                : 'bg-slate-50 border-slate-200/80'
+            }`}
+          >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-slate-600 flex items-center gap-1.5">
                 <Coins className="w-3.5 h-3.5 text-amber-500" weight="duotone" />
                 Sisa Fisik Laci Loket
               </span>
-              <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">
-                Fisik Kasir
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                  data.laciCash < 0
+                    ? 'bg-rose-100 text-rose-800'
+                    : 'bg-amber-100 text-amber-800'
+                }`}
+              >
+                {data.laciCash < 0 ? 'Defisit Kas Masuk' : 'Fisik Kasir'}
               </span>
             </div>
-            <div className="text-lg font-bold font-mono text-slate-900">
-              {formatRupiah(data.laciCash)}
+            <div
+              className={`text-lg font-bold font-mono ${
+                data.laciCash < 0 ? 'text-rose-700' : 'text-slate-900'
+              }`}
+            >
+              {data.laciCash < 0
+                ? `- ${formatRupiah(Math.abs(data.laciCash))}`
+                : formatRupiah(data.laciCash)}
             </div>
             <p className="text-[10px] text-slate-500">
-              Tunai pasien dikurangi pengeluaran &amp; setoran
+              {data.laciCash < 0
+                ? 'Setoran/pengeluaran melebihi kas masuk tunai periode ini'
+                : 'Tunai pasien dikurangi pengeluaran & setoran'}
             </p>
           </div>
 

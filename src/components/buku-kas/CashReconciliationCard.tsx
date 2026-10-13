@@ -5,6 +5,7 @@ import {
   Bank,
   CheckCircle,
   Warning,
+  WarningCircle,
   Coins,
   CalendarBlank,
   ArrowUpRight,
@@ -24,6 +25,8 @@ export interface DrawerReconciliationMetrics {
 
 export interface CashReconciliationCardProps {
   monthLabel: string;
+  selectedYear?: number;
+  selectedMonth?: number;
   monthlyMetrics: DrawerReconciliationMetrics;
   dailyMetrics: DrawerReconciliationMetrics;
   selectedDate: string;
@@ -35,6 +38,8 @@ export interface CashReconciliationCardProps {
 
 export function CashReconciliationCard({
   monthLabel,
+  selectedYear,
+  selectedMonth,
   monthlyMetrics,
   dailyMetrics,
   selectedDate,
@@ -47,15 +52,22 @@ export function CashReconciliationCard({
   const active = scope === 'monthly' ? monthlyMetrics : dailyMetrics;
   const rawRemaining =
     active.cashVisitsTotal - active.cashExpensesTotal - active.cashDepositsTotal;
-  const sisaFisikDiLaci = Math.max(0, rawRemaining);
-  const hasPriorDayDepositOverlap = scope === 'daily' && rawRemaining < 0;
 
   const hasActivity =
     active.cashVisitsTotal > 0 ||
     active.cashExpensesTotal > 0 ||
     active.cashDepositsTotal > 0;
-  const isBalanced = hasActivity && sisaFisikDiLaci === 0;
-  const hasRemainingCash = sisaFisikDiLaci > 0;
+  const isBalanced = hasActivity && rawRemaining === 0;
+  const hasRemainingCash = rawRemaining > 0;
+  const isDeficit = rawRemaining < 0;
+
+  const yearStr = selectedYear ? String(selectedYear) : selectedDate.slice(0, 4);
+  const monthStr = selectedMonth
+    ? String(selectedMonth).padStart(2, '0')
+    : selectedDate.slice(5, 7);
+  const minDate = `${yearStr}-${monthStr}-01`;
+  const lastDay = new Date(Number(yearStr), Number(monthStr), 0).getDate();
+  const maxDate = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
   return (
     <div
@@ -77,6 +89,10 @@ export function CashReconciliationCard({
               {isBalanced ? (
                 <Badge variant="success" size="sm">
                   Laci Seimbang (Rp 0)
+                </Badge>
+              ) : isDeficit ? (
+                <Badge variant="danger" size="sm">
+                  Setoran Melebihi Kas Masuk Periode Ini
                 </Badge>
               ) : hasRemainingCash ? (
                 <Badge variant="warning" size="sm">
@@ -131,6 +147,8 @@ export function CashReconciliationCard({
               <input
                 type="date"
                 value={selectedDate}
+                min={minDate}
+                max={maxDate}
                 onChange={(e) => {
                   if (e.target.value) onSelectedDateChange(e.target.value);
                 }}
@@ -217,9 +235,11 @@ export function CashReconciliationCard({
             'p-3.5 rounded-xl border space-y-1',
             isBalanced
               ? 'bg-emerald-50/60 border-emerald-200'
-              : hasRemainingCash
-                ? 'bg-amber-50/70 border-amber-200'
-                : 'bg-slate-50 border-slate-200'
+              : isDeficit
+                ? 'bg-rose-50/70 border-rose-200'
+                : hasRemainingCash
+                  ? 'bg-amber-50/70 border-amber-200'
+                  : 'bg-slate-50 border-slate-200'
           )}
         >
           <div className="flex items-center justify-between text-[11px] font-bold">
@@ -227,15 +247,19 @@ export function CashReconciliationCard({
               className={
                 isBalanced
                   ? 'text-emerald-800'
-                  : hasRemainingCash
-                    ? 'text-amber-900'
-                    : 'text-slate-700'
+                  : isDeficit
+                    ? 'text-rose-900'
+                    : hasRemainingCash
+                      ? 'text-amber-900'
+                      : 'text-slate-700'
               }
             >
               Sisa Fisik di Laci Kasir
             </span>
             {isBalanced ? (
               <CheckCircle weight="duotone" className="w-4 h-4 text-emerald-600" />
+            ) : isDeficit ? (
+              <WarningCircle weight="duotone" className="w-4 h-4 text-rose-600" />
             ) : hasRemainingCash ? (
               <Warning weight="duotone" className="w-4 h-4 text-amber-600" />
             ) : (
@@ -248,17 +272,23 @@ export function CashReconciliationCard({
               'text-lg font-extrabold font-mono tabular-nums',
               isBalanced
                 ? 'text-emerald-700'
-                : hasRemainingCash
-                  ? 'text-amber-800'
-                  : 'text-slate-700'
+                : isDeficit
+                  ? 'text-rose-700'
+                  : hasRemainingCash
+                    ? 'text-amber-800'
+                    : 'text-slate-700'
             )}
           >
-            {formatRupiah(sisaFisikDiLaci)}
+            {isDeficit
+              ? `- ${formatRupiah(Math.abs(rawRemaining))}`
+              : formatRupiah(rawRemaining)}
           </div>
 
           <p className="text-[10px] text-slate-600 leading-snug">
-            {hasPriorDayDepositOverlap
-              ? `Termasuk setoran kas akumulasi hari sebelumnya (${formatRupiah(Math.abs(rawRemaining))})`
+            {isDeficit
+              ? scope === 'daily'
+                ? `Setoran mengambil uang fisik akumulasi hari sebelumnya (${formatRupiah(Math.abs(rawRemaining))})`
+                : `Setoran dan pengeluaran melampaui kas masuk tunai periode ini (${formatRupiah(Math.abs(rawRemaining))})`
               : isBalanced
                 ? 'Seluruh uang tunai laci telah terpakai operasional atau disetor'
                 : hasRemainingCash

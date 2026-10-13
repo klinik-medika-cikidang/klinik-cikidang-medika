@@ -7,12 +7,68 @@ export function cn(...inputs: ClassValue[]) {
 
 export function normalizeRupiah(amount: number): number {
   if (!amount || isNaN(amount)) return 0;
-  // Legacy CSV data recorded shorthand thousands only for small numbers (< 1000, e.g. 15 -> 15.000).
-  // Real Rupiah amounts >= 1.000 (e.g. Rp 1.000, Rp 2.500, Rp 5.000) are preserved as-is.
-  if (amount > 0 && amount < 1000) {
-    return amount * 1000;
-  }
-  return amount;
+  // All historical and new data in database are now stored in full Rupiah 1:1.
+  return Number(amount);
+}
+
+/**
+ * Unsettled payment statuses that must NOT be counted as revenue.
+ * Visits with these statuses are either cancelled or currently in queue/examination.
+ */
+export const UNSETTLED_PAYMENT_STATUSES = [
+  'Batal',
+  'Belum Bayar',
+  'Menunggu Dokter',
+  'Menunggu Kasir',
+  'Menunggu Pembayaran',
+  'Pending',
+] as const;
+
+export function isSettledVisit(visit: { status_pembayaran?: string | null }): boolean {
+  const status = (visit.status_pembayaran || '').trim();
+  if (!status) return true; // Legacy records with NULL status are considered settled
+  return !(UNSETTLED_PAYMENT_STATUSES as readonly string[]).includes(status);
+}
+
+// Staff used to type tariffs in thousands on the old Google Sheets ("150" for Rp 150.000).
+// No clinic tariff is below Rp 1.000, so such a value is almost certainly that habit and
+// must be confirmed instead of being saved silently.
+export function isLikelyShorthandRupiah(amount: number): boolean {
+  const val = Number(amount) || 0;
+  return val > 0 && val < 1000;
+}
+
+export interface CashPositionInput {
+  tunaiRevenue: number;
+  transferRevenue: number;
+  bpjsCapitation: number;
+  otherCashIn: number;
+  operationalExpenses: number;
+  ownerOrBankDeposits: number;
+}
+
+// Net income is derived from the same buckets as the drawer and bank balances, so
+// drawer + bank always equals net income and no revenue source can be left out of one side.
+export function summarizeCashPosition(input: CashPositionInput) {
+  const netIncome =
+    input.tunaiRevenue +
+    input.transferRevenue +
+    input.bpjsCapitation +
+    input.otherCashIn -
+    input.operationalExpenses;
+  const drawerCash = input.tunaiRevenue - input.operationalExpenses - input.ownerOrBankDeposits;
+  const bankCash =
+    input.bpjsCapitation + input.transferRevenue + input.otherCashIn + input.ownerOrBankDeposits;
+  return { netIncome, drawerCash, bankCash };
+}
+
+export function isSettledCashVisit(visit: {
+  status_pembayaran?: string | null;
+  jenis_pembayaran?: string | null;
+}): boolean {
+  if (!isSettledVisit(visit)) return false;
+  const payMethod = (visit.jenis_pembayaran || 'Tunai').trim().toUpperCase();
+  return payMethod !== 'TF' && payMethod !== 'TRANSFER';
 }
 
 export function isCashHandoverToOwnerOrBank(flow: {
@@ -36,12 +92,12 @@ export function isOperationalExpense(flow: {
 }
 
 export function formatRupiah(amount: number): string {
-  const normalized = normalizeRupiah(amount);
+  const val = Number(amount) || 0;
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
-  }).format(normalized);
+  }).format(val);
 }
 
 export function formatDateIndo(dateStr: string): string {
