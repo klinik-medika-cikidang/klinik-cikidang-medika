@@ -27,7 +27,39 @@ export const UNSETTLED_PAYMENT_STATUSES = [
 export function isSettledVisit(visit: { status_pembayaran?: string | null }): boolean {
   const status = (visit.status_pembayaran || '').trim();
   if (!status) return true; // Legacy records with NULL status are considered settled
-  return !UNSETTLED_PAYMENT_STATUSES.includes(status as any);
+  return !(UNSETTLED_PAYMENT_STATUSES as readonly string[]).includes(status);
+}
+
+// Staff used to type tariffs in thousands on the old Google Sheets ("150" for Rp 150.000).
+// No clinic tariff is below Rp 1.000, so such a value is almost certainly that habit and
+// must be confirmed instead of being saved silently.
+export function isLikelyShorthandRupiah(amount: number): boolean {
+  const val = Number(amount) || 0;
+  return val > 0 && val < 1000;
+}
+
+export interface CashPositionInput {
+  tunaiRevenue: number;
+  transferRevenue: number;
+  bpjsCapitation: number;
+  otherCashIn: number;
+  operationalExpenses: number;
+  ownerOrBankDeposits: number;
+}
+
+// Net income is derived from the same buckets as the drawer and bank balances, so
+// drawer + bank always equals net income and no revenue source can be left out of one side.
+export function summarizeCashPosition(input: CashPositionInput) {
+  const netIncome =
+    input.tunaiRevenue +
+    input.transferRevenue +
+    input.bpjsCapitation +
+    input.otherCashIn -
+    input.operationalExpenses;
+  const drawerCash = input.tunaiRevenue - input.operationalExpenses - input.ownerOrBankDeposits;
+  const bankCash =
+    input.bpjsCapitation + input.transferRevenue + input.otherCashIn + input.ownerOrBankDeposits;
+  return { netIncome, drawerCash, bankCash };
 }
 
 export function isSettledCashVisit(visit: {

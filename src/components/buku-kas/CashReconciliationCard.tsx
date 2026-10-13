@@ -61,7 +61,6 @@ export function CashReconciliationCard({
   const hasRemainingCash = rawRemaining > 0;
   const isDeficit = rawRemaining < 0;
 
-  // Calculate min and max dates bound to selected month
   const yearStr = selectedYear ? String(selectedYear) : selectedDate.slice(0, 4);
   const monthStr = selectedMonth
     ? String(selectedMonth).padStart(2, '0')

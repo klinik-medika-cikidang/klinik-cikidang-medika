@@ -16,8 +16,8 @@ import {
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import type { Visit } from '@/types/database';
-import { Modal, Button, Input, Select, Badge } from '@/components/ui';
-import { formatRupiah, normalizeRupiah, cn } from '@/lib/utils';
+import { Modal, Button, Input, Select, Badge, RupiahShorthandHint } from '@/components/ui';
+import { formatRupiah, normalizeRupiah, isLikelyShorthandRupiah, cn } from '@/lib/utils';
 import { METODE_PEMBAYARAN_OPTIONS } from '@/constants/clinic';
 
 export interface PaymentModalProps {
@@ -92,6 +92,16 @@ export function PaymentModal({
 
     if (pendapatanLain > 0 && !keteranganPendapatan.trim()) {
       setErrorMessage('Keterangan tindakan / biaya tambahan wajib diisi.');
+      return;
+    }
+
+    const hasShorthandAmount =
+      (visit.jenis_pasien !== 'BPJS' && isLikelyShorthandRupiah(biayaPeriksa)) ||
+      isLikelyShorthandRupiah(pendapatanLain);
+    if (hasShorthandAmount) {
+      setErrorMessage(
+        'Nominal di bawah Rp 1.000 tidak bisa disimpan. Ketik rupiah penuh (contoh: 150000) atau pakai tombol koreksi di bawah kolom biaya.'
+      );
       return;
     }
 
@@ -281,30 +291,38 @@ export function PaymentModal({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                type="number"
-                min="0"
-                step="1000"
-                label="Biaya Pemeriksaan Pokok"
-                leftElement={<span className="font-bold text-xs text-slate-500">Rp</span>}
-                value={biayaPeriksa}
-                onChange={(e) => setBiayaPeriksa(Number(e.target.value))}
-                disabled={visit.jenis_pasien === 'BPJS'}
-                helperText={visit.jenis_pasien === 'BPJS' ? 'Pasien BPJS ditanggung kapitasi (Rp 0)' : 'Tarif konsultasi & periksa'}
-                className="font-mono font-bold"
-              />
+              <div>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  label="Biaya Pemeriksaan Pokok"
+                  leftElement={<span className="font-bold text-xs text-slate-500">Rp</span>}
+                  value={biayaPeriksa}
+                  onChange={(e) => setBiayaPeriksa(Number(e.target.value))}
+                  disabled={visit.jenis_pasien === 'BPJS'}
+                  helperText={visit.jenis_pasien === 'BPJS' ? 'Pasien BPJS ditanggung kapitasi (Rp 0)' : 'Tarif konsultasi & periksa'}
+                  className="font-mono font-bold"
+                />
+                {visit.jenis_pasien !== 'BPJS' && (
+                  <RupiahShorthandHint value={biayaPeriksa} onApply={setBiayaPeriksa} />
+                )}
+              </div>
 
-              <Input
-                type="number"
-                min="0"
-                step="1000"
-                label="Biaya Tindakan / Obat Tambahan"
-                leftElement={<span className="font-bold text-xs text-slate-500">Rp</span>}
-                value={pendapatanLain}
-                onChange={(e) => setPendapatanLain(Number(e.target.value))}
-                placeholder="0"
-                className="font-mono font-bold"
-              />
+              <div>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  label="Biaya Tindakan / Obat Tambahan"
+                  leftElement={<span className="font-bold text-xs text-slate-500">Rp</span>}
+                  value={pendapatanLain}
+                  onChange={(e) => setPendapatanLain(Number(e.target.value))}
+                  placeholder="0"
+                  className="font-mono font-bold"
+                />
+                <RupiahShorthandHint value={pendapatanLain} onApply={setPendapatanLain} />
+              </div>
             </div>
 
             {pendapatanLain > 0 && (

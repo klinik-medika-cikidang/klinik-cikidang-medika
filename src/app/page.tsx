@@ -18,6 +18,7 @@ import {
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
   isSettledVisit,
+  summarizeCashPosition,
 } from '@/lib/utils';
 import {
   DashboardKpiCards,
@@ -465,14 +466,24 @@ export default function DashboardPage() {
       });
 
       // Liquidity calculations
-      const netCash = umumRev + bpjsCapitation + otherCashIn - expenses;
+      // tunaiRev and tfRev already include extra charges paid by BPJS patients, which
+      // umumRev does not, so net income must come from the loket buckets.
+      const {
+        netIncome: netCash,
+        drawerCash: laciEstimated,
+        bankCash: bankEstimated,
+      } = summarizeCashPosition({
+        tunaiRevenue: tunaiRev,
+        transferRevenue: tfRev,
+        bpjsCapitation,
+        otherCashIn,
+        operationalExpenses: expenses,
+        ownerOrBankDeposits: bankSetoran,
+      });
       const totalLoketRevenue = tunaiRev + tfRev;
       const cashRatioPct =
         totalLoketRevenue > 0 ? Math.round((tunaiRev / totalLoketRevenue) * 100) : 80;
       const tfRatioPct = 100 - cashRatioPct;
-
-      const laciEstimated = tunaiRev - expenses - bankSetoran;
-      const bankEstimated = bpjsCapitation + tfRev + otherCashIn + bankSetoran;
 
       setCashLiquidity({
         laciCash: laciEstimated,

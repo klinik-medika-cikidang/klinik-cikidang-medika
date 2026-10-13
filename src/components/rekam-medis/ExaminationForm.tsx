@@ -45,7 +45,7 @@ import { ApplyPackageModal } from '@/components/paket-terapi/ApplyPackageModal';
 import { NewTbcModal } from '@/components/program-khusus/NewTbcModal';
 import { NewCircumcisionModal } from '@/components/program-khusus/NewCircumcisionModal';
 import { KategoriProgramPanel } from '@/components/program-khusus/KategoriProgramPanel';
-import { cn, normalizeRupiah } from '@/lib/utils';
+import { cn, normalizeRupiah, isLikelyShorthandRupiah } from '@/lib/utils';
 
 export interface ExaminationFormProps {
   visit: Visit;
@@ -342,6 +342,18 @@ export function ExaminationForm({
     if (isCompleteHandover && diagnoses.length === 0) {
       setErrorMessage('Pilih minimal satu diagnosa ICD-10 sebelum mengirim pasien ke kasir & apotek.');
       toast.error('Diagnosa ICD-10 wajib diisi!');
+      return;
+    }
+
+    const hasShorthandAmount =
+      !isGratis &&
+      ((visit.jenis_pasien !== 'BPJS' && isLikelyShorthandRupiah(biayaPeriksa)) ||
+        isLikelyShorthandRupiah(pendapatanLain));
+    if (hasShorthandAmount) {
+      setErrorMessage(
+        'Nominal biaya di bawah Rp 1.000 tidak bisa disimpan. Ketik rupiah penuh (contoh: 150000) atau pakai tombol koreksi di bawah kolom biaya.'
+      );
+      toast.error('Periksa kembali nominal biaya.');
       return;
     }
 

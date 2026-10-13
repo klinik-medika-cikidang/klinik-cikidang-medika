@@ -10,7 +10,45 @@ import {
   isOperationalExpense,
   isSettledVisit,
   isSettledCashVisit,
+  isLikelyShorthandRupiah,
+  summarizeCashPosition,
 } from './utils';
+
+describe('isLikelyShorthandRupiah', () => {
+  it('flags positive amounts below Rp 1.000 typed in the old thousands habit', () => {
+    expect(isLikelyShorthandRupiah(150)).toBe(true);
+    expect(isLikelyShorthandRupiah(999)).toBe(true);
+  });
+
+  it('accepts zero and full Rupiah amounts', () => {
+    expect(isLikelyShorthandRupiah(0)).toBe(false);
+    expect(isLikelyShorthandRupiah(1000)).toBe(false);
+    expect(isLikelyShorthandRupiah(150000)).toBe(false);
+  });
+});
+
+describe('summarizeCashPosition', () => {
+  // October 12 style day: umum cash, one BPJS patient paying an extra 25.000 in cash,
+  // a transfer payment, operational spending and an owner deposit.
+  const input = {
+    tunaiRevenue: 1435000 + 25000,
+    transferRevenue: 150000,
+    bpjsCapitation: 0,
+    otherCashIn: 0,
+    operationalExpenses: 237000,
+    ownerOrBankDeposits: 2450000,
+  };
+
+  it('keeps drawer + bank equal to net income, including BPJS extra charges', () => {
+    const { netIncome, drawerCash, bankCash } = summarizeCashPosition(input);
+    expect(drawerCash + bankCash).toBe(netIncome);
+    expect(netIncome).toBe(1435000 + 25000 + 150000 - 237000);
+  });
+
+  it('reports a negative drawer instead of clamping it to zero', () => {
+    expect(summarizeCashPosition(input).drawerCash).toBe(1460000 - 237000 - 2450000);
+  });
+});
 
 describe('parseFlexibleDate', () => {
   it('parses standard ISO YYYY-MM-DD', () => {
