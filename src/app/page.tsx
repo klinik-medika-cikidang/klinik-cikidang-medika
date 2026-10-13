@@ -286,6 +286,8 @@ export default function DashboardPage() {
       const dailyFinanceMap: Record<string, { cashIn: number; cashOut: number }> = {};
       const monthlyFinanceMap: Record<string, { cashIn: number; cashOut: number }> = {};
       let diagnosisTotalCount = 0;
+      // Cancelled queue entries never became a visit, so the Dashboard counts match Laporan.
+      const activeVisitCount = allVisits.filter((v) => v.status_pembayaran !== 'Batal').length;
 
       allVisits.forEach((v) => {
         if (v.status_pembayaran === 'Batal') return;
@@ -507,7 +509,7 @@ export default function DashboardPage() {
         }));
 
       // Format Top Villages
-      const totalVillageVisits = allVisits.length;
+      const totalVillageVisits = activeVisitCount;
       const sortedVillages: VillageStat[] = Object.entries(villageMap)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 8)
@@ -518,7 +520,7 @@ export default function DashboardPage() {
         }));
 
       setKpiData({
-        totalVisits: allVisits.length,
+        totalVisits: activeVisitCount,
         uniquePatients: patientCount || 4238,
         umumRevenue: umumRev,
         bpjsRevenue: bpjsCapitation,

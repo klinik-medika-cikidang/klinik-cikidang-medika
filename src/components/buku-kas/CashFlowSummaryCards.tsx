@@ -45,8 +45,8 @@ export function CashFlowSummaryCards({
       iconBg: 'bg-rose-50 text-rose-600 border-rose-100',
     },
     {
-      title: 'Saldo Kas Bersih (Net)',
-      subtitle: 'Penerimaan Kas - Beban Operasional',
+      title: 'Selisih Kas Bulan Ini',
+      subtitle: 'Penerimaan Kas - Pengeluaran (tanpa transfer pasien)',
       amount: saldoBersih,
       icon: Wallet,
       iconBg: 'bg-teal-50 text-teal-600 border-teal-100',

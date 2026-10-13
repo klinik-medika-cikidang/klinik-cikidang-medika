@@ -72,7 +72,7 @@ Sistem HARUS menampilkan ringkasan metrik keuangan sesuai periode bulan yang dip
 - **AC-003.1**: Sistem HARUS menghitung secara otomatis:
   1. **Total Penerimaan Tunai & Kas Masuk**: Akumulasi penerimaan tunai pasien loket beserta mutasi `jenis = 'Masuk'` non-setoran (seperti `Kapitasi BPJS` dan `Pendapatan Lain`) pada bulan bersangkutan.
   2. **Total Pengeluaran Operasional**: Jumlah seluruh nominal dengan `jenis = 'Keluar'` yang merupakan beban operasional/obat (TIDAK termasuk kategori `Setor ke Rekening Pemilik`).
-  3. **Saldo Kas Bersih (Net Cash Flow)**: `Total Penerimaan Kas Masuk - Total Pengeluaran Operasional`.
+  3. **Selisih Kas Bulan Ini**: `Total Penerimaan Kas Masuk - Total Pengeluaran Operasional`. Pembayaran transfer pasien tidak termasuk, sehingga nama kartu sengaja dibedakan dari "Saldo Kas Bersih" di Dashboard yang memasukkan transfer.
   4. **Total Setor Tunai & Pemilik**: Akumulasi mutasi dengan `kategori = 'Setor Tunai'` maupun `kategori = 'Setor ke Rekening Pemilik'`.
 - **AC-003.2**: Angka moneter HARUS disajikan dengan prefiks `Rp` dan pemisah ribuan titik standar Indonesia (misal: `Rp 28.203.000`). Seluruh data transaksi di database tersimpan dalam Rupiah penuh (1:1) pasca migrasi backfill 2026-10-13 (ADR-004), menghilangkan ketergantungan pada normalisasi runtime frontend.
 
