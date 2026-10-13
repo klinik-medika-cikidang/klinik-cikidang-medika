@@ -10,7 +10,12 @@ import {
 } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { normalizeRupiah, formatLocalDateToYMD } from '@/lib/utils';
+import {
+  normalizeRupiah,
+  formatLocalDateToYMD,
+  isCashHandoverToOwnerOrBank,
+  isOperationalExpense,
+} from '@/lib/utils';
 import {
   exportVisitsToExcel,
   exportCashFlowsToExcel,
@@ -295,11 +300,12 @@ export default function LaporanPage() {
     const bpjsCount = visitsData.filter((v) => v.jenis_pasien === 'BPJS').length;
     const totalBilling = visitsData.reduce((sum, v) => sum + (v.total_biaya || 0), 0);
 
-    const totalKasMasuk = cashFlowData
-      .filter((c) => c.jenis === 'Masuk')
+    const otherKasMasuk = cashFlowData
+      .filter((c) => c.jenis === 'Masuk' && !isCashHandoverToOwnerOrBank(c))
       .reduce((sum, c) => sum + (c.nominal || 0), 0);
+    const totalKasMasuk = totalBilling + otherKasMasuk;
     const totalKasKeluar = cashFlowData
-      .filter((c) => c.jenis === 'Keluar')
+      .filter((c) => isOperationalExpense(c))
       .reduce((sum, c) => sum + (c.nominal || 0), 0);
     const netIncome = totalKasMasuk - totalKasKeluar;
 

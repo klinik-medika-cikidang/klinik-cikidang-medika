@@ -11,7 +11,7 @@ import {
   CaretRight,
   Receipt,
 } from '@phosphor-icons/react';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah, isCashHandoverToOwnerOrBank } from '@/lib/utils';
 import type { CashFlow } from '@/types/database';
 
 export interface CashLiquidityData {
@@ -56,7 +56,7 @@ export function CashLiquidityCard({ data, isLoading }: CashLiquidityCardProps) {
                 Likuiditas Kas Riil &amp; Bank
               </h3>
               <p className="text-[11px] text-slate-600 font-medium truncate">
-                Pemisahan kas laci loket vs saldo rekening
+                Pemisahan sisa fisik laci loket vs saldo rekening &amp; pemilik
               </p>
             </div>
           </div>
@@ -76,7 +76,7 @@ export function CashLiquidityCard({ data, isLoading }: CashLiquidityCardProps) {
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-slate-600 flex items-center gap-1.5">
                 <Coins className="w-3.5 h-3.5 text-amber-500" weight="duotone" />
-                Kas Tunai Laci Loket
+                Sisa Fisik Laci Loket
               </span>
               <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">
                 Fisik Kasir
@@ -85,27 +85,27 @@ export function CashLiquidityCard({ data, isLoading }: CashLiquidityCardProps) {
             <div className="text-lg font-bold font-mono text-slate-900">
               {formatRupiah(data.laciCash)}
             </div>
-            <p className="text-[10px] text-slate-400">
-              Uang kas loket siap setor ke bank
+            <p className="text-[10px] text-slate-500">
+              Tunai pasien dikurangi pengeluaran &amp; setoran
             </p>
           </div>
 
-          {/* 2. Kas Rekening Bank BRI */}
+          {/* 2. Kas Rekening Bank & Pemilik */}
           <div className="p-3.5 rounded-xl bg-teal-50/50 border border-teal-100 space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-teal-900 flex items-center gap-1.5">
                 <Buildings className="w-3.5 h-3.5 text-teal-600" weight="duotone" />
-                Rekening Bank BRI
+                Rekening &amp; Setoran Pemilik
               </span>
               <span className="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-bold">
-                Kapitasi & Transfer
+                Bank / Owner
               </span>
             </div>
             <div className="text-lg font-bold font-mono text-teal-900">
               {formatRupiah(data.bankCash)}
             </div>
             <p className="text-[10px] text-teal-600/80">
-              Akumulasi kapitasi & setoran klinik
+              Akumulasi kapitasi, transfer &amp; setoran tunai
             </p>
           </div>
         </div>
@@ -142,14 +142,17 @@ export function CashLiquidityCard({ data, isLoading }: CashLiquidityCardProps) {
           ) : (
             <div className="space-y-1.5">
               {data.recentMutations.slice(0, 3).map((m) => {
-                const isMasuk = m.jenis === 'Masuk';
+                const isSetoran = isCashHandoverToOwnerOrBank(m);
+                const isMasuk = m.jenis === 'Masuk' && !isSetoran;
                 return (
                   <div
                     key={m.id}
                     className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100 text-xs"
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      {isMasuk ? (
+                      {isSetoran ? (
+                        <Buildings className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      ) : isMasuk ? (
                         <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       ) : (
                         <ArrowUpRight className="w-3.5 h-3.5 text-rose-600 shrink-0" />
@@ -169,10 +172,14 @@ export function CashLiquidityCard({ data, isLoading }: CashLiquidityCardProps) {
                     </div>
                     <span
                       className={`font-mono font-bold shrink-0 text-[11px] ${
-                        isMasuk ? 'text-emerald-700' : 'text-rose-700'
+                        isSetoran
+                          ? 'text-indigo-700'
+                          : isMasuk
+                            ? 'text-emerald-700'
+                            : 'text-rose-700'
                       }`}
                     >
-                      {isMasuk ? '+' : '-'} {formatRupiah(Number(m.nominal) || 0)}
+                      {isSetoran ? '⇄' : isMasuk ? '+' : '-'} {formatRupiah(Number(m.nominal) || 0)}
                     </span>
                   </div>
                 );

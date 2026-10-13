@@ -78,7 +78,19 @@ export type CashFlow = {
   id: string;
   tanggal: string;
   jenis: 'Masuk' | 'Keluar';
-  kategori: 'Kapitasi BPJS' | 'Pendapatan Lain' | 'Pengeluaran Obat' | 'Pengeluaran Non Klinik' | 'Operasional' | 'Setor Tunai';
+  kategori:
+    | 'Kapitasi BPJS'
+    | 'Setor Tunai'
+    | 'Pendapatan Lain'
+    | 'Rujukan USG / Lab'
+    | 'Pengeluaran Obat'
+    | 'Pengeluaran Obat / Operasional'
+    | 'Pengeluaran Non Klinik'
+    | 'Operasional'
+    | 'Operasional & Listrik/Air'
+    | 'Honor & Transport'
+    | 'Setor ke Rekening Pemilik'
+    | string;
   nominal: number;
   keterangan?: string;
   created_at: string;

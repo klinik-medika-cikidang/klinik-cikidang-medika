@@ -55,16 +55,22 @@ last_updated: 2026-10-12
   - Add `exportBidanAnnualRecapToExcel` function to generate `.xlsx` file for year-end hampers.
   - _Requirements: REQ-018-03.6_
 
-### Phase 4: Cashier & Ledger Clarification
-- [x] **Task 4.1: Clarify Cash Drawer vs Book Cash in UI**
-  - Target: `src/components/buku-kas/CashReconciliationCard.tsx`
-  - Clarify microcopy for "Uang Tunai di Loket Kasir (Laci Fisik)", "Setor Tunai (Buku Kas)", and "Sisa di Laci Kasir".
-  - _Requirements: REQ-018-04.1_
+### Phase 4: Cashier Drawer Reconciliation, Owner Deposit Accounting, & Nominal < Rp 10.000 Fix
+- [x] **Task 4.1: Implement Cash Handover & Operational Expense Helpers and Fix `normalizeRupiah`**
+  - Target: `src/lib/utils.ts`, `src/lib/utils.test.ts`, `src/components/buku-kas/AddCashFlowModal.tsx`
+  - Add `isCashHandoverToOwnerOrBank` and `isOperationalExpense`.
+  - Lower `normalizeRupiah` legacy CSV threshold from `< 10000` to `< 1000` and remove `normalizeRupiah` from `AddCashFlowModal` submission so inputs `< Rp 10.000` stay exact.
+  - _Requirements: REQ-018-04.1, REQ-018-04.5_
 
-- [x] **Task 4.2: Prepare Comprehensive Explanatory Guide for dr. Ovan**
-  - Target: `docs/context/DOKTER_OVAN_PENJELASAN_F018.md` and chat response.
-  - Answer all 4 feedback points in warm, professional, clinician-friendly Indonesian terms.
+- [x] **Task 4.2: Exclude `Setor ke Rekening Pemilik` from Operational Expenses & Daily Deficit Chart**
+  - Targets: `src/app/page.tsx`, `src/app/buku-kas/page.tsx`, `src/app/laporan/page.tsx`, `src/components/buku-kas/CashFlowSummaryCards.tsx`, `src/components/buku-kas/CashFlowTable.tsx`
+  - Classify `Setor ke Rekening Pemilik` into `Setoran Tunai ke Pemilik / Bank` and exclude from `Pengeluaran Operasional & Obat`.
   - _Requirements: REQ-018-04.2_
+
+- [x] **Task 4.3: Upgrade `CashReconciliationCard` & `CashLiquidityCard` to Deduct Operational Drawer Expenses & Owner Deposits**
+  - Targets: `src/components/buku-kas/CashReconciliationCard.tsx`, `src/app/buku-kas/page.tsx`, `src/app/page.tsx`
+  - Deduct both operational cash expenses and owner/bank deposits from `Sisa Fisik di Laci Kasir`, and add mode toggle (`Akumulasi Bulan Ini` vs `Per Tanggal / Hari Ini`).
+  - _Requirements: REQ-018-04.3, REQ-018-04.4_
 
 ### Phase 5: Timezone Date Range Normalization (Resolusi Selisih 1 Juta)
 - [x] **Task 5.1: Implement Local Date Formatter Utility**

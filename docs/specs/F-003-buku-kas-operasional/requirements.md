@@ -70,11 +70,11 @@ Sistem HARUS menyediakan formulir untuk mencatat transaksi pengeluaran kas.
 Sistem HARUS menampilkan ringkasan metrik keuangan sesuai periode bulan yang dipilih.
 
 - **AC-003.1**: Sistem HARUS menghitung secara otomatis:
-  1. **Total Kas Masuk**: Jumlah seluruh nominal dengan `jenis = 'Masuk'` pada bulan bersangkutan.
-  2. **Total Kas Keluar**: Jumlah seluruh nominal dengan `jenis = 'Keluar'` pada bulan bersangkutan.
-  3. **Saldo Kas Bersih (Net Cash Flow)**: `Total Kas Masuk - Total Kas Keluar`.
-  4. **Total Setor Tunai**: Akumulasi mutasi dengan `kategori = 'Setor Tunai'`.
-- **AC-003.2**: Angka moneter HARUS disajikan dengan prefiks `Rp` dan pemisah ribuan titik standar Indonesia (misal: `Rp 28.203.000`).
+  1. **Total Penerimaan Tunai & Kas Masuk**: Akumulasi penerimaan tunai pasien loket beserta mutasi `jenis = 'Masuk'` non-setoran (seperti `Kapitasi BPJS` dan `Pendapatan Lain`) pada bulan bersangkutan.
+  2. **Total Pengeluaran Operasional**: Jumlah seluruh nominal dengan `jenis = 'Keluar'` yang merupakan beban operasional/obat (TIDAK termasuk kategori `Setor ke Rekening Pemilik`).
+  3. **Saldo Kas Bersih (Net Cash Flow)**: `Total Penerimaan Kas Masuk - Total Pengeluaran Operasional`.
+  4. **Total Setor Tunai & Pemilik**: Akumulasi mutasi dengan `kategori = 'Setor Tunai'` maupun `kategori = 'Setor ke Rekening Pemilik'`.
+- **AC-003.2**: Angka moneter HARUS disajikan dengan prefiks `Rp` dan pemisah ribuan titik standar Indonesia (misal: `Rp 28.203.000`), serta mendukung input nominal kecil di bawah Rp 10.000 (misal Rp 1.000 – Rp 9.999) secara presisi tanpa konversi ribuan otomatis.
 
 ### FR-004: Tabel Riwayat Mutasi Kas & Filter Periode
 Sistem HARUS menyajikan daftar mutasi buku kas terurut dari transaksi terbaru.
@@ -82,12 +82,14 @@ Sistem HARUS menyajikan daftar mutasi buku kas terurut dari transaksi terbaru.
 - **AC-004.1**: Sistem HARUS menyediakan filter pemilih Bulan & Tahun (default: bulan berjalan).
 - **AC-004.2**: Sistem HARUS menyediakan filter tab jenis transaksi: `Semua Mutasi`, `Hanya Pemasukan`, dan `Hanya Pengeluaran`.
 - **AC-004.3**: Sistem HARUS menyediakan kotak pencarian instan untuk menyaring keterangan atau kategori transaksi.
-- **AC-004.4**: Setiap baris mutasi HARUS menampilkan: Tanggal, Badge Kategori, Keterangan Transaksi, dan Nominal (warna hijau `+` untuk masuk, warna merah `-` untuk keluar).
+- **AC-004.4**: Setiap baris mutasi HARUS menampilkan: Tanggal, Badge Kategori, Keterangan Transaksi, dan Nominal (warna hijau `+` untuk masuk, warna biru/teal untuk setoran pemilik/bank, warna merah `-` untuk pengeluaran operasional).
 
-### FR-005: Rekonsiliasi Kasir Harian
-Sistem HARUS menyediakan ringkasan komparasi antara penerimaan kasir hari ini dengan setoran bank.
+### FR-005: Rekonsiliasi Fisik Laci Kasir (Bulanan & Harian)
+Sistem HARUS menyediakan ringkasan rekonsiliasi fisik uang di laci kasir.
 
-- **AC-005.1**: Sistem HARUS menampilkan perbandingan antara akumulasi pembayaran `Tunai` pada tabel `public.visits` hari ini dengan catatan mutasi `Setor Tunai` hari ini untuk mendeteksi selisih kas fisik.
+- **AC-005.1**: Sistem HARUS menghitung **Sisa Fisik di Laci Kasir** dengan rumus:
+  `Uang Tunai Masuk Laci (Pasien Tunai) - Pengeluaran Tunai dari Laci (Operasional) - Disetor ke Pemilik/Bank (Setor Tunai & Setor ke Rekening Pemilik)`.
+- **AC-005.2**: Sistem HARUS menyediakan pemilih mode rekonsiliasi antara **Akumulasi Bulan Ini** dan **Per Tanggal / Hari Ini**.
 
 ### FR-006: Pembatalan / Hapus Transaksi Mutasi
 Sistem HARUS mengizinkan penghapusan transaksi jika terjadi kesalahan input kasir.

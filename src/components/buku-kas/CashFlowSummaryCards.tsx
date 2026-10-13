@@ -31,29 +31,29 @@ export function CashFlowSummaryCards({
 }: CashFlowSummaryCardsProps) {
   const cards = [
     {
-      title: 'Total Pemasukan',
-      subtitle: `Kapitasi & Pendapatan (${monthName})`,
+      title: 'Total Penerimaan Kas',
+      subtitle: `Tunai Loket & Kapitasi (${monthName})`,
       amount: totalMasuk,
       icon: ArrowDownLeft,
       iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
     },
     {
-      title: 'Total Pengeluaran',
-      subtitle: `Obat & Operasional (${monthName})`,
+      title: 'Pengeluaran Operasional',
+      subtitle: `Obat & Operasional (${monthName}, Tanpa Setoran)`,
       amount: totalKeluar,
       icon: ArrowUpRight,
       iconBg: 'bg-rose-50 text-rose-600 border-rose-100',
     },
     {
-      title: 'Saldo Kas Bersih',
-      subtitle: 'Pemasukan - Pengeluaran',
+      title: 'Saldo Kas Bersih (Net)',
+      subtitle: 'Penerimaan Kas - Beban Operasional',
       amount: saldoBersih,
       icon: Wallet,
       iconBg: 'bg-teal-50 text-teal-600 border-teal-100',
     },
     {
-      title: 'Setor Tunai ke Bank',
-      subtitle: `Rekap Setor Kasir (${monthName})`,
+      title: 'Setor Tunai & Pemilik',
+      subtitle: `Disetor ke Bank / Pemilik (${monthName})`,
       amount: totalSetorTunai,
       icon: Bank,
       iconBg: 'bg-indigo-50 text-indigo-600 border-indigo-100',

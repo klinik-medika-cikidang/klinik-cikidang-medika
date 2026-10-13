@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { parseFlexibleDate, calculateAgeFromDob, formatDateShort, formatLocalDateToYMD } from './utils';
+import {
+  parseFlexibleDate,
+  calculateAgeFromDob,
+  formatDateShort,
+  formatLocalDateToYMD,
+  normalizeRupiah,
+  formatRupiah,
+  isCashHandoverToOwnerOrBank,
+  isOperationalExpense,
+} from './utils';
 
 describe('parseFlexibleDate', () => {
   it('parses standard ISO YYYY-MM-DD', () => {
@@ -77,5 +86,40 @@ describe('formatLocalDateToYMD', () => {
   it('formats arbitrary dates with zero padding', () => {
     const date = new Date(2026, 0, 5);
     expect(formatLocalDateToYMD(date)).toBe('2026-01-05');
+  });
+});
+
+describe('normalizeRupiah & formatRupiah', () => {
+  it('preserves amounts between 1.000 and 9.999 without multiplying into millions', () => {
+    expect(normalizeRupiah(1000)).toBe(1000);
+    expect(normalizeRupiah(2500)).toBe(2500);
+    expect(normalizeRupiah(5000)).toBe(5000);
+    expect(normalizeRupiah(9500)).toBe(9500);
+    expect(formatRupiah(2500)).toContain('2.500');
+    expect(formatRupiah(5000)).not.toContain('5.000.000');
+  });
+
+  it('scales legacy CSV shorthand (< 1000) into thousands', () => {
+    expect(normalizeRupiah(15)).toBe(15000);
+    expect(normalizeRupiah(150)).toBe(150000);
+  });
+});
+
+describe('isCashHandoverToOwnerOrBank & isOperationalExpense', () => {
+  it('identifies Setor ke Rekening Pemilik and Setor Tunai as cash handover, not operational expense', () => {
+    const setorPemilik = { jenis: 'Keluar', kategori: 'Setor ke Rekening Pemilik' };
+    const setorTunai = { jenis: 'Masuk', kategori: 'Setor Tunai' };
+    expect(isCashHandoverToOwnerOrBank(setorPemilik)).toBe(true);
+    expect(isCashHandoverToOwnerOrBank(setorTunai)).toBe(true);
+    expect(isOperationalExpense(setorPemilik)).toBe(false);
+    expect(isOperationalExpense(setorTunai)).toBe(false);
+  });
+
+  it('identifies real operational outflows as operational expenses', () => {
+    const obat = { jenis: 'Keluar', kategori: 'Pengeluaran Obat / Operasional' };
+    const nonKlinik = { jenis: 'Keluar', kategori: 'Pengeluaran Non Klinik' };
+    expect(isCashHandoverToOwnerOrBank(obat)).toBe(false);
+    expect(isOperationalExpense(obat)).toBe(true);
+    expect(isOperationalExpense(nonKlinik)).toBe(true);
   });
 });

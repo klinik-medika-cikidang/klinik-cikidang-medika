@@ -13,7 +13,12 @@ import {
   Heartbeat,
 } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
-import { normalizeRupiah, formatLocalDateToYMD } from '@/lib/utils';
+import {
+  normalizeRupiah,
+  formatLocalDateToYMD,
+  isCashHandoverToOwnerOrBank,
+  isOperationalExpense,
+} from '@/lib/utils';
 import {
   DashboardKpiCards,
   type DashboardKpiData,
@@ -347,6 +352,7 @@ export default function DashboardPage() {
 
       // Process Cash Flows
       let bpjsCapitation = 0;
+      let otherCashIn = 0;
       let expenses = 0;
       let bankSetoran = 0;
 
@@ -362,20 +368,20 @@ export default function DashboardPage() {
           monthlyFinanceMap[monthKeyFlow] = { cashIn: 0, cashOut: 0 };
         }
 
+        if (isCashHandoverToOwnerOrBank(f)) {
+          bankSetoran += nom;
+          return;
+        }
+
         if (f.jenis === 'Masuk' && f.kategori?.includes('Kapitasi')) {
           bpjsCapitation += nom;
           dailyFinanceMap[tglFlow].cashIn += nom;
           if (monthKeyFlow) monthlyFinanceMap[monthKeyFlow].cashIn += nom;
-        } else if (f.jenis === 'Masuk' && !f.kategori?.includes('Setor Tunai')) {
+        } else if (f.jenis === 'Masuk') {
+          otherCashIn += nom;
           dailyFinanceMap[tglFlow].cashIn += nom;
           if (monthKeyFlow) monthlyFinanceMap[monthKeyFlow].cashIn += nom;
-        }
-
-        if (f.jenis === 'Masuk' && f.kategori?.includes('Setor Tunai')) {
-          bankSetoran += nom;
-        }
-
-        if (f.jenis === 'Keluar') {
+        } else if (isOperationalExpense(f)) {
           expenses += nom;
           dailyFinanceMap[tglFlow].cashOut += nom;
           if (monthKeyFlow) monthlyFinanceMap[monthKeyFlow].cashOut += nom;
@@ -447,14 +453,14 @@ export default function DashboardPage() {
       });
 
       // Liquidity calculations
-      const netCash = umumRev + bpjsCapitation - expenses;
+      const netCash = umumRev + bpjsCapitation + otherCashIn - expenses;
       const totalLoketRevenue = tunaiRev + tfRev;
       const cashRatioPct =
         totalLoketRevenue > 0 ? Math.round((tunaiRev / totalLoketRevenue) * 100) : 80;
       const tfRatioPct = 100 - cashRatioPct;
 
-      const laciEstimated = Math.max(0, tunaiRev - bankSetoran);
-      const bankEstimated = bpjsCapitation + tfRev + bankSetoran;
+      const laciEstimated = Math.max(0, tunaiRev - expenses - bankSetoran);
+      const bankEstimated = bpjsCapitation + tfRev + otherCashIn + bankSetoran;
 
       setCashLiquidity({
         laciCash: laciEstimated,

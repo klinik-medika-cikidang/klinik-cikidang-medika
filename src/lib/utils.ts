@@ -7,11 +7,32 @@ export function cn(...inputs: ClassValue[]) {
 
 export function normalizeRupiah(amount: number): number {
   if (!amount || isNaN(amount)) return 0;
-  // Historical clinic CSV data recorded numbers in thousands (ribuan)
-  if (amount > 0 && amount < 10000) {
+  // Legacy CSV data recorded shorthand thousands only for small numbers (< 1000, e.g. 15 -> 15.000).
+  // Real Rupiah amounts >= 1.000 (e.g. Rp 1.000, Rp 2.500, Rp 5.000) are preserved as-is.
+  if (amount > 0 && amount < 1000) {
     return amount * 1000;
   }
   return amount;
+}
+
+export function isCashHandoverToOwnerOrBank(flow: {
+  jenis?: string | null;
+  kategori?: string | null;
+}): boolean {
+  const kat = (flow.kategori || '').trim().toLowerCase();
+  return (
+    kat === 'setor tunai' ||
+    kat.includes('setor tunai') ||
+    kat === 'setor ke rekening pemilik' ||
+    kat.includes('setor ke rekening pemilik')
+  );
+}
+
+export function isOperationalExpense(flow: {
+  jenis?: string | null;
+  kategori?: string | null;
+}): boolean {
+  return flow.jenis === 'Keluar' && !isCashHandoverToOwnerOrBank(flow);
 }
 
 export function formatRupiah(amount: number): string {

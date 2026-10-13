@@ -20,6 +20,10 @@ Based on direct feedback and operational inquiries from dr. Ovan (Clinical Direc
 5. **Investigasi Selisih 1 Juta Pendapatan (Timezone Offset UTC vs Local Date WIB)**: In Google Sheets, revenue for 1-11 Oct 2026 is Rp 18.195.000 (173 kunjungan), but web app reports showed Rp 19.145.000 (181 kunjungan), a discrepancy of Rp 950.000 (~1 juta). Traced to `toISOString().split('T')[0]` shifting 1 October 00:00 WIB into 30 September UTC, capturing 8 visits on 30 Sep totaling Rp 950.000. Database data matches Google Sheets 100%; fixed by introducing `formatLocalDateToYMD`.
 6. **Perubahan Nama Dokter "dr. Ade Sofyan" & Master Kelola Dokter**: Change "dr. Ovan" to "dr. Ade Sofyan" across the database, and provide a dedicated `MasterDoctorModal` UI allowing clinic staff to add new doctors, edit names/specializations, and toggle active practice status.
 7. **Standarisasi ICD-10 BPJS FKTP (144 Diagnosa Primer)**: dr. Ovan requested comprehensive ICD-10 codes compliant with BPJS Health standards. Expanded `src/constants/icd10.ts` to include all 144 BPJS FKTP primary care standard diagnoses with accurate Indonesian clinical terms.
+8. **Akurasi Akuntansi Setoran Pemilik, Rekonsiliasi Fisik Laci Kasir, & Input Nominal < Rp 10.000**:
+   - Transactions categorized as `Setor ke Rekening Pemilik` (e.g. Rp 2.400.000 `stor tunai` and Rp 50.000 `amel tuker cash`) represent physical cash handovers from the cashier drawer to the clinic owner, NOT operational expenses (`Pengeluaran Operasional & Obat`). Including them in operational expenses falsely inflated costs and caused daily financial charts to show a fake deficit.
+   - Physical cashier drawer reconciliation (`Sisa Fisik di Laci Kasir`) must deduct both **operational cash expenses paid from the drawer** and **cash handovers to the owner/bank** (`Setor Tunai` & `Setor ke Rekening Pemilik`), with support for both cumulative monthly and daily date views.
+   - Inputting cash flow amounts below Rp 10.000 (e.g. Rp 1.000 – Rp 9.999) previously multiplied the value by 1.000 into millions due to legacy CSV threshold `< 10000` in `normalizeRupiah`. New form inputs must store exact Rupiah values and `normalizeRupiah` must only scale legacy shorthand values `< 1000`.
 
 ---
 
@@ -61,16 +65,17 @@ Based on direct feedback and operational inquiries from dr. Ovan (Clinical Direc
 - **REQ-018-03.5**: The annual recap SHALL list all registered midwives sorted by referral volume, displaying total referrals and unique patients.
 - **REQ-018-03.6**: The annual recap SHALL provide an Excel export button ("Ekspor Rekap Bingkisan Bidan") generating a clean `.xlsx` workbook.
 
-### User Story 4: Klarifikasi Buku Kas vs Uang Kasir (dr. Ovan & Tim Manajemen)
-*As dr. Ovan and clinic owners,*
-*I want a crystal-clear operational protocol and UI labels explaining the difference between physical cash in the drawer and operational cash ledger,*
-*So that cashier reconciliation and daily banking deposits are never misunderstood.*
+### User Story 4: Klarifikasi Buku Kas vs Uang Kasir & Rekonsiliasi Fisik Laci Kasir (dr. Ade Sofyan & Tim Manajemen)
+*As clinic owners and cashier staff,*
+*I want physical cash in the drawer (`Sisa Fisik di Laci Kasir`) to automatically deduct operational cash expenses and owner/bank deposits, and I want `Setor ke Rekening Pemilik` separated from operational expenses,*
+*So that our daily/monthly net income and physical drawer balance always match real cash on hand.*
 
-- **REQ-018-04.1**: UI microcopy in `CashReconciliationCard.tsx` SHALL explicitly state:
-  - *Uang Tunai di Loket Kasir*: "Penerimaan tunai fisik di laci kasir klinik dari pembayaran pasien hari ini."
-  - *Tercatat Disetor ke Bank*: "Setoran tunai yang telah disetor ke rekening bank klinik dan dicatat di Buku Kas."
-  - *Sisa Fisik di Kasir*: "Uang tunai fisik yang masih tersimpan di laci kasir (belum disetor ke bank)."
-- **REQ-018-04.2**: A dedicated operational summary note SHALL be provided to dr. Ovan answering their inquiry in full professional clarity.
+- **REQ-018-04.1**: Helper functions `isCashHandoverToOwnerOrBank` and `isOperationalExpense` in `src/lib/utils.ts` SHALL classify `Setor Tunai` and `Setor ke Rekening Pemilik` as owner/bank cash handovers, NOT operational expenses.
+- **REQ-018-04.2**: On Dashboard (`/`), Buku Kas (`/buku-kas`), and Laporan (`/laporan`), `Setor ke Rekening Pemilik` SHALL NOT be added to `Pengeluaran Operasional & Obat` or daily chart `Kas Keluar` (preventing false deficits), and SHALL instead be accumulated into `Setoran Tunai ke Pemilik / Bank`.
+- **REQ-018-04.3**: In `CashReconciliationCard.tsx` (`/buku-kas`) and `CashLiquidityCard.tsx` (`/`), `Sisa Fisik di Laci Kasir` SHALL be computed as:
+  `Uang Tunai Masuk Laci (Pasien Tunai) - Pengeluaran Tunai dari Laci (Operasional) - Disetor ke Pemilik / Bank (Setor Tunai & Setor ke Rekening Pemilik)`.
+- **REQ-018-04.4**: `CashReconciliationCard.tsx` SHALL provide a mode toggle between **"Akumulasi Bulan Ini"** (default, matching the selected month in Buku Kas) and **"Per Tanggal / Hari Ini"** (with a date picker to inspect any specific date's drawer movement).
+- **REQ-018-04.5**: `normalizeRupiah` in `src/lib/utils.ts` SHALL only multiply legacy shorthand numbers `< 1000` by `1000`, preserving all nominal inputs `>= 1000` (such as Rp 1.000, Rp 2.500, Rp 5.000) as exact Rupiah values without turning them into millions. `AddCashFlowModal.tsx` SHALL persist exact Rupiah amounts entered by staff.
 
 ### User Story 5: Akurasi Laporan Keuangan & Eliminasi Timezone Shift (dr. Ovan & Owner)
 *As clinic management analyzing monthly revenue reports,*

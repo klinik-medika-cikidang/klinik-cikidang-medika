@@ -175,13 +175,40 @@ Pada form pemeriksaan dokter (`/rekam-medis`), dokter cukup mengetik sebagian na
 
 ---
 
+### 8. Poin 8: Perbaikan Akuntansi Setoran Pemilik, Input Nominal < Rp 10.000, & Sisa Fisik di Laci Kasir
+> **Feedback:**
+> 1. *"ini teh sudah masuk setor tunai ke pemilik, apakah bisa tidak dimasukan ke pengeluaran, yang 2.400.000"*
+> 2. *"dan ini teh kas kluar gak bisa dibawah 10.000 ,klo dibawah itu jadinya 1 juta"*
+> 3. *"yang ini ada pengeluaran, tapi tidak mempengaruhi sisa fisik di laci om, gmn caranya biar sesuai om?"*
+
+#### Analisis Akar Masalah & Solusi yang Telah Diterapkan:
+1. **Pemisahan `Setor ke Rekening Pemilik` (Rp 2.400.000 & Rp 50.000) dari Pengeluaran Operasional**:
+   - **Penyebab Sebelumnya**: Saat staf mencatat `stor tunai` (Rp 2.400.000) dan `amel tuker cash` (Rp 50.000) melalui menu **Kas Keluar &rarr; Setor ke Rekening Pemilik**, sistem sebelumnya menjumlahkan seluruh transaksi bertipe `Keluar` ke dalam kartu **Pengeluaran (Operasional & Obat)** serta grafik harian. Akibatnya, grafik tanggal 12 Oktober sempat terlihat seolah-olah **Defisit (-Rp 1.252.000)**.
+   - **Perbaikan Permanen**: Kategori **`Setor ke Rekening Pemilik`** (maupun **`Setor Tunai`**) kini diklasifikasikan secara otomatis sebagai **Mutasi Setoran Laci ke Pemilik/Bank** (`isCashHandoverToOwnerOrBank`), **BUKAN** beban pengeluaran operasional:
+     - **Pengeluaran Operasional (1–12 Okt)**: Turun kembali secara akurat menjadi **Rp 5.735.000** (murni belanja obat, listrik, dan operasional; tidak lagi membengkak menjadi Rp 8.185.000).
+     - **Grafik Keuangan Harian (12 Okt)**: Kas Masuk **Rp 1.435.000** vs Kas Keluar Operasional **Rp 237.000** &rarr; **Surplus +Rp 1.198.000** (tidak lagi defisit).
+     - **Setor Tunai & Pemilik**: Bertambah secara akurat menampung setoran Rp 2.400.000 dan Rp 50.000 (total akumulasi setoran menjadi **Rp 6.865.000**).
+     - Pada tabel Buku Kas, baris `Setor ke Rekening Pemilik` kini diberi badge biru/indigo khusus **"Setoran Laci ke Pemilik/Bank (Bukan Pengeluaran)"** serta tab filter tersendiri.
+
+2. **Perbaikan Input Kas Keluar di Bawah Rp 10.000 (Tidak Lagi Menjadi Jutaan)**:
+   - **Penyebab Sebelumnya**: Fungsi konversi data lama (`normalizeRupiah`) sebelumnya memiliki batas `< 10.000` yang dikalikan `1.000` (warisan format singkatan ribuan dari file Google Sheets lama). Akibatnya, ketika staf mengetik angka di bawah Rp 10.000 (seperti `1.000`, `2.500`, atau `5.000`), sistem otomatis mengalikannya 1.000 menjadi `Rp 1.000.000` s/d `Rp 5.000.000`.
+   - **Perbaikan Permanen**: Perkalian otomatis pada formulir input baru (`AddCashFlowModal`) telah dimatikan sepenuhnya sehingga angka berapapun yang diketik staf (termasuk Rp 1.000, Rp 2.000, Rp 2.500, Rp 5.000) tersimpan **100% persis sesuai nominal asli**. Tersedia pula tombol nominal cepat (`Rp 2.000`, `Rp 5.000`, `Rp 10.000`, `Rp 25.000`, `Rp 50.000`, `Rp 100.000`).
+
+3. **Sinkronisasi Otomatis `Sisa Fisik di Laci Kasir` dengan Pengeluaran & Setoran**:
+   - **Penyebab Sebelumnya**: Kartu Rekonsiliasi Laci Kasir sebelumnya hanya menghitung penerimaan pasien hari itu dikurangi kategori `Setor Tunai` saja, tanpa memotong pengeluaran operasional harian yang diambil dari laci (seperti beli gorengan, kopi, token listrik, obat) maupun `Setor ke Rekening Pemilik`.
+   - **Perbaikan Permanen**: Kartu **Rekonsiliasi Fisik Laci Kasir** di `/buku-kas` dan **Likuiditas Kas Riil & Bank** di Dashboard (`/`) kini menggunakan rumus 4 pilar yang utuh:
+     $$\text{Sisa Fisik di Laci Kasir} = \text{Tunai Masuk Laci (Pasien)} - \text{Pengeluaran Tunai Laci (Operasional)} - \text{Disetor ke Pemilik/Bank}$$
+   - Dilengkapi juga dengan tombol pemilih mode **"Akumulasi Bulan Ini"** (menampilkan sisa kas fisik berjalan di laci saat ini) dan **"Per Tanggal"** (untuk memeriksa rincian mutasi laci pada tanggal tertentu seperti 12 Oktober 2026).
+
+---
+
 ### Kesimpulan & Komitmen Kualitas
 
 Seluruh sistem Klinik Pratama Cikidang Medika kini berjalan dengan:
 1. **Identitas Pasien Presisi**: Tanggal lahir tampil jelas di semua titik antrean dan pencarian.
 2. **Pengisian Data Cepat**: Tanggal lahir fleksibel copy-paste WhatsApp dengan kalkulasi usia otomatis.
 3. **Kemitraan Bidan Terstruktur**: Pencatatan rujukan bidan mudah di layar tindakan dokter dan rekap tahunan bingkisan siap ekspor Excel.
-4. **Keuangan Akuntabel**: Pemisahan jelas antara uang fisik laci kasir dan buku kas operasional bank.
+4. **Keuangan & Laci Kasir Akuntabel**: Pemisahan tegas antara pengeluaran operasional vs setoran pemilik, input nominal kecil `< Rp 10.000` presisi, dan sisa fisik laci kasir otomatis memotong pengeluaran tunai serta setoran.
 5. **Data Laporan 100% Akurat**: Selisih 1 juta terbukti berasal dari offset peramban UTC, dan kini telah dikunci dengan penanggalan lokal WIB sehingga laporan cocok 100% dengan Google Sheets.
 6. **Manajemen Dokter Mandiri**: Identitas resmi `dr. Ade Sofyan` telah aktif, didukung fitur kelola master dokter mandiri.
 7. **Standarisasi Medis BPJS**: 144 Diagnosa FKTP resmi terintegrasi penuh untuk kemudahan e-Klaim dan pelaporan Puskesmas.

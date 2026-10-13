@@ -20,7 +20,12 @@ import { Select } from '@/components/ui/Select';
 import { CASH_FLOW_CATEGORIES } from '@/constants/clinic';
 import { createClient } from '@/lib/supabase/client';
 import type { CashFlow } from '@/types/database';
-import { formatRupiah, normalizeRupiah, cn } from '@/lib/utils';
+import {
+  formatRupiah,
+  formatLocalDateToYMD,
+  isCashHandoverToOwnerOrBank,
+  cn,
+} from '@/lib/utils';
 
 const cashFlowSchema = z.object({
   tanggal: z.string().trim().min(1, 'Tanggal transaksi wajib diisi.'),
@@ -43,13 +48,20 @@ export interface AddCashFlowModalProps {
   onSuccess?: (newFlow: CashFlow) => void;
 }
 
+const formatExactRupiah = (val: number) =>
+  new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(val || 0);
+
 export function AddCashFlowModal({
   isOpen,
   onClose,
   initialType = 'Masuk',
   onSuccess,
 }: AddCashFlowModalProps) {
-  const getTodayString = () => new Date().toISOString().split('T')[0];
+  const getTodayString = () => formatLocalDateToYMD();
 
   const [jenis, setJenis] = useState<'Masuk' | 'Keluar'>(initialType);
   const [tanggal, setTanggal] = useState(getTodayString());
@@ -85,20 +97,23 @@ export function AddCashFlowModal({
     }
   };
 
+  const handleSetNominalValue = (num: number) => {
+    setNominalRaw(num);
+    setNominalDisplay(num > 0 ? new Intl.NumberFormat('id-ID').format(num) : '');
+    if (fieldErrors.nominal) {
+      setFieldErrors((prev) => ({ ...prev, nominal: undefined }));
+    }
+  };
+
   const handleNominalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value.replace(/\D/g, '');
     if (!rawVal) {
-      setNominalDisplay('');
-      setNominalRaw(0);
+      handleSetNominalValue(0);
       return;
     }
 
     const num = parseInt(rawVal, 10);
-    setNominalRaw(num);
-    setNominalDisplay(new Intl.NumberFormat('id-ID').format(num));
-    if (fieldErrors.nominal) {
-      setFieldErrors((prev) => ({ ...prev, nominal: undefined }));
-    }
+    handleSetNominalValue(num);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -137,7 +152,7 @@ export function AddCashFlowModal({
           tanggal: parseResult.data.tanggal,
           jenis: parseResult.data.jenis,
           kategori: parseResult.data.kategori,
-          nominal: normalizeRupiah(parseResult.data.nominal),
+          nominal: parseResult.data.nominal,
           keterangan: parseResult.data.keterangan || null,
         })
         .select()
@@ -146,7 +161,7 @@ export function AddCashFlowModal({
       if (error) throw error;
 
       toast.success(
-        `Mutasi kas ${jenis === 'Masuk' ? 'masuk' : 'keluar'} sebesar ${formatRupiah(normalizeRupiah(nominalRaw))} berhasil disimpan.`
+        `Mutasi kas ${jenis === 'Masuk' ? 'masuk' : 'keluar'} sebesar ${formatExactRupiah(parseResult.data.nominal)} berhasil disimpan.`
       );
 
       if (onSuccess && data) {
@@ -256,9 +271,16 @@ export function AddCashFlowModal({
           {fieldErrors.kategori && (
             <p className="text-[11px] text-rose-600 font-medium mt-1 pl-1">{fieldErrors.kategori}</p>
           )}
+          {isCashHandoverToOwnerOrBank({ jenis, kategori }) && (
+            <div className="mt-2 p-2.5 rounded-xl bg-teal-50/90 border border-teal-200/80 text-[11px] text-teal-800 leading-relaxed">
+              <span className="font-bold">Info Setoran Pemilik / Bank:</span> Transaksi ini otomatis{' '}
+              <span className="font-bold underline">mengurangi Sisa Fisik di Laci Kasir</span> dan masuk ke{' '}
+              <span className="font-bold">Akumulasi Setor Tunai &amp; Pemilik</span> (tidak dihitung sebagai beban Pengeluaran Operasional klinik).
+            </div>
+          )}
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <label className="block text-xs font-semibold text-slate-700">
             Nominal Transaksi (Rp) <span className="text-rose-500">*</span>
           </label>
@@ -270,7 +292,7 @@ export function AddCashFlowModal({
             <input
               type="text"
               required
-              placeholder="0"
+              placeholder="Contoh: 2.500, 5.000, 50.000"
               value={nominalDisplay}
               onChange={handleNominalChange}
               className={cn(
@@ -281,12 +303,32 @@ export function AddCashFlowModal({
               )}
             />
           </div>
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            {(jenis === 'Keluar'
+              ? [2000, 5000, 10000, 25000, 50000, 100000]
+              : [50000, 100000, 500000, 1000000]
+            ).map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => handleSetNominalValue(preset)}
+                className={cn(
+                  'px-2 py-1 rounded-lg text-[10px] font-mono font-semibold border transition',
+                  nominalRaw === preset
+                    ? 'bg-teal-600 text-white border-teal-600'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                )}
+              >
+                {formatExactRupiah(preset)}
+              </button>
+            ))}
+          </div>
           {fieldErrors.nominal ? (
             <p className="text-[11px] text-rose-600 font-medium pl-1">{fieldErrors.nominal}</p>
           ) : nominalRaw > 0 ? (
             <p className="text-[11px] font-mono text-slate-500 pl-1">
               Terbaca:{' '}
-              <span className="font-semibold text-slate-800">{formatRupiah(nominalRaw)}</span>
+              <span className="font-semibold text-slate-800">{formatExactRupiah(nominalRaw)}</span>
             </p>
           ) : null}
         </div>

@@ -6,6 +6,7 @@ import {
   MagnifyingGlass,
   ArrowDownLeft,
   ArrowUpRight,
+  Bank,
   Trash,
   WarningCircle,
   CircleNotch,
@@ -18,7 +19,13 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
-import { formatRupiah, formatDateIndo, cn } from '@/lib/utils';
+import {
+  formatRupiah,
+  formatDateIndo,
+  isCashHandoverToOwnerOrBank,
+  isOperationalExpense,
+  cn,
+} from '@/lib/utils';
 
 export interface CashFlowTableProps {
   cashFlows: CashFlow[];
@@ -33,7 +40,7 @@ export function CashFlowTable({
   onDelete,
   className,
 }: CashFlowTableProps) {
-  const [typeFilter, setTypeFilter] = useState<'all' | 'Masuk' | 'Keluar'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'Masuk' | 'Keluar' | 'Setoran'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedForDelete, setSelectedForDelete] = useState<CashFlow | null>(null);
@@ -42,7 +49,15 @@ export function CashFlowTable({
   const uniqueCategories = Array.from(new Set(cashFlows.map((cf) => cf.kategori))).sort();
 
   const filteredItems = cashFlows.filter((cf) => {
-    if (typeFilter !== 'all' && cf.jenis !== typeFilter) return false;
+    if (typeFilter === 'Masuk' && (cf.jenis !== 'Masuk' || isCashHandoverToOwnerOrBank(cf))) {
+      return false;
+    }
+    if (typeFilter === 'Keluar' && !isOperationalExpense(cf)) {
+      return false;
+    }
+    if (typeFilter === 'Setoran' && !isCashHandoverToOwnerOrBank(cf)) {
+      return false;
+    }
     if (categoryFilter !== 'all' && cf.kategori !== categoryFilter) return false;
 
     if (searchQuery.trim()) {
@@ -75,18 +90,18 @@ export function CashFlowTable({
   return (
     <Card className={cn('overflow-hidden', className)}>
       <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/50 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <FileXls weight="duotone" className="w-5 h-5 text-teal-600" />
               Daftar Riwayat Mutasi Buku Kas
             </h2>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Menampilkan {filteredItems.length} transaksi mutasi keuangan operasional
+              Menampilkan {filteredItems.length} transaksi mutasi keuangan operasional &amp; setoran kasir
             </p>
           </div>
 
-          <div className="inline-flex rounded-xl bg-slate-200/80 p-1 text-xs font-medium self-start sm:self-auto">
+          <div className="inline-flex flex-wrap rounded-xl bg-slate-200/80 p-1 text-xs font-medium self-start lg:self-auto gap-0.5">
             <button
               type="button"
               onClick={() => setTypeFilter('all')}
@@ -123,7 +138,20 @@ export function CashFlowTable({
               )}
             >
               <ArrowUpRight weight="duotone" className="w-4 h-4" />
-              <span>Keluar</span>
+              <span>Pengeluaran</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTypeFilter('Setoran')}
+              className={cn(
+                'px-3 py-1.5 min-h-[38px] rounded-lg transition font-semibold flex items-center gap-1.5',
+                typeFilter === 'Setoran'
+                  ? 'bg-indigo-600 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-indigo-700'
+              )}
+            >
+              <Bank weight="duotone" className="w-4 h-4" />
+              <span>Setoran Pemilik/Bank</span>
             </button>
           </div>
         </div>
@@ -164,7 +192,7 @@ export function CashFlowTable({
           <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 select-none">
             <tr>
               <th className="py-3.5 px-4 w-32">Tanggal</th>
-              <th className="py-3.5 px-4 w-40">Kategori</th>
+              <th className="py-3.5 px-4 w-48">Kategori</th>
               <th className="py-3.5 px-4">Keterangan / Uraian</th>
               <th className="py-3.5 px-4 text-right w-36">Nominal</th>
               {onDelete && <th className="py-3.5 px-4 text-center w-20">Aksi</th>}
@@ -191,21 +219,34 @@ export function CashFlowTable({
               </tr>
             ) : (
               filteredItems.map((item) => {
-                const isMasuk = item.jenis === 'Masuk';
+                const isSetoran = isCashHandoverToOwnerOrBank(item);
+                const isMasuk = item.jenis === 'Masuk' && !isSetoran;
                 return (
                   <tr key={item.id} className="hover:bg-slate-50/70 transition">
                     <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600 whitespace-nowrap">
                       {formatDateIndo(item.tanggal)}
                     </td>
                     <td className="py-3.5 px-4 whitespace-nowrap">
-                      <Badge variant={isMasuk ? 'success' : 'danger'} size="sm">
-                        {isMasuk ? (
-                          <ArrowDownLeft weight="bold" className="w-3 h-3" />
-                        ) : (
-                          <ArrowUpRight weight="bold" className="w-3 h-3" />
+                      <div className="flex flex-col items-start gap-1">
+                        <Badge
+                          variant={isSetoran ? 'umum' : isMasuk ? 'success' : 'danger'}
+                          size="sm"
+                        >
+                          {isSetoran ? (
+                            <Bank weight="bold" className="w-3 h-3" />
+                          ) : isMasuk ? (
+                            <ArrowDownLeft weight="bold" className="w-3 h-3" />
+                          ) : (
+                            <ArrowUpRight weight="bold" className="w-3 h-3" />
+                          )}
+                          <span>{item.kategori}</span>
+                        </Badge>
+                        {isSetoran && (
+                          <span className="text-[10px] font-semibold text-indigo-600">
+                            Setoran Laci ke Pemilik/Bank (Bukan Pengeluaran)
+                          </span>
                         )}
-                        <span>{item.kategori}</span>
-                      </Badge>
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 text-slate-700">
                       <span className="line-clamp-2">{item.keterangan || '-'}</span>
@@ -213,10 +254,14 @@ export function CashFlowTable({
                     <td
                       className={cn(
                         'py-3.5 px-4 text-right font-mono font-bold whitespace-nowrap',
-                        isMasuk ? 'text-emerald-700' : 'text-rose-700'
+                        isSetoran
+                          ? 'text-indigo-700'
+                          : isMasuk
+                            ? 'text-emerald-700'
+                            : 'text-rose-700'
                       )}
                     >
-                      {isMasuk ? '+' : '-'} {formatRupiah(item.nominal)}
+                      {isSetoran ? '⇄' : isMasuk ? '+' : '-'} {formatRupiah(item.nominal)}
                     </td>
                     {onDelete && (
                       <td className="py-3.5 px-4 text-center whitespace-nowrap">

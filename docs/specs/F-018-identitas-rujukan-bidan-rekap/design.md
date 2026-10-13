@@ -120,13 +120,20 @@ export function parseFlexibleDate(raw: string): string | null {
 - Always lists ALL registered midwives (even with 0 referrals) so clinic management knows who referred and who didn't.
 - Excel Export: `exportBidanAnnualRecapToExcel(year, data)` generating `Rekap_Bingkisan_Bidan_{year}.xlsx`.
 
-### E. Buku Kas vs. Uang Kasir Clarification
+### E. Buku Kas, Setoran Pemilik, & Rekonsiliasi Fisik Laci Kasir
 
-Update microcopy in `CashReconciliationCard.tsx`:
-- Header subtitle: "Mencocokkan penerimaan uang tunai loket kasir (laci fisik) dengan catatan setoran bank di Buku Kas"
-- Card 1: "Uang Tunai di Loket Kasir (Laci Fisik)" -> Total uang cash fisik yang diterima kasir hari ini.
-- Card 2: "Tercatat Disetor ke Bank (Buku Kas)" -> Mutasi masuk kategori Setor Tunai di Buku Kas.
-- Card 3: "Sisa Tunai di Kasir (Belum Disetor)" -> Uang tunai yang masih dipegang di laci kasir klinik.
+- **Classification Helpers (`src/lib/utils.ts`)**:
+  - `isCashHandoverToOwnerOrBank(flow)`: Returns `true` when `kategori` matches `'Setor Tunai'` or `'Setor ke Rekening Pemilik'`.
+  - `isOperationalExpense(flow)`: Returns `true` when `jenis === 'Keluar'` and `!isCashHandoverToOwnerOrBank(flow)`.
+- **Nominal Normalization (`normalizeRupiah` in `src/lib/utils.ts` & `AddCashFlowModal.tsx`)**:
+  - Threshold reduced from `< 10000` to `< 1000` so real Rupiah values `Rp 1.000`–`Rp 9.999` are never multiplied by `1000`.
+  - `AddCashFlowModal.tsx` saves `parseResult.data.nominal` directly without calling `normalizeRupiah`.
+- **4-Pillar Physical Drawer Reconciliation (`CashReconciliationCard.tsx`)**:
+  - Supports mode toggle: **Akumulasi Bulan Ini** (default) vs **Per Tanggal / Hari Ini** (with date picker).
+  - Pillar 1: *Uang Tunai Masuk Laci (Pasien Tunai)* (`+`)
+  - Pillar 2: *Pengeluaran Tunai dari Laci (Operasional)* (`-`)
+  - Pillar 3: *Disetor ke Pemilik / Bank (`Setor Tunai` & `Setor ke Rekening Pemilik`)* (`-`)
+  - Pillar 4: *Sisa Fisik di Laci Kasir* (`= Tunai Masuk Laci - Pengeluaran Laci - Disetor ke Pemilik/Bank`)
 
 ### F. Timezone Normalization (`formatLocalDateToYMD`)
 
