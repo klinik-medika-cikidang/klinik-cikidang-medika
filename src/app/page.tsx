@@ -14,10 +14,10 @@ import {
 } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
 import {
-  normalizeRupiah,
   formatLocalDateToYMD,
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
+  isSettledVisit,
 } from '@/lib/utils';
 import {
   DashboardKpiCards,
@@ -171,7 +171,7 @@ export default function DashboardPage() {
       while (true) {
         let query = supabase
           .from('visits')
-          .select('id, tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, kode_icd10, diagnosa_deskripsi, patients(desa)')
+          .select('id, tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran, kode_icd10, diagnosa_deskripsi, patients(desa)')
           .range(visitPage * pageSize, (visitPage + 1) * pageSize - 1);
 
         if (startDate && endDate) {
@@ -287,6 +287,8 @@ export default function DashboardPage() {
       let diagnosisTotalCount = 0;
 
       allVisits.forEach((v) => {
+        if (v.status_pembayaran === 'Batal') return;
+
         const tgl = v.tanggal_periksa;
         const monthKey = tgl ? tgl.substring(0, 7) : '';
 
@@ -304,9 +306,10 @@ export default function DashboardPage() {
           monthlyFinanceMap[monthKey] = { cashIn: 0, cashOut: 0 };
         }
 
-        const biaya = normalizeRupiah(Number(v.biaya_periksa) || 0);
-        const lain = normalizeRupiah(Number(v.pendapatan_lain) || 0);
-        const totalRev = biaya + lain;
+        const isSettled = isSettledVisit(v);
+        const biaya = v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa) || 0;
+        const lain = Number(v.pendapatan_lain) || 0;
+        const totalRev = isSettled ? (biaya + lain) : 0;
 
         dailyFinanceMap[tgl].cashIn += totalRev;
         if (monthKey) {
@@ -317,18 +320,27 @@ export default function DashboardPage() {
           bpjsVisits++;
           dailyMap[tgl].bpjs++;
           if (monthKey) monthlyMap[monthKey].bpjs++;
+          if (isSettled && lain > 0) {
+            if (v.jenis_pembayaran === 'TF' || v.jenis_pembayaran === 'Transfer') {
+              tfRev += lain;
+            } else {
+              tunaiRev += lain;
+            }
+          }
         } else {
           umumVisits++;
           dailyMap[tgl].umum++;
           if (monthKey) monthlyMap[monthKey].umum++;
           umumRev += totalRev;
 
-          if (v.jenis_pembayaran === 'TF' || v.jenis_pembayaran === 'Transfer') {
-            tfRev += totalRev;
-            tfVisits++;
-          } else {
-            tunaiRev += totalRev;
-            tunaiVisits++;
+          if (isSettled) {
+            if (v.jenis_pembayaran === 'TF' || v.jenis_pembayaran === 'Transfer') {
+              tfRev += totalRev;
+              tfVisits++;
+            } else {
+              tunaiRev += totalRev;
+              tunaiVisits++;
+            }
           }
         }
 
@@ -357,7 +369,7 @@ export default function DashboardPage() {
       let bankSetoran = 0;
 
       allFlows.forEach((f) => {
-        const nom = normalizeRupiah(Number(f.nominal) || 0);
+        const nom = Number(f.nominal) || 0;
         const tglFlow = f.tanggal;
         const monthKeyFlow = tglFlow ? tglFlow.substring(0, 7) : '';
 
@@ -459,7 +471,7 @@ export default function DashboardPage() {
         totalLoketRevenue > 0 ? Math.round((tunaiRev / totalLoketRevenue) * 100) : 80;
       const tfRatioPct = 100 - cashRatioPct;
 
-      const laciEstimated = Math.max(0, tunaiRev - expenses - bankSetoran);
+      const laciEstimated = tunaiRev - expenses - bankSetoran;
       const bankEstimated = bpjsCapitation + tfRev + otherCashIn + bankSetoran;
 
       setCashLiquidity({

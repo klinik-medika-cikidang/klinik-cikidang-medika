@@ -74,7 +74,7 @@ Sistem HARUS menampilkan ringkasan metrik keuangan sesuai periode bulan yang dip
   2. **Total Pengeluaran Operasional**: Jumlah seluruh nominal dengan `jenis = 'Keluar'` yang merupakan beban operasional/obat (TIDAK termasuk kategori `Setor ke Rekening Pemilik`).
   3. **Saldo Kas Bersih (Net Cash Flow)**: `Total Penerimaan Kas Masuk - Total Pengeluaran Operasional`.
   4. **Total Setor Tunai & Pemilik**: Akumulasi mutasi dengan `kategori = 'Setor Tunai'` maupun `kategori = 'Setor ke Rekening Pemilik'`.
-- **AC-003.2**: Angka moneter HARUS disajikan dengan prefiks `Rp` dan pemisah ribuan titik standar Indonesia (misal: `Rp 28.203.000`), serta mendukung input nominal kecil di bawah Rp 10.000 (misal Rp 1.000 – Rp 9.999) secara presisi tanpa konversi ribuan otomatis.
+- **AC-003.2**: Angka moneter HARUS disajikan dengan prefiks `Rp` dan pemisah ribuan titik standar Indonesia (misal: `Rp 28.203.000`). Seluruh data transaksi di database tersimpan dalam Rupiah penuh (1:1) pasca migrasi backfill 2026-10-13 (ADR-004), menghilangkan ketergantungan pada normalisasi runtime frontend.
 
 ### FR-004: Tabel Riwayat Mutasi Kas & Filter Periode
 Sistem HARUS menyajikan daftar mutasi buku kas terurut dari transaksi terbaru.
@@ -90,6 +90,8 @@ Sistem HARUS menyediakan ringkasan rekonsiliasi fisik uang di laci kasir.
 - **AC-005.1**: Sistem HARUS menghitung **Sisa Fisik di Laci Kasir** dengan rumus:
   `Uang Tunai Masuk Laci (Pasien Tunai) - Pengeluaran Tunai dari Laci (Operasional) - Disetor ke Pemilik/Bank (Setor Tunai & Setor ke Rekening Pemilik)`.
 - **AC-005.2**: Sistem HARUS menyediakan pemilih mode rekonsiliasi antara **Akumulasi Bulan Ini** dan **Per Tanggal / Hari Ini**.
+- **AC-005.3**: Sistem DILARANG menggunakan `Math.max(0, ...)` untuk menutupi selisih negatif pada laci kasir. Apabila setoran melebihi kas masuk tunai pada periode/hari tersebut (misal karena menyetor kas fisik akumulasi hari sebelumnya), sistem HARUS menampilkan nilai defisit secara transparan dengan badge merah peringatan dan penjelasan edukatif bahwa setoran mengambil uang kas fisik akumulasi hari sebelumnya.
+- **AC-005.4**: Pemilihan tanggal pada mode harian HARUS dibatasi atribut `min` dan `max` agar terkunci pada rentang bulan dan tahun yang sedang aktif dipilih.
 
 ### FR-006: Pembatalan / Hapus Transaksi Mutasi
 Sistem HARUS mengizinkan penghapusan transaksi jika terjadi kesalahan input kasir.

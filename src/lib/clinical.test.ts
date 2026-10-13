@@ -88,11 +88,11 @@ describe('resolveVisitBilling', () => {
     expect(res.totalTagihan).toBe(0);
   });
 
-  it('normalizes ribuan inputs (< 10000) to full Rupiah automatically', () => {
+  it('preserves full Rupiah inputs 1:1', () => {
     const res = resolveVisitBilling({
       jenis_pasien: 'UMUM',
-      biaya_periksa: 50,
-      pendapatan_lain: 25,
+      biaya_periksa: 50000,
+      pendapatan_lain: 25000,
     });
     expect(res.isGratis).toBe(false);
     expect(res.biayaPeriksa).toBe(50000);
@@ -100,15 +100,15 @@ describe('resolveVisitBilling', () => {
     expect(res.totalTagihan).toBe(75000);
   });
 
-  it('correctly aggregates clinic daily samples with mixed ribuan and full Rupiah', () => {
-    // Exact scenario from clinic incident: 165, 175, 150000, 250, 50, 215
+  it('correctly aggregates clinic daily samples with full Rupiah values', () => {
+    // Exact scenario with full Rupiah after database backfill
     const samples = [
-      { jenis_pasien: 'UMUM', biaya_periksa: 165 },
-      { jenis_pasien: 'UMUM', biaya_periksa: 175 },
+      { jenis_pasien: 'UMUM', biaya_periksa: 165000 },
+      { jenis_pasien: 'UMUM', biaya_periksa: 175000 },
       { jenis_pasien: 'UMUM', biaya_periksa: 150000 },
-      { jenis_pasien: 'UMUM', biaya_periksa: 250 },
-      { jenis_pasien: 'UMUM', biaya_periksa: 50 },
-      { jenis_pasien: 'UMUM', biaya_periksa: 215 },
+      { jenis_pasien: 'UMUM', biaya_periksa: 250000 },
+      { jenis_pasien: 'UMUM', biaya_periksa: 50000 },
+      { jenis_pasien: 'UMUM', biaya_periksa: 215000 },
     ];
     const totalRevenue = samples.reduce((sum, item) => {
       const billing = resolveVisitBilling(item);

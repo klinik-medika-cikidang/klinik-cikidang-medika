@@ -8,6 +8,8 @@ import {
   formatRupiah,
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
+  isSettledVisit,
+  isSettledCashVisit,
 } from './utils';
 
 describe('parseFlexibleDate', () => {
@@ -90,18 +92,45 @@ describe('formatLocalDateToYMD', () => {
 });
 
 describe('normalizeRupiah & formatRupiah', () => {
-  it('preserves amounts between 1.000 and 9.999 without multiplying into millions', () => {
+  it('treats amounts 1:1 in full Rupiah after database backfill', () => {
+    expect(normalizeRupiah(500)).toBe(500);
     expect(normalizeRupiah(1000)).toBe(1000);
     expect(normalizeRupiah(2500)).toBe(2500);
     expect(normalizeRupiah(5000)).toBe(5000);
-    expect(normalizeRupiah(9500)).toBe(9500);
+    expect(normalizeRupiah(2750000)).toBe(2750000);
     expect(formatRupiah(2500)).toContain('2.500');
     expect(formatRupiah(5000)).not.toContain('5.000.000');
+    expect(formatRupiah(2750000)).toContain('2.750.000');
   });
 
-  it('scales legacy CSV shorthand (< 1000) into thousands', () => {
-    expect(normalizeRupiah(15)).toBe(15000);
-    expect(normalizeRupiah(150)).toBe(150000);
+  it('handles zero and invalid numbers gracefully', () => {
+    expect(normalizeRupiah(0)).toBe(0);
+    expect(normalizeRupiah(NaN)).toBe(0);
+  });
+});
+
+describe('isSettledVisit & isSettledCashVisit', () => {
+  it('treats legacy visits with NULL or empty status as settled', () => {
+    expect(isSettledVisit({ status_pembayaran: null })).toBe(true);
+    expect(isSettledVisit({ status_pembayaran: '' })).toBe(true);
+    expect(isSettledVisit({})).toBe(true);
+  });
+
+  it('excludes unsettled payment statuses', () => {
+    expect(isSettledVisit({ status_pembayaran: 'Batal' })).toBe(false);
+    expect(isSettledVisit({ status_pembayaran: 'Belum Bayar' })).toBe(false);
+    expect(isSettledVisit({ status_pembayaran: 'Menunggu Dokter' })).toBe(false);
+    expect(isSettledVisit({ status_pembayaran: 'Menunggu Kasir' })).toBe(false);
+    expect(isSettledVisit({ status_pembayaran: 'Menunggu Pembayaran' })).toBe(false);
+    expect(isSettledVisit({ status_pembayaran: 'Pending' })).toBe(false);
+  });
+
+  it('identifies settled cash visits and excludes transfer methods', () => {
+    expect(isSettledCashVisit({ status_pembayaran: 'Lunas', jenis_pembayaran: 'Tunai' })).toBe(true);
+    expect(isSettledCashVisit({ status_pembayaran: null, jenis_pembayaran: 'Tunai' })).toBe(true);
+    expect(isSettledCashVisit({ status_pembayaran: 'Lunas', jenis_pembayaran: 'TF' })).toBe(false);
+    expect(isSettledCashVisit({ status_pembayaran: 'Lunas', jenis_pembayaran: 'Transfer' })).toBe(false);
+    expect(isSettledCashVisit({ status_pembayaran: 'Batal', jenis_pembayaran: 'Tunai' })).toBe(false);
   });
 });
 

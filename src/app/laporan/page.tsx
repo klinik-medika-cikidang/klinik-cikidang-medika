@@ -11,10 +11,10 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth/AuthContext';
 import {
-  normalizeRupiah,
   formatLocalDateToYMD,
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
+  isSettledVisit,
 } from '@/lib/utils';
 import {
   exportVisitsToExcel,
@@ -103,7 +103,7 @@ export default function LaporanPage() {
         let query = supabase
           .from('visits')
           .select(
-            'id, tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, kode_icd10, diagnosa_deskripsi, dokter_id, doctors(nama), patients(nama, no_rm, jenis_kelamin, desa)'
+            'id, tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran, kode_icd10, diagnosa_deskripsi, dokter_id, doctors(nama), patients(nama, no_rm, jenis_kelamin, desa)'
           )
           .order('tanggal_periksa', { ascending: false })
           .range(visitPage * pageSize, (visitPage + 1) * pageSize - 1);
@@ -146,32 +146,35 @@ export default function LaporanPage() {
         }
       }
 
-      const formattedVisits: VisitExportRow[] = allVisits.map((v) => {
-        const biaya = normalizeRupiah(Number(v.biaya_periksa) || 0);
-        const lain = normalizeRupiah(Number(v.pendapatan_lain) || 0);
+      const formattedVisits: VisitExportRow[] = allVisits
+        .filter((v) => v.status_pembayaran !== 'Batal')
+        .map((v) => {
+          const isSettled = isSettledVisit(v);
+          const biaya = isSettled ? (v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa) || 0) : 0;
+          const lain = isSettled ? (Number(v.pendapatan_lain) || 0) : 0;
 
-        return {
-          no_rm: v.patients?.no_rm || '-',
-          nama_pasien: v.patients?.nama || 'Pasien',
-          jenis_kelamin: v.patients?.jenis_kelamin || '-',
-          desa: v.patients?.desa || 'Luar Daerah',
-          tanggal_periksa: v.tanggal_periksa,
-          nama_dokter: v.doctors?.nama || 'dr. Ovan',
-          kode_icd10: v.kode_icd10 || '-',
-          diagnosa_deskripsi: v.diagnosa_deskripsi || '-',
-          jenis_pasien: v.jenis_pasien,
-          biaya_periksa: biaya,
-          pendapatan_lain: lain,
-          total_biaya: biaya + lain,
-          jenis_pembayaran: v.jenis_pembayaran || 'Tunai',
-        };
-      });
+          return {
+            no_rm: v.patients?.no_rm || '-',
+            nama_pasien: v.patients?.nama || 'Pasien',
+            jenis_kelamin: v.patients?.jenis_kelamin || '-',
+            desa: v.patients?.desa || 'Luar Daerah',
+            tanggal_periksa: v.tanggal_periksa,
+            nama_dokter: v.doctors?.nama || 'dr. Ovan',
+            kode_icd10: v.kode_icd10 || '-',
+            diagnosa_deskripsi: v.diagnosa_deskripsi || '-',
+            jenis_pasien: v.jenis_pasien,
+            biaya_periksa: biaya,
+            pendapatan_lain: lain,
+            total_biaya: biaya + lain,
+            jenis_pembayaran: v.jenis_pembayaran || 'Tunai',
+          };
+        });
 
       const formattedFlows: CashFlowExportRow[] = allFlows.map((f) => ({
         tanggal: f.tanggal,
         jenis: f.jenis,
         kategori: f.kategori,
-        nominal: normalizeRupiah(Number(f.nominal) || 0),
+        nominal: Number(f.nominal) || 0,
         keterangan: f.keterangan || '-',
       }));
 
@@ -179,6 +182,7 @@ export default function LaporanPage() {
       let validDiagCount = 0;
 
       allVisits.forEach((v) => {
+        if (v.status_pembayaran === 'Batal') return;
         if (v.kode_icd10) {
           validDiagCount++;
           const code = v.kode_icd10.trim().toUpperCase();

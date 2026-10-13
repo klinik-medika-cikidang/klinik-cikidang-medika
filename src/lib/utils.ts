@@ -7,12 +7,36 @@ export function cn(...inputs: ClassValue[]) {
 
 export function normalizeRupiah(amount: number): number {
   if (!amount || isNaN(amount)) return 0;
-  // Legacy CSV data recorded shorthand thousands only for small numbers (< 1000, e.g. 15 -> 15.000).
-  // Real Rupiah amounts >= 1.000 (e.g. Rp 1.000, Rp 2.500, Rp 5.000) are preserved as-is.
-  if (amount > 0 && amount < 1000) {
-    return amount * 1000;
-  }
-  return amount;
+  // All historical and new data in database are now stored in full Rupiah 1:1.
+  return Number(amount);
+}
+
+/**
+ * Unsettled payment statuses that must NOT be counted as revenue.
+ * Visits with these statuses are either cancelled or currently in queue/examination.
+ */
+export const UNSETTLED_PAYMENT_STATUSES = [
+  'Batal',
+  'Belum Bayar',
+  'Menunggu Dokter',
+  'Menunggu Kasir',
+  'Menunggu Pembayaran',
+  'Pending',
+] as const;
+
+export function isSettledVisit(visit: { status_pembayaran?: string | null }): boolean {
+  const status = (visit.status_pembayaran || '').trim();
+  if (!status) return true; // Legacy records with NULL status are considered settled
+  return !UNSETTLED_PAYMENT_STATUSES.includes(status as any);
+}
+
+export function isSettledCashVisit(visit: {
+  status_pembayaran?: string | null;
+  jenis_pembayaran?: string | null;
+}): boolean {
+  if (!isSettledVisit(visit)) return false;
+  const payMethod = (visit.jenis_pembayaran || 'Tunai').trim().toUpperCase();
+  return payMethod !== 'TF' && payMethod !== 'TRANSFER';
 }
 
 export function isCashHandoverToOwnerOrBank(flow: {
@@ -36,12 +60,12 @@ export function isOperationalExpense(flow: {
 }
 
 export function formatRupiah(amount: number): string {
-  const normalized = normalizeRupiah(amount);
+  const val = Number(amount) || 0;
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
-  }).format(normalized);
+  }).format(val);
 }
 
 export function formatDateIndo(dateStr: string): string {
