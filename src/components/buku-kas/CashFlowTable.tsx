@@ -31,6 +31,8 @@ export interface CashFlowTableProps {
   cashFlows: CashFlow[];
   isLoading: boolean;
   onDelete?: (id: string) => Promise<void> | void;
+  /** Appended to the row count, e.g. "hari ini" when the list is limited to today. */
+  periodLabel?: string;
   className?: string;
 }
 
@@ -38,6 +40,7 @@ export function CashFlowTable({
   cashFlows,
   isLoading,
   onDelete,
+  periodLabel,
   className,
 }: CashFlowTableProps) {
   const [typeFilter, setTypeFilter] = useState<'all' | 'Masuk' | 'Keluar' | 'Setoran'>('all');
@@ -97,7 +100,9 @@ export function CashFlowTable({
               Daftar Riwayat Mutasi Buku Kas
             </h2>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Menampilkan {filteredItems.length} transaksi mutasi keuangan operasional &amp; setoran kasir
+              {periodLabel
+                ? `Menampilkan ${filteredItems.length} transaksi mutasi kas ${periodLabel}`
+                : `Menampilkan ${filteredItems.length} transaksi mutasi keuangan operasional & setoran kasir`}
             </p>
           </div>
 

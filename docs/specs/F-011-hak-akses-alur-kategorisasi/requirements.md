@@ -188,6 +188,9 @@ kategorisasi, bukan saat pendaftaran.
 - **BR-003**: Setiap perubahan matriks diuji di dua peran; menyembunyikan menu bukan pengaman, rute
   tetap dijaga.
 - **BR-004**: Kategori default "Umum" dipakai ketika tidak ada program khusus.
+- **BR-005**: Di buku kas, Dokter/Admin hanya melihat riwayat mutasi hari berjalan. Pemilih periode
+  bulan/tahun owner-only. Riwayat hari sebelumnya tetap tersedia untuk owner. (Permintaan klien,
+  15 Okt 2026.)
 
 ## 8. Validation Rules
 
@@ -238,7 +241,7 @@ kategorisasi, bukan saat pendaftaran.
 
 | ID | Pertanyaan | Pemilik | Blocking? | Resolusi |
 |---|---|---|---|---|
-| OQ-001 | Untuk buku kas, apa persis batas "transaksi" versus "pemantauan" bagi Dokter/Admin? | Klinik | Yes | Pending |
+| OQ-001 | Untuk buku kas, apa persis batas "transaksi" versus "pemantauan" bagi Dokter/Admin? | Klinik | Yes | Sebagian terjawab 15 Okt 2026: daftar mutasi Dokter/Admin dibatasi hari ini (BR-005) |
 | OQ-002 | Apakah kategori default cukup "Umum", atau perlu daftar kategori non-program lain? | Klinik | No | Pending |
 | OQ-003 | Apakah label "Observasi" menggantikan juga istilah di laporan Puskesmas? | Klinik | No | Pending |
 

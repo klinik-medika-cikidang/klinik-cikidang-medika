@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import {
   cn,
+  formatDateIndo,
   formatLocalDateToYMD,
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
@@ -74,21 +75,32 @@ export default function BukuKasPage() {
       const nextYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear;
       const endOfMonth = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
+      // Client request (Okt 2026): Dokter/Admin only needs today's mutations, so the
+      // query itself is narrowed instead of fetching the month and hiding rows.
+      const flowsQuery = isDokterAdmin
+        ? supabase.from('cash_flows').select('*').eq('tanggal', todayStr)
+        : supabase
+            .from('cash_flows')
+            .select('*')
+            .gte('tanggal', startOfMonth)
+            .lt('tanggal', endOfMonth);
+
+      // Visit cash only feeds the owner-only summary and reconciliation cards.
+      const visitsQuery = isDokterAdmin
+        ? Promise.resolve({ data: [] as CashVisitRow[], error: null })
+        : supabase
+            .from('visits')
+            .select(
+              'tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran'
+            )
+            .gte('tanggal_periksa', startOfMonth)
+            .lt('tanggal_periksa', endOfMonth);
+
       const [flowsRes, visitsRes] = await Promise.all([
-        supabase
-          .from('cash_flows')
-          .select('*')
-          .gte('tanggal', startOfMonth)
-          .lt('tanggal', endOfMonth)
+        flowsQuery
           .order('tanggal', { ascending: false })
           .order('created_at', { ascending: false }),
-        supabase
-          .from('visits')
-          .select(
-            'tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran'
-          )
-          .gte('tanggal_periksa', startOfMonth)
-          .lt('tanggal_periksa', endOfMonth),
+        visitsQuery,
       ]);
 
       if (flowsRes.error) throw flowsRes.error;
@@ -113,7 +125,7 @@ export default function BukuKasPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, isDokterAdmin, todayStr]);
 
   useEffect(() => {
     fetchCashFlows();
@@ -207,6 +219,17 @@ export default function BukuKasPage() {
   };
 
   const handleCashFlowAdded = (newFlow: CashFlow) => {
+    if (isDokterAdmin) {
+      if (newFlow.tanggal === todayStr) {
+        setCashFlows((prev) => [newFlow, ...prev]);
+      } else {
+        toast.info(
+          `Transaksi tercatat untuk ${formatDateIndo(newFlow.tanggal)}, jadi tidak muncul di daftar hari ini.`
+        );
+      }
+      return;
+    }
+
     const [flowYear, flowMonth] = newFlow.tanggal.split('-').map(Number);
     if (flowYear === selectedYear && flowMonth === selectedMonth) {
       setCashFlows((prev) => [newFlow, ...prev]);
@@ -281,42 +304,54 @@ export default function BukuKasPage() {
       </div>
 
       <div className="p-3 sm:p-4 bg-white rounded-2xl border border-slate-200/90 shadow-card-double flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-            <CalendarBlank weight="duotone" className="w-4 h-4 text-teal-600" />
-            Periode Laporan:
-          </span>
-
-          <div className="w-36">
-            <Select
-              size="sm"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              options={MONTH_NAMES_ID.map((name, idx) => ({ value: idx + 1, label: name }))}
-            />
+        {isDokterAdmin ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <CalendarBlank weight="duotone" className="w-4 h-4 text-teal-600" />
+              Periode:
+            </span>
+            <span className="text-sm font-bold text-slate-900">
+              Hari ini, {formatDateIndo(todayStr)}
+            </span>
           </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <CalendarBlank weight="duotone" className="w-4 h-4 text-teal-600" />
+              Periode Laporan:
+            </span>
 
-          <div className="w-24">
-            <Select
-              size="sm"
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              options={[2024, 2025, 2026, 2027].map((yr) => ({ value: yr, label: String(yr) }))}
-            />
+            <div className="w-36">
+              <Select
+                size="sm"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                options={MONTH_NAMES_ID.map((name, idx) => ({ value: idx + 1, label: name }))}
+              />
+            </div>
+
+            <div className="w-24">
+              <Select
+                size="sm"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                options={[2024, 2025, 2026, 2027].map((yr) => ({ value: yr, label: String(yr) }))}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedMonth(currentMonth);
+                setSelectedYear(currentYear);
+              }}
+              disabled={selectedMonth === currentMonth && selectedYear === currentYear}
+              className="px-3.5 py-1.5 min-h-[36px] rounded-xl text-xs font-bold bg-white hover:bg-slate-100 disabled:opacity-50 text-slate-700 border border-slate-300 shadow-btn-secondary tactile-btn transition"
+            >
+              Bulan Ini
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedMonth(currentMonth);
-              setSelectedYear(currentYear);
-            }}
-            disabled={selectedMonth === currentMonth && selectedYear === currentYear}
-            className="px-3.5 py-1.5 min-h-[36px] rounded-xl text-xs font-bold bg-white hover:bg-slate-100 disabled:opacity-50 text-slate-700 border border-slate-300 shadow-btn-secondary tactile-btn transition"
-          >
-            Bulan Ini
-          </button>
-        </div>
+        )}
 
         <div className="flex items-center gap-2 self-end sm:self-auto">
           <button
@@ -379,6 +414,7 @@ export default function BukuKasPage() {
       <CashFlowTable
         cashFlows={cashFlows}
         isLoading={isLoading}
+        periodLabel={isDokterAdmin ? 'hari ini' : undefined}
         onDelete={handleDeleteCashFlow}
       />
 
