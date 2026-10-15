@@ -24,6 +24,7 @@ import {
   formatDateIndo,
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
+  isTransferPayment,
   cn,
 } from '@/lib/utils';
 
@@ -249,6 +250,11 @@ export function CashFlowTable({
                         {isSetoran && (
                           <span className="text-[10px] font-semibold text-indigo-600">
                             Setoran Laci ke Pemilik/Bank (Bukan Pengeluaran)
+                          </span>
+                        )}
+                        {isOperationalExpense(item) && isTransferPayment(item.jenis_pembayaran) && (
+                          <span className="text-[10px] font-semibold text-slate-600">
+                            Dibayar via Transfer (tidak memotong laci)
                           </span>
                         )}
                       </div>

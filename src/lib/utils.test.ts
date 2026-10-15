@@ -12,6 +12,8 @@ import {
   isSettledCashVisit,
   isLikelyShorthandRupiah,
   summarizeCashPosition,
+  isTransferPayment,
+  isDrawerCashExpense,
 } from './utils';
 
 describe('isLikelyShorthandRupiah', () => {
@@ -47,6 +49,53 @@ describe('summarizeCashPosition', () => {
 
   it('reports a negative drawer instead of clamping it to zero', () => {
     expect(summarizeCashPosition(input).drawerCash).toBe(1460000 - 237000 - 2450000);
+  });
+
+  it('takes transfer-paid expenses out of the bank side, not the drawer', () => {
+    const withTransfer = { ...input, transferExpenses: 87000 };
+    const { netIncome, drawerCash, bankCash } = summarizeCashPosition(withTransfer);
+    expect(netIncome).toBe(1435000 + 25000 + 150000 - 237000);
+    expect(drawerCash).toBe(1460000 - (237000 - 87000) - 2450000);
+    expect(drawerCash + bankCash).toBe(netIncome);
+  });
+});
+
+describe('isTransferPayment', () => {
+  it('recognizes TF and Transfer in any case', () => {
+    expect(isTransferPayment('TF')).toBe(true);
+    expect(isTransferPayment(' transfer ')).toBe(true);
+  });
+
+  it('treats Tunai, empty, and legacy null as cash', () => {
+    expect(isTransferPayment('Tunai')).toBe(false);
+    expect(isTransferPayment('')).toBe(false);
+    expect(isTransferPayment(null)).toBe(false);
+    expect(isTransferPayment(undefined)).toBe(false);
+  });
+});
+
+describe('isDrawerCashExpense', () => {
+  it('counts operational expenses paid in cash', () => {
+    expect(
+      isDrawerCashExpense({ jenis: 'Keluar', kategori: 'Pengeluaran Obat', jenis_pembayaran: 'Tunai' })
+    ).toBe(true);
+  });
+
+  it('treats legacy rows without a payment method as cash', () => {
+    expect(isDrawerCashExpense({ jenis: 'Keluar', kategori: 'Operasional' })).toBe(true);
+  });
+
+  it('excludes expenses paid by transfer', () => {
+    expect(
+      isDrawerCashExpense({ jenis: 'Keluar', kategori: 'Pengeluaran Obat', jenis_pembayaran: 'TF' })
+    ).toBe(false);
+  });
+
+  it('excludes owner or bank deposits and incoming flows', () => {
+    expect(isDrawerCashExpense({ jenis: 'Keluar', kategori: 'Setor ke Rekening Pemilik' })).toBe(
+      false
+    );
+    expect(isDrawerCashExpense({ jenis: 'Masuk', kategori: 'Kapitasi BPJS' })).toBe(false);
   });
 });
 

@@ -12,18 +12,25 @@ import {
   FloppyDisk,
   WarningCircle,
   CircleNotch,
+  Money,
+  Bank,
 } from '@phosphor-icons/react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { CASH_FLOW_CATEGORIES } from '@/constants/clinic';
+import {
+  CASH_FLOW_CATEGORIES,
+  METODE_PEMBAYARAN_OPTIONS,
+  type MetodePembayaranOption,
+} from '@/constants/clinic';
 import { createClient } from '@/lib/supabase/client';
 import type { CashFlow } from '@/types/database';
 import {
   formatRupiah,
   formatLocalDateToYMD,
   isCashHandoverToOwnerOrBank,
+  isOperationalExpense,
   cn,
 } from '@/lib/utils';
 
@@ -69,6 +76,7 @@ export function AddCashFlowModal({
   const [nominalDisplay, setNominalDisplay] = useState('');
   const [nominalRaw, setNominalRaw] = useState<number>(0);
   const [keterangan, setKeterangan] = useState('');
+  const [jenisPembayaran, setJenisPembayaran] = useState<MetodePembayaranOption>('Tunai');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<CashFlowFormErrors>({});
@@ -83,6 +91,7 @@ export function AddCashFlowModal({
       setNominalDisplay('');
       setNominalRaw(0);
       setKeterangan('');
+      setJenisPembayaran('Tunai');
       setErrorMessage(null);
       setFieldErrors({});
     }
@@ -115,6 +124,8 @@ export function AddCashFlowModal({
     const num = parseInt(rawVal, 10);
     handleSetNominalValue(num);
   };
+
+  const showPaymentMethod = isOperationalExpense({ jenis, kategori });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,6 +165,8 @@ export function AddCashFlowModal({
           kategori: parseResult.data.kategori,
           nominal: parseResult.data.nominal,
           keterangan: parseResult.data.keterangan || null,
+          // Deposits and incoming flows always stay Tunai; only operational spending can be TF.
+          jenis_pembayaran: showPaymentMethod ? jenisPembayaran : 'Tunai',
         })
         .select()
         .single();
@@ -279,6 +292,43 @@ export function AddCashFlowModal({
             </div>
           )}
         </div>
+
+        {showPaymentMethod && (
+          <div className="space-y-1.5">
+            <span id="metode-bayar-label" className="block text-xs font-semibold text-slate-700">
+              Dibayar dari <span className="text-rose-500">*</span>
+            </span>
+            <div role="radiogroup" aria-labelledby="metode-bayar-label" className="grid grid-cols-2 gap-2">
+              {METODE_PEMBAYARAN_OPTIONS.map((metode) => (
+                <button
+                  key={metode}
+                  type="button"
+                  role="radio"
+                  aria-checked={jenisPembayaran === metode}
+                  onClick={() => setJenisPembayaran(metode)}
+                  className={cn(
+                    'flex items-center justify-center gap-2 py-2.5 px-3 min-h-[44px] rounded-xl text-xs font-bold border transition select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600',
+                    jenisPembayaran === metode
+                      ? 'bg-teal-50 text-teal-800 border-teal-300 shadow-2xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  )}
+                >
+                  {metode === 'Tunai' ? (
+                    <Money weight="duotone" className="w-4 h-4 text-teal-600" />
+                  ) : (
+                    <Bank weight="duotone" className="w-4 h-4 text-teal-600" />
+                  )}
+                  <span>{metode === 'Tunai' ? 'Tunai dari Laci' : 'Transfer'}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed pl-1">
+              {jenisPembayaran === 'TF'
+                ? 'Tetap dihitung sebagai pengeluaran operasional, tetapi tidak mengurangi Sisa Fisik di Laci Kasir.'
+                : 'Mengurangi Sisa Fisik di Laci Kasir.'}
+            </p>
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <label className="block text-xs font-semibold text-slate-700">

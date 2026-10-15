@@ -27,6 +27,7 @@ import {
   formatDateIndo,
   formatLocalDateToYMD,
   isCashHandoverToOwnerOrBank,
+  isDrawerCashExpense,
   isOperationalExpense,
   isSettledCashVisit,
 } from '@/lib/utils';
@@ -158,6 +159,9 @@ export default function BukuKasPage() {
     (cf) => cf.jenis === 'Masuk' && !isCashHandoverToOwnerOrBank(cf)
   );
   const operationalExpenseFlows = cashFlows.filter((cf) => isOperationalExpense(cf));
+  // Transfer-paid expenses still count toward Pengeluaran Operasional, but the drawer
+  // reconciliation only subtracts what physically left the cashier drawer.
+  const drawerExpenseFlows = operationalExpenseFlows.filter((cf) => isDrawerCashExpense(cf));
   const depositFlows = cashFlows.filter((cf) => isCashHandoverToOwnerOrBank(cf));
 
   const otherMasukTotal = otherMasukFlows.reduce(
@@ -182,8 +186,8 @@ export default function BukuKasPage() {
   const monthlyMetrics: DrawerReconciliationMetrics = {
     cashVisitsTotal: monthCashVisitsTotal,
     cashVisitsCount: monthCashVisits.length,
-    cashExpensesTotal: totalKeluar,
-    cashExpensesCount: operationalExpenseFlows.length,
+    cashExpensesTotal: drawerExpenseFlows.reduce((acc, cf) => acc + (Number(cf.nominal) || 0), 0),
+    cashExpensesCount: drawerExpenseFlows.length,
     cashDepositsTotal: totalSetorTunai,
     cashDepositsCount: depositFlows.length,
   };
@@ -191,7 +195,7 @@ export default function BukuKasPage() {
   const dailyCashVisits = monthCashVisits.filter(
     (v) => v.tanggal_periksa === selectedReconciliationDate
   );
-  const dailyExpenseFlows = operationalExpenseFlows.filter(
+  const dailyExpenseFlows = drawerExpenseFlows.filter(
     (cf) => cf.tanggal === selectedReconciliationDate
   );
   const dailyDepositFlows = depositFlows.filter(

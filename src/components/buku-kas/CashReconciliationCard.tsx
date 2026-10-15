@@ -302,7 +302,7 @@ export function CashReconciliationCard({
       <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-[11px] text-slate-600 flex items-start gap-2">
         <span className="font-bold text-teal-700 shrink-0">Catatan Alur Laci Kasir:</span>
         <span className="leading-relaxed">
-          Setiap <strong>Pengeluaran Operasional</strong> (beli obat, token listrik, konsumsi) maupun <strong>Setor Tunai / Setor ke Rekening Pemilik</strong> otomatis memotong <strong>Sisa Fisik di Laci Kasir</strong>. Khusus <strong>Setor ke Rekening Pemilik</strong> tidak dihitung sebagai beban biaya pengeluaran klinik sehingga laba bersih tidak berkurang.
+          Setiap <strong>Pengeluaran Operasional</strong> yang dibayar tunai (beli obat, token listrik, konsumsi) maupun <strong>Setor Tunai / Setor ke Rekening Pemilik</strong> otomatis memotong <strong>Sisa Fisik di Laci Kasir</strong>. Khusus <strong>Setor ke Rekening Pemilik</strong> tidak dihitung sebagai beban biaya pengeluaran klinik sehingga laba bersih tidak berkurang. Pengeluaran yang dibayar via <strong>Transfer</strong> tetap dihitung sebagai biaya, tetapi tidak memotong laci.
         </span>
       </div>
     </div>
