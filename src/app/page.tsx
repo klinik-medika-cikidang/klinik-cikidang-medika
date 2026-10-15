@@ -19,6 +19,7 @@ import {
   isOperationalExpense,
   isSettledVisit,
   summarizeCashPosition,
+  isTransferPayment,
 } from '@/lib/utils';
 import {
   DashboardKpiCards,
@@ -195,7 +196,7 @@ export default function DashboardPage() {
       while (true) {
         let flowQuery = supabase
           .from('cash_flows')
-          .select('id, tanggal, jenis, kategori, nominal, keterangan')
+          .select('id, tanggal, jenis, kategori, nominal, keterangan, jenis_pembayaran')
           .order('tanggal', { ascending: false })
           .range(flowPage * pageSize, (flowPage + 1) * pageSize - 1);
 
@@ -369,6 +370,7 @@ export default function DashboardPage() {
       let bpjsCapitation = 0;
       let otherCashIn = 0;
       let expenses = 0;
+      let transferExpenses = 0;
       let bankSetoran = 0;
 
       allFlows.forEach((f) => {
@@ -398,6 +400,7 @@ export default function DashboardPage() {
           if (monthKeyFlow) monthlyFinanceMap[monthKeyFlow].cashIn += nom;
         } else if (isOperationalExpense(f)) {
           expenses += nom;
+          if (isTransferPayment(f.jenis_pembayaran)) transferExpenses += nom;
           dailyFinanceMap[tglFlow].cashOut += nom;
           if (monthKeyFlow) monthlyFinanceMap[monthKeyFlow].cashOut += nom;
         }
@@ -480,6 +483,7 @@ export default function DashboardPage() {
         bpjsCapitation,
         otherCashIn,
         operationalExpenses: expenses,
+        transferExpenses,
         ownerOrBankDeposits: bankSetoran,
       });
       const totalLoketRevenue = tunaiRev + tfRev;

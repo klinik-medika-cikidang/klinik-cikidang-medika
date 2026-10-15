@@ -44,6 +44,8 @@ export interface CashPositionInput {
   bpjsCapitation: number;
   otherCashIn: number;
   operationalExpenses: number;
+  /** Portion of operationalExpenses paid by transfer; it leaves the bank, not the drawer. */
+  transferExpenses?: number;
   ownerOrBankDeposits: number;
 }
 
@@ -56,9 +58,17 @@ export function summarizeCashPosition(input: CashPositionInput) {
     input.bpjsCapitation +
     input.otherCashIn -
     input.operationalExpenses;
-  const drawerCash = input.tunaiRevenue - input.operationalExpenses - input.ownerOrBankDeposits;
+  const transferExpenses = input.transferExpenses ?? 0;
+  const drawerCash =
+    input.tunaiRevenue -
+    (input.operationalExpenses - transferExpenses) -
+    input.ownerOrBankDeposits;
   const bankCash =
-    input.bpjsCapitation + input.transferRevenue + input.otherCashIn + input.ownerOrBankDeposits;
+    input.bpjsCapitation +
+    input.transferRevenue +
+    input.otherCashIn +
+    input.ownerOrBankDeposits -
+    transferExpenses;
   return { netIncome, drawerCash, bankCash };
 }
 
@@ -67,8 +77,13 @@ export function isSettledCashVisit(visit: {
   jenis_pembayaran?: string | null;
 }): boolean {
   if (!isSettledVisit(visit)) return false;
-  const payMethod = (visit.jenis_pembayaran || 'Tunai').trim().toUpperCase();
-  return payMethod !== 'TF' && payMethod !== 'TRANSFER';
+  return !isTransferPayment(visit.jenis_pembayaran);
+}
+
+// Missing values count as cash: legacy rows predate the payment-method columns.
+export function isTransferPayment(method: string | null | undefined): boolean {
+  const payMethod = (method || '').trim().toUpperCase();
+  return payMethod === 'TF' || payMethod === 'TRANSFER';
 }
 
 export function isCashHandoverToOwnerOrBank(flow: {
@@ -89,6 +104,16 @@ export function isOperationalExpense(flow: {
   kategori?: string | null;
 }): boolean {
   return flow.jenis === 'Keluar' && !isCashHandoverToOwnerOrBank(flow);
+}
+
+// An expense paid by transfer is still a clinic cost, but it does not take money
+// out of the cashier drawer.
+export function isDrawerCashExpense(flow: {
+  jenis?: string | null;
+  kategori?: string | null;
+  jenis_pembayaran?: string | null;
+}): boolean {
+  return isOperationalExpense(flow) && !isTransferPayment(flow.jenis_pembayaran);
 }
 
 export function formatRupiah(amount: number): string {

@@ -65,6 +65,7 @@ Sistem HARUS menyediakan formulir untuk mencatat transaksi pengeluaran kas.
   5. `Setor ke Rekening Pemilik` (Transfer penarikan profit/dana ke dr. Ovan)
 - **AC-002.2**: Sistem HARUS memvalidasi bahwa `nominal` bernilai positif (> 0) dan kolom `keterangan` diisi penjelasan singkat peruntukan dana.
 - **AC-002.3**: WHEN form disimpan, THEN sistem HARUS menyimpan baris baru ke tabel `public.cash_flows` dengan `jenis = 'Keluar'`.
+- **AC-002.4**: WHEN kategori adalah pengeluaran operasional (bukan setoran), THEN form HARUS menampilkan pilihan **Dibayar dari**: `Tunai dari Laci` (default) atau `Transfer`, disimpan di `cash_flows.jenis_pembayaran` (`'Tunai'` / `'TF'`, migrasi `20261015_f003_cash_flow_payment_method.sql`). Setoran dan kas masuk selalu `'Tunai'`. Baris lama tanpa nilai dianggap `'Tunai'`. (Permintaan klien, 15 Okt 2026.)
 
 ### FR-003: Kartu Ringkasan Keuangan Bulanan (KPI Cash Flow)
 Sistem HARUS menampilkan ringkasan metrik keuangan sesuai periode bulan yang dipilih.
@@ -89,6 +90,7 @@ Sistem HARUS menyediakan ringkasan rekonsiliasi fisik uang di laci kasir.
 
 - **AC-005.1**: Sistem HARUS menghitung **Sisa Fisik di Laci Kasir** dengan rumus:
   `Uang Tunai Masuk Laci (Pasien Tunai) - Pengeluaran Tunai dari Laci (Operasional) - Disetor ke Pemilik/Bank (Setor Tunai & Setor ke Rekening Pemilik)`.
+  Pengeluaran operasional dengan `jenis_pembayaran = 'TF'` TIDAK mengurangi laci, tetapi tetap dihitung dalam Total Pengeluaran Operasional (AC-003.1) dan mengurangi saldo bank pada estimasi Dashboard.
 - **AC-005.2**: Sistem HARUS menyediakan pemilih mode rekonsiliasi antara **Akumulasi Bulan Ini** dan **Per Tanggal / Hari Ini**.
 - **AC-005.3**: Sistem DILARANG menggunakan `Math.max(0, ...)` untuk menutupi selisih negatif pada laci kasir. Apabila setoran melebihi kas masuk tunai pada periode/hari tersebut (misal karena menyetor kas fisik akumulasi hari sebelumnya), sistem HARUS menampilkan nilai defisit secara transparan dengan badge merah peringatan dan penjelasan edukatif bahwa setoran mengambil uang kas fisik akumulasi hari sebelumnya.
 - **AC-005.4**: Pemilihan tanggal pada mode harian HARUS dibatasi atribut `min` dan `max` agar terkunci pada rentang bulan dan tahun yang sedang aktif dipilih.

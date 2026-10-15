@@ -93,6 +93,8 @@ export type CashFlow = {
     | string;
   nominal: number;
   keterangan?: string;
+  // Optional so rows read before the 20261015 migration still type-check; missing means Tunai.
+  jenis_pembayaran?: 'Tunai' | 'TF' | null;
   created_at: string;
 };
 
