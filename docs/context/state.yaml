@@ -91,13 +91,44 @@ features:
     status: completed
     spec_path: docs/specs/F-017-penomoran-otomatis-rm-berkelanjutan
     active_phase: completed
+  - id: F-019
+    name: Perbaikan Kategori Kunjungan, Konsistensi Dashboard, dan Tunggakan Kasir
+    track: engineering
+    status: draft
+    spec_path: docs/specs/F-019-perbaikan-konsistensi-dashboard-kasir
+    active_phase: spec-written
+  - id: F-020
+    name: Rekap Pengeluaran Klinik dan Non Klinik
+    track: engineering
+    status: draft
+    spec_path: docs/specs/F-020-rekap-pengeluaran-klinik-non-klinik
+    active_phase: awaiting-client-approval
+  - id: F-021
+    name: Pencatatan Tanggal Bayar Pasien
+    track: engineering
+    status: draft
+    spec_path: docs/specs/F-021-pencatatan-tanggal-bayar
+    active_phase: awaiting-client-approval
+  - id: F-022
+    name: Tampilan Pasien Aktif pada Program Khusus
+    track: engineering
+    status: draft
+    spec_path: docs/specs/F-022-program-khusus-tampilan-aktif
+    active_phase: awaiting-client-approval
+  - id: F-023
+    name: Saldo Awal Laci Kasir
+    track: engineering
+    status: draft
+    spec_path: docs/specs/F-023-saldo-awal-laci-kasir
+    active_phase: awaiting-client-approval
 
 active:
   feature_id: "F-017"
   task_id: "COMPLETED"
   branch: "main"
 
-blockers: []
+blockers:
+  - "F-019: verifikasi kolom visits.kategori_program dan audit Buku Kas vs DATA menunggu akses database produksi."
 risks:
   - "Sebagian besar catatan lama tidak mengisi metode pembayaran (hanya 158 dari 7.493 baris), sehingga sisanya dikategorikan Tunai."
   - "Sebagian besar pasien lama belum memiliki NIK maupun nomor BPJS (2.670 dari 4.238 pasien). Ini keterbatasan data sumber, bukan kehilangan data saat migrasi."
