@@ -15,7 +15,7 @@ import type { Patient } from '@/types/database';
 import { Modal } from '@/components/ui/Modal';
 import { PatientSearchAutocomplete } from '@/components/pendaftaran/PatientSearchAutocomplete';
 import { createClient } from '@/lib/supabase/client';
-import { getErrorMessage } from '@/lib/utils';
+import { formatLocalDateToYMD, getErrorMessage } from '@/lib/utils';
 
 interface NewTbcModalProps {
   isOpen: boolean;
@@ -26,7 +26,7 @@ interface NewTbcModalProps {
 
 export function NewTbcModal({ isOpen, onClose, onSuccess, initialPatient }: NewTbcModalProps) {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || null);
-  const [tanggalMulai, setTanggalMulai] = useState(new Date().toISOString().split('T')[0]);
+  const [tanggalMulai, setTanggalMulai] = useState(() => formatLocalDateToYMD());
   const [tipePasien, setTipePasien] = useState<'Kasus Baru' | 'Kambuh' | 'Pindahan'>('Kasus Baru');
   const [kategoriOat, setKategoriOat] = useState<'Kategori 1' | 'Kategori 2'>('Kategori 1');
   const [catatan, setCatatan] = useState('');

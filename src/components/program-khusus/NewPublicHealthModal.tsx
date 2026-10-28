@@ -18,7 +18,7 @@ import { PatientSearchAutocomplete } from '@/components/pendaftaran/PatientSearc
 import { createClient } from '@/lib/supabase/client';
 import { TRIPLE_ELIMINASI_LABS, DESA_OPTIONS } from '@/constants/clinic';
 import { classifyPtm, type PtmCategory } from '@/lib/clinical';
-import { cn, getErrorMessage } from '@/lib/utils';
+import { cn, formatLocalDateToYMD, getErrorMessage } from '@/lib/utils';
 
 interface NewPublicHealthModalProps {
   isOpen: boolean;
@@ -79,7 +79,7 @@ export function NewPublicHealthModal({
   initialVisit,
   initialPatient,
 }: NewPublicHealthModalProps) {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDateToYMD();
 
   const [programType, setProgramType] = useState<PublicHealthProgramType>(defaultProgram);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);

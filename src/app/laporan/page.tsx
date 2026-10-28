@@ -108,6 +108,7 @@ export default function LaporanPage() {
             'id, tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran, kode_icd10, diagnosa_deskripsi, dokter_id, doctors(nama), patients(nama, no_rm, jenis_kelamin, desa)'
           )
           .order('tanggal_periksa', { ascending: false })
+          .order('id', { ascending: true })
           .range(visitPage * pageSize, (visitPage + 1) * pageSize - 1);
 
         if (startDate) query = query.gte('tanggal_periksa', startDate);
@@ -133,6 +134,7 @@ export default function LaporanPage() {
             .from('cash_flows')
             .select('id, tanggal, jenis, kategori, nominal, keterangan')
             .order('tanggal', { ascending: false })
+            .order('id', { ascending: true })
             .range(flowPage * pageSize, (flowPage + 1) * pageSize - 1);
 
           if (startDate) flowQuery = flowQuery.gte('tanggal', startDate);

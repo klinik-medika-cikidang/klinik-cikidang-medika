@@ -63,6 +63,7 @@ Status: code tasks done on branch `claude/f-019-perbaikan-konsistensi-44a314` (2
 ## Phase 4: Program Khusus
 - [x] **Task 4.1: Use the local WIB date for "today"**
   - Target: `src/app/program-khusus/page.tsx`
+  - Done: also `PostCareAgenda.tsx` and the default dates of the four Program Khusus modals, found in code review, so the agenda tabs and the page count use the same day.
   - _Requirements: REQ-019-08.1_
 
 ## Phase 5: Audit Buku Kas vs DATA

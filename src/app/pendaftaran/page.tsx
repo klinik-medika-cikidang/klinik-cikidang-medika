@@ -148,11 +148,20 @@ function PendaftaranKasirContent() {
       ]);
 
       if (todayResult.error) throw todayResult.error;
-      if (carryOverResult.error) throw carryOverResult.error;
+      // Arrears are secondary: if they fail to load, today's queue must still work.
+      if (carryOverResult.error) {
+        console.error('Error fetching carried-over visits:', carryOverResult.error);
+        toast.warning('Tunggakan hari sebelumnya gagal dimuat.', {
+          description: getErrorMessage(carryOverResult.error, 'Coba muat ulang antrean.'),
+        });
+      }
 
       const todayList = (todayResult.data as unknown as Visit[]) || [];
       const todayIds = new Set(todayList.map((v) => v.id));
-      const carryOverList = ((carryOverResult.data as unknown as Visit[]) || []).filter(
+      const carryOverRows = carryOverResult.error
+        ? []
+        : (carryOverResult.data as unknown as Visit[]) || [];
+      const carryOverList = carryOverRows.filter(
         (v) => !todayIds.has(v.id)
       );
       const visitList = [...todayList, ...carryOverList];

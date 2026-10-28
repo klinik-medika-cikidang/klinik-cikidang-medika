@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import type { PostCare } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
 import { Modal } from '@/components/ui/Modal';
+import { formatLocalDateToYMD } from '@/lib/utils';
 
 interface PostCareAgendaProps {
   records: PostCare[];
@@ -32,7 +33,7 @@ export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgenda
   const [newDate, setNewDate] = useState<string>('');
   const [isRescheduling, setIsRescheduling] = useState<boolean>(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDateToYMD();
 
   const todayList = records.filter(
     (r) => r.tanggal_kontrol_berikutnya === todayStr && r.status_kontrol !== 'Sudah Kontrol'

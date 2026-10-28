@@ -13,7 +13,7 @@ import type { Patient } from '@/types/database';
 import { Modal } from '@/components/ui/Modal';
 import { PatientSearchAutocomplete } from '@/components/pendaftaran/PatientSearchAutocomplete';
 import { createClient } from '@/lib/supabase/client';
-import { getErrorMessage } from '@/lib/utils';
+import { formatLocalDateToYMD, getErrorMessage } from '@/lib/utils';
 
 interface NewPostCareModalProps {
   isOpen: boolean;
@@ -25,7 +25,7 @@ export function NewPostCareModal({ isOpen, onClose, onSuccess }: NewPostCareModa
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [hasShaken, setHasShaken] = useState(false);
   const [tglKontrol, setTglKontrol] = useState(
-    new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0]
+    formatLocalDateToYMD(new Date(Date.now() + 3 * 86400000))
   );
   const [kondisiTerakhir, setKondisiTerakhir] = useState('');
   const [keluhanLanjutan, setKeluhanLanjutan] = useState('');
