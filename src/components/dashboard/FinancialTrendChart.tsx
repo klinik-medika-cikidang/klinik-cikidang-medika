@@ -36,6 +36,8 @@ export type MonthlyFinancialPoint = FinancialPoint & { month: string };
 
 interface FinancialTrendChartProps {
   dailyData: DailyFinancialPoint[];
+  /** Names the plotted month, for example "Harian Okt". */
+  dailyLabel?: string;
   monthlyData: MonthlyFinancialPoint[];
   isLoading?: boolean;
 }
@@ -55,6 +57,7 @@ function formatCompactRupiah(num: number): string {
 
 export function FinancialTrendChart({
   dailyData,
+  dailyLabel = 'Harian',
   monthlyData,
   isLoading,
 }: FinancialTrendChartProps) {
@@ -113,7 +116,7 @@ export function FinancialTrendChart({
             }`}
           >
             <CalendarBlank weight="duotone" className="w-3.5 h-3.5" />
-            <span>14 Hari</span>
+            <span>{dailyLabel}</span>
           </button>
           <button
             type="button"
@@ -185,72 +188,79 @@ export function FinancialTrendChart({
         </div>
       </div>
 
-      {/* Recharts Spline Area Chart */}
-      <div className="h-64 sm:h-72 w-full pt-1">
-        {isMounted && currentData.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={currentData} margin={{ top: 10, right: 12, left: -5, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorCashIn" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#059669" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#059669" stopOpacity={0.02} />
-                </linearGradient>
-                <linearGradient id="colorCashOut" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#e11d48" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#e11d48" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 11, fill: '#64748b' }}
-                axisLine={{ stroke: '#cbd5e1' }}
-                tickLine={false}
-              />
-              <YAxis
-                width={42}
-                tick={{ fontSize: 10, fill: '#64748b' }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={formatCompactRupiah}
-              />
-              <Tooltip content={<CustomFinancialTooltip />} />
-              <Legend
-                verticalAlign="top"
-                align="right"
-                iconType="circle"
-                wrapperStyle={{ paddingBottom: '12px', fontSize: '11px' }}
-                formatter={(value) => {
-                  if (value === 'cashIn') return 'Kas Masuk (Omzet & Kapitasi)';
-                  if (value === 'cashOut') return 'Pengeluaran (Operasional & Obat)';
-                  return value;
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="cashIn"
-                name="cashIn"
-                stroke="#059669"
-                strokeWidth={2.5}
-                fillOpacity={1}
-                fill="url(#colorCashIn)"
-              />
-              <Area
-                type="monotone"
-                dataKey="cashOut"
-                name="cashOut"
-                stroke="#e11d48"
-                strokeWidth={2}
-                fillOpacity={1}
-                fill="url(#colorCashOut)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="h-full flex items-center justify-center text-slate-400 text-xs">
-            Belum ada catatan transaksi arus kas pada periode ini
-          </div>
-        )}
+      {/* A month of daily points needs ~720px; below md it scrolls inside this wrapper, not the page. */}
+      <div
+        className="w-full overflow-x-auto md:overflow-visible rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+        tabIndex={0}
+        role="region"
+        aria-label="Grafik tren finansial"
+      >
+        <div className={`h-64 sm:h-72 pt-1 ${viewMode === 'daily' ? 'min-w-[720px] md:min-w-0' : ''}`}>
+          {isMounted && currentData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={currentData} margin={{ top: 10, right: 12, left: -5, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorCashIn" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#059669" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#059669" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="colorCashOut" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#e11d48" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#e11d48" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  axisLine={{ stroke: '#cbd5e1' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  width={42}
+                  tick={{ fontSize: 10, fill: '#64748b' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={formatCompactRupiah}
+                />
+                <Tooltip content={<CustomFinancialTooltip />} />
+                <Legend
+                  verticalAlign="top"
+                  align="right"
+                  iconType="circle"
+                  wrapperStyle={{ paddingBottom: '12px', fontSize: '11px' }}
+                  formatter={(value) => {
+                    if (value === 'cashIn') return 'Kas Masuk (Omzet & Kapitasi)';
+                    if (value === 'cashOut') return 'Pengeluaran (Operasional & Obat)';
+                    return value;
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="cashIn"
+                  name="cashIn"
+                  stroke="#059669"
+                  strokeWidth={2.5}
+                  fillOpacity={1}
+                  fill="url(#colorCashIn)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="cashOut"
+                  name="cashOut"
+                  stroke="#e11d48"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorCashOut)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-slate-400 text-xs">
+              Belum ada catatan transaksi arus kas pada periode ini
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

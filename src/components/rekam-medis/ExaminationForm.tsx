@@ -45,7 +45,7 @@ import { ApplyPackageModal } from '@/components/paket-terapi/ApplyPackageModal';
 import { NewTbcModal } from '@/components/program-khusus/NewTbcModal';
 import { NewCircumcisionModal } from '@/components/program-khusus/NewCircumcisionModal';
 import { KategoriProgramPanel } from '@/components/program-khusus/KategoriProgramPanel';
-import { cn, normalizeRupiah, isLikelyShorthandRupiah } from '@/lib/utils';
+import { cn, normalizeRupiah, isLikelyShorthandRupiah, getErrorMessage } from '@/lib/utils';
 
 export interface ExaminationFormProps {
   visit: Visit;
@@ -420,7 +420,7 @@ export function ExaminationForm({
       }
     } catch (err) {
       console.error('Error saving examination record:', err);
-      const msg = err instanceof Error ? err.message : 'Gagal menyimpan hasil pemeriksaan ke database.';
+      const msg = getErrorMessage(err, 'Gagal menyimpan hasil pemeriksaan ke database.');
       setErrorMessage(msg);
       toast.error(msg);
     } finally {

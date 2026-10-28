@@ -18,7 +18,7 @@ import { PatientSearchAutocomplete } from '@/components/pendaftaran/PatientSearc
 import { createClient } from '@/lib/supabase/client';
 import { TRIPLE_ELIMINASI_LABS, DESA_OPTIONS } from '@/constants/clinic';
 import { classifyPtm, type PtmCategory } from '@/lib/clinical';
-import { cn } from '@/lib/utils';
+import { cn, getErrorMessage } from '@/lib/utils';
 
 interface NewPublicHealthModalProps {
   isOpen: boolean;
@@ -258,7 +258,7 @@ export function NewPublicHealthModal({
       onClose();
     } catch (err) {
       console.error('Error creating public health record:', err);
-      const msg = err instanceof Error ? err.message : 'Gagal menyimpan data program kesehatan.';
+      const msg = getErrorMessage(err, 'Gagal menyimpan data program kesehatan.');
       setErrorMsg(msg);
       toast.error(msg);
     } finally {

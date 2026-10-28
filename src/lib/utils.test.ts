@@ -14,6 +14,10 @@ import {
   summarizeCashPosition,
   isTransferPayment,
   isDrawerCashExpense,
+  computeVisitRevenue,
+  getErrorMessage,
+  buildDailyTrendRange,
+  describeDailyTrendRange,
 } from './utils';
 
 describe('isLikelyShorthandRupiah', () => {
@@ -237,5 +241,160 @@ describe('isCashHandoverToOwnerOrBank & isOperationalExpense', () => {
     expect(isCashHandoverToOwnerOrBank(obat)).toBe(false);
     expect(isOperationalExpense(obat)).toBe(true);
     expect(isOperationalExpense(nonKlinik)).toBe(true);
+  });
+});
+
+describe('getErrorMessage', () => {
+  it('reads the message of a plain PostgrestError object and appends the hint', () => {
+    const pgError = {
+      message: 'column "kategori_program" of relation "visits" does not exist',
+      details: null,
+      hint: 'Apply the F-011 migration.',
+      code: '42703',
+    };
+    expect(getErrorMessage(pgError, 'fallback')).toBe(
+      'column "kategori_program" of relation "visits" does not exist (Apply the F-011 migration.)'
+    );
+  });
+
+  it('omits an empty hint', () => {
+    expect(getErrorMessage({ message: 'permission denied', hint: '' }, 'fallback')).toBe(
+      'permission denied'
+    );
+  });
+
+  it('reads Error instances', () => {
+    expect(getErrorMessage(new Error('Network down'), 'fallback')).toBe('Network down');
+  });
+
+  it('falls back when the error carries no message', () => {
+    expect(getErrorMessage(null, 'fallback')).toBe('fallback');
+    expect(getErrorMessage(undefined, 'fallback')).toBe('fallback');
+    expect(getErrorMessage('boom', 'fallback')).toBe('fallback');
+    expect(getErrorMessage({ message: '   ' }, 'fallback')).toBe('fallback');
+    expect(getErrorMessage({ code: '42501' }, 'fallback')).toBe('fallback');
+  });
+});
+
+describe('computeVisitRevenue', () => {
+  it('counts the fee and extra charges of a settled UMUM visit', () => {
+    expect(
+      computeVisitRevenue({
+        jenis_pasien: 'UMUM',
+        biaya_periksa: 150000,
+        pendapatan_lain: '25000',
+        status_pembayaran: 'Lunas',
+      })
+    ).toBe(175000);
+  });
+
+  it('counts only the extra charge of a BPJS visit', () => {
+    expect(
+      computeVisitRevenue({
+        jenis_pasien: 'BPJS',
+        biaya_periksa: 150000,
+        pendapatan_lain: 25000,
+        status_pembayaran: 'Lunas',
+      })
+    ).toBe(25000);
+  });
+
+  it('returns zero for a free visit', () => {
+    expect(
+      computeVisitRevenue({
+        jenis_pasien: 'UMUM',
+        biaya_periksa: 0,
+        pendapatan_lain: null,
+        status_pembayaran: 'Lunas',
+      })
+    ).toBe(0);
+  });
+
+  it('returns zero for cancelled and unpaid visits', () => {
+    const base = { jenis_pasien: 'UMUM', biaya_periksa: 150000, pendapatan_lain: 25000 };
+    expect(computeVisitRevenue({ ...base, status_pembayaran: 'Batal' })).toBe(0);
+    expect(computeVisitRevenue({ ...base, status_pembayaran: 'Belum Bayar' })).toBe(0);
+  });
+
+  it('treats legacy rows without a status as settled', () => {
+    expect(
+      computeVisitRevenue({ jenis_pasien: 'UMUM', biaya_periksa: 50000, status_pembayaran: null })
+    ).toBe(50000);
+  });
+});
+
+describe('buildDailyTrendRange', () => {
+  it('plots every day of a past 30-day month', () => {
+    const days = buildDailyTrendRange({ start: '2026-09-01', end: '2026-09-30' }, '2026-10-28');
+    expect(days).toHaveLength(30);
+    expect(days[0]).toBe('2026-09-01');
+    expect(days[29]).toBe('2026-09-30');
+  });
+
+  it('cuts the current month at today', () => {
+    const days = buildDailyTrendRange({ start: '2026-10-01', end: '2026-10-31' }, '2026-10-28');
+    expect(days).toHaveLength(28);
+    expect(days[days.length - 1]).toBe('2026-10-28');
+  });
+
+  it('handles February in a non-leap and a leap year', () => {
+    expect(buildDailyTrendRange({ start: '2026-02-01', end: '2026-02-28' }, '2026-10-28')).toHaveLength(28);
+    expect(buildDailyTrendRange({ start: '2028-02-01', end: '2028-02-29' }, '2028-03-15')).toHaveLength(29);
+  });
+
+  it('uses the month of the latest visit for an unbounded period', () => {
+    const days = buildDailyTrendRange({ start: '', end: '' }, '2026-10-28', '2026-10-09');
+    expect(days[0]).toBe('2026-10-01');
+    expect(days[days.length - 1]).toBe('2026-10-28');
+
+    const older = buildDailyTrendRange({ start: '', end: '' }, '2026-10-28', '2026-08-14');
+    expect(older[0]).toBe('2026-08-01');
+    expect(older).toHaveLength(31);
+  });
+
+  it('uses the current month when an unbounded period has no visits', () => {
+    const days = buildDailyTrendRange({ start: '', end: '' }, '2026-10-28', null);
+    expect(days[0]).toBe('2026-10-01');
+    expect(days).toHaveLength(28);
+  });
+
+  it('falls back to the last month inside a year range', () => {
+    const days = buildDailyTrendRange({ start: '2026-01-01', end: '2026-12-31' }, '2026-10-28');
+    expect(days[0]).toBe('2026-10-01');
+    expect(days).toHaveLength(28);
+
+    const pastYear = buildDailyTrendRange({ start: '2025-01-01', end: '2025-12-31' }, '2026-10-28');
+    expect(pastYear[0]).toBe('2025-12-01');
+    expect(pastYear).toHaveLength(31);
+  });
+
+  it('keeps a short range that crosses months', () => {
+    const days = buildDailyTrendRange({ start: '2026-09-20', end: '2026-10-05' }, '2026-10-28');
+    expect(days).toHaveLength(16);
+    expect(days[0]).toBe('2026-09-20');
+  });
+
+  it('falls back to the last month of a long custom range', () => {
+    const days = buildDailyTrendRange({ start: '2026-08-20', end: '2026-09-25' }, '2026-10-28');
+    expect(days[0]).toBe('2026-09-01');
+    expect(days[days.length - 1]).toBe('2026-09-25');
+  });
+
+  it('returns no days for a period that has not started yet', () => {
+    expect(buildDailyTrendRange({ start: '2026-11-01', end: '2026-11-30' }, '2026-10-28')).toEqual([]);
+  });
+});
+
+describe('describeDailyTrendRange', () => {
+  it('names the plotted month', () => {
+    expect(describeDailyTrendRange(['2026-10-01', '2026-10-28'])).toBe('Harian Okt');
+  });
+
+  it('names both months for a range that crosses months', () => {
+    expect(describeDailyTrendRange(['2026-09-20', '2026-10-05'])).toBe('Harian Sep/Okt');
+  });
+
+  it('falls back to a plain label for an empty range', () => {
+    expect(describeDailyTrendRange([])).toBe('Harian');
   });
 });

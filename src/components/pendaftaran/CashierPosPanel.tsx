@@ -14,12 +14,15 @@ import {
 } from '@phosphor-icons/react';
 import type { TherapyPackage, Visit } from '@/types/database';
 import { ALASAN_GRATIS_OPTIONS, DEFAULT_TARIFFS } from '@/constants/clinic';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ApplyPackageModal } from '@/components/paket-terapi/ApplyPackageModal';
-import { formatRupiah, normalizeRupiah, cn } from '@/lib/utils';
+import { formatDateShort, formatRupiah, normalizeRupiah, cn, getErrorMessage } from '@/lib/utils';
 
 export interface CashierPosPanelProps {
   waitingVisits: Visit[];
+  /** Jakarta date of the loaded queue; visits dated earlier are carried-over arrears. */
+  queueDate: string;
   selectedVisit: Visit | null;
   onSelectVisit: (visit: Visit) => void;
   onSettlePayment: (
@@ -39,6 +42,7 @@ export interface CashierPosPanelProps {
 
 export function CashierPosPanel({
   waitingVisits,
+  queueDate,
   selectedVisit,
   onSelectVisit,
   onSettlePayment,
@@ -195,7 +199,7 @@ export function CashierPosPanel({
         alasanGratis
       );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Gagal memproses transaksi kasir.';
+      const msg = getErrorMessage(err, 'Gagal memproses transaksi kasir.');
       setErrorMessage(msg);
     }
   };
@@ -328,6 +332,11 @@ export function CashierPosPanel({
                               Free 100%
                             </span>
                           )}
+                          {visit.tanggal_periksa < queueDate && (
+                            <Badge variant="warning" className="font-mono">
+                              Tunggakan · {formatDateShort(visit.tanggal_periksa)}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-[11px] text-slate-600 mt-0.5 truncate font-medium">
                           {visit.terapi_obat ? (
@@ -425,6 +434,11 @@ export function CashierPosPanel({
                     {selectedVisit.dokter?.nama || 'Dokter Jaga'}
                   </span>
                 </div>
+                {selectedVisit.tanggal_periksa < queueDate && (
+                  <Badge variant="warning" className="font-mono">
+                    Tunggakan · Periksa {formatDateShort(selectedVisit.tanggal_periksa)}
+                  </Badge>
+                )}
 
                 {/* Diagnosis & Procedure Tags */}
                 {(selectedVisit.kode_icd10 || selectedVisit.tindakan) && (

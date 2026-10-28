@@ -17,6 +17,7 @@ import { DESA_OPTIONS, GELAR_OPTIONS, JENIS_KELAMIN_OPTIONS } from '@/constants/
 import { Modal } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
 import { FlexibleDateInput } from '@/components/ui/FlexibleDateInput';
+import { getErrorMessage } from '@/lib/utils';
 
 const editPatientSchema = z.object({
   gelar: z.string().trim().default('Tn.'),
@@ -220,7 +221,7 @@ export function EditPatientModal({
       onClose();
     } catch (err: unknown) {
       console.error('Error updating patient:', err);
-      const msg = err instanceof Error ? err.message : 'Gagal memperbarui data pasien ke database.';
+      const msg = getErrorMessage(err, 'Gagal memperbarui data pasien ke database.');
       setErrorMessage(msg);
       toast.error(msg);
     } finally {

@@ -13,7 +13,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import type { Visit } from '@/types/database';
 import { Badge } from '@/components/ui';
-import { cn, formatDateIndo } from '@/lib/utils';
+import { cn, formatDateIndo, getErrorMessage } from '@/lib/utils';
 
 export interface PatientHistoryTimelineProps {
   patientId: string | null;
@@ -73,7 +73,7 @@ export function PatientHistoryTimeline({
         setHistory((data as unknown as Visit[]) || []);
       } catch (err) {
         console.error('Error fetching patient history:', err);
-        setErrorMessage(err instanceof Error ? err.message : 'Gagal memuat riwayat medis.');
+        setErrorMessage(getErrorMessage(err, 'Gagal memuat riwayat medis.'));
       } finally {
         setIsLoading(false);
       }

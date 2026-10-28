@@ -6,7 +6,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import type { TherapyPackage } from '@/types/database';
-import { cn } from '@/lib/utils';
+import { cn, getErrorMessage } from '@/lib/utils';
 import { PackageItemsEditor } from './PackageItemsEditor';
 import {
   type DraftItem,
@@ -101,7 +101,7 @@ export function PackageFormModal({
         items: draftsToPayload(items),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal menyimpan paket terapi.');
+      setError(getErrorMessage(err, 'Gagal menyimpan paket terapi.'));
       setIsSaving(false);
     }
   };

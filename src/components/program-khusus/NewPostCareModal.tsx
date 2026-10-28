@@ -13,6 +13,7 @@ import type { Patient } from '@/types/database';
 import { Modal } from '@/components/ui/Modal';
 import { PatientSearchAutocomplete } from '@/components/pendaftaran/PatientSearchAutocomplete';
 import { createClient } from '@/lib/supabase/client';
+import { getErrorMessage } from '@/lib/utils';
 
 interface NewPostCareModalProps {
   isOpen: boolean;
@@ -59,7 +60,7 @@ export function NewPostCareModal({ isOpen, onClose, onSuccess }: NewPostCareModa
       onClose();
     } catch (err) {
       console.error('Error creating post care entry:', err);
-      setErrorMsg(err instanceof Error ? err.message : 'Gagal menjadwalkan observasi');
+      setErrorMsg(getErrorMessage(err, 'Gagal menjadwalkan observasi'));
       toast.error('Gagal menjadwalkan observasi');
     } finally {
       setIsSubmitting(false);

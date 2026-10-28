@@ -55,7 +55,7 @@ Audit findings that this spec resolves:
 - **REQ-019-03.4**: Buku Kas "Tunai Masuk Laci" SHALL keep its cash-only definition and SHALL carry a caption stating that transfer payments are excluded, so that the difference with the Dashboard is explained on screen.
 
 ### User Story 4: Tren Mengikuti Periode (Owner)
-- **REQ-019-04.1**: WHEN the daily view is active, THEN the visit and financial trend charts SHALL plot every calendar day of the selected period, including days with zero activity.
+- **REQ-019-04.1**: WHEN the daily view is active, THEN the visit and financial trend charts SHALL plot every calendar day of the selected period up to and including today, including days with zero activity. Days after today SHALL NOT be plotted, so that they are not read as days without activity. For "Semua Periode", the plotted month is the month of the latest visit.
 - **REQ-019-04.2**: IF the selected period spans more than 31 days, THEN the daily view SHALL plot the calendar days of the last month inside that period.
 - **REQ-019-04.3**: The daily toggle label SHALL describe the plotted range ("Harian" with the month name), not "14 Hari".
 - **REQ-019-04.4**: WHEN the period is "Bulan Ini", THEN the trend summary tiles (Total Kunjungan, Pasien BPJS, Pasien Umum, Kas Masuk, Pengeluaran) SHALL equal the KPI cards for the same month.

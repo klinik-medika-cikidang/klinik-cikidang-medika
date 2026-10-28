@@ -15,6 +15,8 @@ import {
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
   isSettledVisit,
+  computeVisitRevenue,
+  getErrorMessage,
 } from '@/lib/utils';
 import {
   exportVisitsToExcel,
@@ -165,7 +167,7 @@ export default function LaporanPage() {
             jenis_pasien: v.jenis_pasien,
             biaya_periksa: biaya,
             pendapatan_lain: lain,
-            total_biaya: biaya + lain,
+            total_biaya: computeVisitRevenue(v),
             jenis_pembayaran: v.jenis_pembayaran || 'Tunai',
           };
         });
@@ -211,7 +213,7 @@ export default function LaporanPage() {
     } catch (err) {
       console.error('Error loading report data:', err);
       const msg =
-        err instanceof Error ? err.message : 'Gagal memuat data laporan dari server.';
+        getErrorMessage(err, 'Gagal memuat data laporan dari server.');
       setErrorMessage(msg);
       toast.error(msg);
     } finally {

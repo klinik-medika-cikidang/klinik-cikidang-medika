@@ -20,7 +20,17 @@ import { RegisterVisitModal } from '@/components/pendaftaran/RegisterVisitModal'
 import { ReceiptModal } from '@/components/pendaftaran/ReceiptModal';
 import { QueueTicketModal } from '@/components/pendaftaran/QueueTicketModal';
 import { CancelQueueModal } from '@/components/rekam-medis/CancelQueueModal';
-import { formatRupiah, normalizeRupiah } from '@/lib/utils';
+import { formatLocalDateToYMD, formatRupiah, normalizeRupiah, getErrorMessage } from '@/lib/utils';
+import { KASIR_CARRY_OVER_DAYS, KASIR_CARRY_OVER_STATUSES } from '@/constants/clinic';
+
+const VISIT_SELECT = `
+  *,
+  pasien:patients(*),
+  dokter:doctors(*)
+`;
+
+const getJakartaToday = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
 
 export default function PendaftaranKasirPage() {
   return (
@@ -40,6 +50,7 @@ export default function PendaftaranKasirPage() {
 function PendaftaranKasirContent() {
   const { role } = useAuth();
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [queueDate, setQueueDate] = useState(getJakartaToday);
   const [isLoadingVisits, setIsLoadingVisits] = useState(true);
   const [selectedPosVisit, setSelectedPosVisit] = useState<Visit | null>(null);
   const [isSubmittingPos, setIsSubmittingPos] = useState(false);
@@ -80,9 +91,12 @@ function PendaftaranKasirContent() {
     return v.status_pembayaran === 'Menunggu Dokter' || !v.kode_icd10;
   };
 
-  const isWaitingPayment = (v: Visit) => {
+  const isWaitingPayment = (v: Visit, today: string) => {
     if (isCancelled(v)) return false;
     if (isSettled(v)) return false;
+    // Past-day rows are loaded only for an unpaid status and no doctor queue shows them
+    // any more, so the cashier is the only place they can be closed.
+    if (v.tanggal_periksa < today) return true;
     if (isWaitingDoctor(v)) return false;
     return (
       v.status_pembayaran === 'Menunggu Kasir' ||
@@ -92,8 +106,8 @@ function PendaftaranKasirContent() {
   };
 
   const waitingVisits = useMemo(
-    () => visits.filter(isWaitingPayment),
-    [visits]
+    () => visits.filter((v) => isWaitingPayment(v, queueDate)),
+    [visits, queueDate]
   );
 
   // Auto-sync selected visit for POS panel if none is selected or if current is settled
@@ -112,28 +126,45 @@ function PendaftaranKasirContent() {
 
     try {
       const supabase = createClient();
-      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+      const todayStr = getJakartaToday();
+      const sinceDate = new Date(`${todayStr}T00:00:00`);
+      sinceDate.setDate(sinceDate.getDate() - KASIR_CARRY_OVER_DAYS);
+      const sinceStr = formatLocalDateToYMD(sinceDate);
 
-      // 1. Fetch Today's Visits
-      const { data: visitsData, error: visitsError } = await supabase
-        .from('visits')
-        .select(`
-          *,
-          pasien:patients(*),
-          dokter:doctors(*)
-        `)
-        .eq('tanggal_periksa', todayStr)
-        .order('nomor_antrian', { ascending: false });
+      const [todayResult, carryOverResult] = await Promise.all([
+        supabase
+          .from('visits')
+          .select(VISIT_SELECT)
+          .eq('tanggal_periksa', todayStr)
+          .order('nomor_antrian', { ascending: false }),
+        supabase
+          .from('visits')
+          .select(VISIT_SELECT)
+          .gte('tanggal_periksa', sinceStr)
+          .lt('tanggal_periksa', todayStr)
+          .in('status_pembayaran', [...KASIR_CARRY_OVER_STATUSES])
+          .order('tanggal_periksa', { ascending: false })
+          .order('nomor_antrian', { ascending: false }),
+      ]);
 
-      if (visitsError) throw visitsError;
-      const visitList = (visitsData as unknown as Visit[]) || [];
+      if (todayResult.error) throw todayResult.error;
+      if (carryOverResult.error) throw carryOverResult.error;
+
+      const todayList = (todayResult.data as unknown as Visit[]) || [];
+      const todayIds = new Set(todayList.map((v) => v.id));
+      const carryOverList = ((carryOverResult.data as unknown as Visit[]) || []).filter(
+        (v) => !todayIds.has(v.id)
+      );
+      const visitList = [...todayList, ...carryOverList];
+      setQueueDate(todayStr);
       setVisits(visitList);
 
-      // Compute live KPI metrics
-      const total = visitList.length;
-      const waitingDoc = visitList.filter(isWaitingDoctor).length;
-      const waitingPay = visitList.filter(isWaitingPayment).length;
-      const rev = visitList
+      // Today's KPIs count today's visits only; "menunggu bayar" also counts carried-over
+      // visits. Revenue stays on tanggal_periksa, so carried-over payments are not added here.
+      const total = todayList.length;
+      const waitingDoc = todayList.filter(isWaitingDoctor).length;
+      const waitingPay = visitList.filter((v) => isWaitingPayment(v, todayStr)).length;
+      const rev = todayList
         .filter((v) => v.status_pembayaran === 'Lunas')
         .reduce((sum, v) => {
           const periksa = v.jenis_pasien === 'BPJS' ? 0 : normalizeRupiah(Number(v.biaya_periksa || 0));
@@ -272,7 +303,7 @@ function PendaftaranKasirContent() {
       }
     } catch (err) {
       console.error('Error settling POS payment:', err);
-      toast.error(err instanceof Error ? err.message : 'Gagal menyelesaikan pembayaran kasir.');
+      toast.error(getErrorMessage(err, 'Gagal menyelesaikan pembayaran kasir.'));
       throw err;
     } finally {
       setIsSubmittingPos(false);
@@ -524,6 +555,7 @@ function PendaftaranKasirContent() {
       <div ref={posPanelRef}>
         <CashierPosPanel
           waitingVisits={waitingVisits}
+          queueDate={queueDate}
           selectedVisit={selectedPosVisit}
           onSelectVisit={setSelectedPosVisit}
           onSettlePayment={handleSettlePayment}
@@ -537,6 +569,7 @@ function PendaftaranKasirContent() {
       {/* ============================================================== */}
       <MasterPatientTable
         visits={visits}
+        queueDate={queueDate}
         isLoadingVisits={isLoadingVisits}
         resetSignal={tableResetSignal}
         onSelectForPayment={handleSelectForPayment}

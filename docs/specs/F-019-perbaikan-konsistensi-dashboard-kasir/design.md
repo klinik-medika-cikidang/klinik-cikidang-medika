@@ -76,7 +76,7 @@ export function computeVisitRevenue(v: {
 
 - Dashboard: `umumRev` becomes the sum of `computeVisitRevenue` over all non-cancelled visits. The tunai/transfer split keeps its current bucket logic, which already includes BPJS extra charges.
 - Laporan: `formattedVisits.total_biaya` uses the same function, so the KPI and the Excel sheet stay equal by construction.
-- Card label: "Pendapatan Kasir", subtitle "Tarif umum + biaya tambahan pasien". The percentage sub-line keeps comparing against total cash in.
+- Card label: "Pendapatan Kasir", subtitle "Tarif umum + biaya tambahan pasien". The percentage sub-line keeps comparing against total cash in. The KPI field is renamed `umumRevenue` to `kasirRevenue`; the BPJS vs Umum split in `PaymentDistributionChart` keeps the UMUM-only figure because it compares patient types.
 
 Decision **DEC-019-1**: the shared figure includes BPJS patients' extra charges because that money passes through the cashier, and the Laporan and Excel figures already include it. Changing Laporan to UMUM-only would remove real cashier income from the export.
 
@@ -86,11 +86,14 @@ Replace "last 14 dates with data" with a calendar-day series:
 
 ```text
 Before:  dailyMap keys (dates with visits) --sort--> slice(-14)
-After:   dailyRange = selected period, clamped to the last calendar month inside it
+After:   dailyRange = selected period, end cut to today,
+         then clamped to the last calendar month inside it when longer than 31 days
          for each day in dailyRange: dailyMap[day] ?? { bpjs: 0, umum: 0 }
 ```
 
-- `periodRange` with empty bounds ("Semua Periode") uses the month of the latest visit date.
+- The range builder is `buildDailyTrendRange(period, today, latestVisitDate)` in `src/lib/utils.ts`; `describeDailyTrendRange` produces the toggle label.
+- Days after today are not plotted (revision of 2026-10-28), so "Bulan Ini" on the 28th shows 28 bars, not 31 with 3 empty future days.
+- `periodRange` with empty bounds ("Semua Periode") uses the month of the latest visit date, or the current month when there is no visit.
 - Financial series uses the same `dailyRange` keys.
 - Chart components receive a `dailyLabel` prop (for example "Harian Okt") replacing the hardcoded "14 Hari".
 - The Recharts container gets `min-w-[720px]` inside an `overflow-x-auto` wrapper below `md`.

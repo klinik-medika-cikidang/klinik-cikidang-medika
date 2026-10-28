@@ -25,6 +25,7 @@ import { PostCareAgenda } from '@/components/program-khusus/PostCareAgenda';
 import { NewPostCareModal } from '@/components/program-khusus/NewPostCareModal';
 import { PublicHealthRegistry } from '@/components/program-khusus/PublicHealthRegistry';
 import { NewPublicHealthModal } from '@/components/program-khusus/NewPublicHealthModal';
+import { formatLocalDateToYMD, getErrorMessage } from '@/lib/utils';
 
 type ProgramTab = 'tbc' | 'circumcision' | 'postcare' | 'kesehatan';
 type TbcFilter = 'all' | 'intensif' | 'lanjutan' | 'mangkir' | 'selesai';
@@ -94,7 +95,7 @@ export default function ProgramKhususPage() {
     } catch (err) {
       console.error('Error fetching program khusus data:', err);
       setErrorMessage(
-        err instanceof Error ? err.message : 'Gagal memuat data program khusus medis.'
+        getErrorMessage(err, 'Gagal memuat data program khusus medis.')
       );
     } finally {
       setIsLoading(false);
@@ -106,7 +107,7 @@ export default function ProgramKhususPage() {
   }, [fetchData]);
 
   // Derived surveillance counts
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => formatLocalDateToYMD(), []);
 
   const mangkirTbcCount = useMemo(() => {
     return tbcList.filter((t) => {

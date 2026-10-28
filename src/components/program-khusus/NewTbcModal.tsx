@@ -15,6 +15,7 @@ import type { Patient } from '@/types/database';
 import { Modal } from '@/components/ui/Modal';
 import { PatientSearchAutocomplete } from '@/components/pendaftaran/PatientSearchAutocomplete';
 import { createClient } from '@/lib/supabase/client';
+import { getErrorMessage } from '@/lib/utils';
 
 interface NewTbcModalProps {
   isOpen: boolean;
@@ -74,7 +75,7 @@ export function NewTbcModal({ isOpen, onClose, onSuccess, initialPatient }: NewT
       onClose();
     } catch (err) {
       console.error('Error creating TBC program:', err);
-      setErrorMsg(err instanceof Error ? err.message : 'Gagal mendaftarkan pasien ke program TBC');
+      setErrorMsg(getErrorMessage(err, 'Gagal mendaftarkan pasien ke program TBC'));
       toast.error('Gagal mendaftarkan pasien ke program TBC');
     } finally {
       setIsSubmitting(false);

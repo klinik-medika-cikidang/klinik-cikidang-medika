@@ -220,3 +220,14 @@ export const ALASAN_GRATIS_OPTIONS = [
 ] as const;
 
 export type AlasanGratis = (typeof ALASAN_GRATIS_OPTIONS)[number];
+
+// F-019: unpaid visits from earlier days stay in the cashier queue for this many days,
+// so a patient who pays a day later can still be settled on the original visit row.
+export const KASIR_CARRY_OVER_DAYS = 30;
+
+export const KASIR_CARRY_OVER_STATUSES = [
+  'Belum Bayar',
+  'Menunggu Kasir',
+  'Menunggu Pembayaran',
+  'Piutang',
+] as const;
