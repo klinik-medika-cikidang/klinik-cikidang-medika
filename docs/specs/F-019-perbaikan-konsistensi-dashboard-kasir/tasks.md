@@ -64,6 +64,7 @@ Status: code tasks done on branch `claude/f-019-perbaikan-konsistensi-44a314` (2
 - [x] **Task 4.1: Use the local WIB date for "today"**
   - Target: `src/app/program-khusus/page.tsx`
   - Done: also `PostCareAgenda.tsx` and the default dates of the four Program Khusus modals, found in code review, so the agenda tabs and the page count use the same day.
+  - Done: Excel export file names in `src/lib/excel.ts` (8 call sites) use the local date through one helper, so a file downloaded before 07:00 WIB no longer carries the previous day. Same class of bug as REQ-019-08.
   - _Requirements: REQ-019-08.1_
 
 ## Phase 5: Audit Buku Kas vs DATA
