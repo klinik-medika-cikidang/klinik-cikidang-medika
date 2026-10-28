@@ -30,6 +30,32 @@ export function isSettledVisit(visit: { status_pembayaran?: string | null }): bo
   return !(UNSETTLED_PAYMENT_STATUSES as readonly string[]).includes(status);
 }
 
+// One definition of cashier revenue shared by Dashboard, Laporan, and the Excel export,
+// so the three screens cannot drift apart. BPJS patients pay no fee, but their extra
+// charges pass through the cashier and are counted.
+export function computeVisitRevenue(visit: {
+  jenis_pasien?: string | null;
+  biaya_periksa?: number | string | null;
+  pendapatan_lain?: number | string | null;
+  status_pembayaran?: string | null;
+}): number {
+  if (!isSettledVisit(visit)) return 0;
+  const biaya = visit.jenis_pasien === 'BPJS' ? 0 : Number(visit.biaya_periksa) || 0;
+  return biaya + (Number(visit.pendapatan_lain) || 0);
+}
+
+// supabase-js returns PostgrestError as a plain object, so `instanceof Error` misses it
+// and the real database message used to be replaced by the generic fallback.
+export function getErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    const { message, hint } = err as { message?: unknown; hint?: unknown };
+    if (typeof message === 'string' && message.trim()) {
+      return typeof hint === 'string' && hint.trim() ? `${message} (${hint})` : message;
+    }
+  }
+  return fallback;
+}
+
 // Staff used to type tariffs in thousands on the old Google Sheets ("150" for Rp 150.000).
 // No clinic tariff is below Rp 1.000, so such a value is almost certainly that habit and
 // must be confirmed instead of being saved silently.
@@ -257,4 +283,65 @@ export function formatLocalDateToYMD(date: Date = new Date()): string {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+const INDO_MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+const MAX_DAILY_TREND_DAYS = 31;
+
+function parseYMD(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/**
+ * Calendar days plotted by the daily trend charts for a dashboard period.
+ * Days after `today` are cut so they do not render as zero activity. A period longer
+ * than 31 days falls back to the last calendar month inside it, and an unbounded period
+ * ("Semua Periode") uses the month of the latest visit.
+ */
+export function buildDailyTrendRange(
+  period: { start: string; end: string },
+  today: string,
+  latestVisitDate?: string | null
+): string[] {
+  let start = period.start;
+  let end = period.end;
+
+  if (!start || !end) {
+    const anchor = latestVisitDate && latestVisitDate < today ? latestVisitDate : today;
+    const anchorDate = parseYMD(anchor);
+    start = formatLocalDateToYMD(new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1));
+    end = formatLocalDateToYMD(new Date(anchorDate.getFullYear(), anchorDate.getMonth() + 1, 0));
+  }
+
+  if (end > today) end = today;
+  if (end < start) return [];
+
+  const endDate = parseYMD(end);
+  const spanDays = Math.round((endDate.getTime() - parseYMD(start).getTime()) / 86400000) + 1;
+  if (spanDays > MAX_DAILY_TREND_DAYS) {
+    const monthStart = formatLocalDateToYMD(new Date(endDate.getFullYear(), endDate.getMonth(), 1));
+    if (monthStart > start) start = monthStart;
+  }
+
+  const days: string[] = [];
+  const cursor = parseYMD(start);
+  while (formatLocalDateToYMD(cursor) <= end) {
+    days.push(formatLocalDateToYMD(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
+// Toggle label for the daily trend view, naming the month(s) actually plotted.
+export function describeDailyTrendRange(days: string[]): string {
+  if (days.length === 0) return 'Harian';
+  const first = parseYMD(days[0]);
+  const last = parseYMD(days[days.length - 1]);
+  const firstMonth = INDO_MONTH_SHORT[first.getMonth()];
+  const lastMonth = INDO_MONTH_SHORT[last.getMonth()];
+  if (first.getFullYear() === last.getFullYear() && first.getMonth() === last.getMonth()) {
+    return `Harian ${firstMonth}`;
+  }
+  return `Harian ${firstMonth}/${lastMonth}`;
 }

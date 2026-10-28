@@ -14,12 +14,16 @@ import {
 } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
 import {
+  buildDailyTrendRange,
+  computeVisitRevenue,
+  describeDailyTrendRange,
   formatLocalDateToYMD,
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
   isSettledVisit,
   summarizeCashPosition,
   isTransferPayment,
+  getErrorMessage,
 } from '@/lib/utils';
 import {
   DashboardKpiCards,
@@ -62,7 +66,7 @@ import {
 import type { CashFlow } from '@/types/database';
 
 export default function DashboardPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState<DashboardPeriod>('all');
+  const [selectedPeriod, setSelectedPeriod] = useState<DashboardPeriod>('this_month');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -70,8 +74,8 @@ export default function DashboardPage() {
 
   const [kpiData, setKpiData] = useState<DashboardKpiData>({
     totalVisits: 0,
-    uniquePatients: 0,
-    umumRevenue: 0,
+    uniquePatients: null,
+    kasirRevenue: 0,
     bpjsRevenue: 0,
     totalExpenses: 0,
     netIncome: 0,
@@ -93,6 +97,7 @@ export default function DashboardPage() {
   });
 
   const [dailyTrends, setDailyTrends] = useState<DailyTrendPoint[]>([]);
+  const [dailyTrendLabel, setDailyTrendLabel] = useState('Harian');
   const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrendPoint[]>([]);
 
   const [dailyFinances, setDailyFinances] = useState<DailyFinancialPoint[]>([]);
@@ -174,6 +179,9 @@ export default function DashboardPage() {
         let query = supabase
           .from('visits')
           .select('id, tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran, kode_icd10, diagnosa_deskripsi, patients(desa)')
+          // A unique tiebreaker keeps page boundaries stable, so no row is read twice or skipped.
+          .order('tanggal_periksa', { ascending: false })
+          .order('id', { ascending: true })
           .range(visitPage * pageSize, (visitPage + 1) * pageSize - 1);
 
         if (startDate && endDate) {
@@ -198,6 +206,7 @@ export default function DashboardPage() {
           .from('cash_flows')
           .select('id, tanggal, jenis, kategori, nominal, keterangan, jenis_pembayaran')
           .order('tanggal', { ascending: false })
+          .order('id', { ascending: true })
           .range(flowPage * pageSize, (flowPage + 1) * pageSize - 1);
 
         if (startDate && endDate) {
@@ -275,6 +284,7 @@ export default function DashboardPage() {
       let bpjsVisits = 0;
       let umumVisits = 0;
       let umumRev = 0;
+      let kasirRev = 0;
       let tunaiRev = 0;
       let tfRev = 0;
       let tunaiVisits = 0;
@@ -311,9 +321,9 @@ export default function DashboardPage() {
         }
 
         const isSettled = isSettledVisit(v);
-        const biaya = v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa) || 0;
         const lain = Number(v.pendapatan_lain) || 0;
-        const totalRev = isSettled ? (biaya + lain) : 0;
+        const totalRev = computeVisitRevenue(v);
+        kasirRev += totalRev;
 
         dailyFinanceMap[tgl].cashIn += totalRev;
         if (monthKey) {
@@ -406,17 +416,24 @@ export default function DashboardPage() {
         }
       });
 
-      // Format 14-day daily visit trends
-      const sortedDailyDates = Object.keys(dailyMap).sort();
-      const last14Dates = sortedDailyDates.slice(-14);
-      const formattedDailyTrends: DailyTrendPoint[] = last14Dates.map((d) => {
-        const item = dailyMap[d];
+      // Daily trends plot calendar days of the selected period, with quiet days as zero,
+      // so the trend summary matches the KPI cards for the same month.
+      const visitDates = Object.keys(dailyMap).sort();
+      const dailyRange = buildDailyTrendRange(
+        periodRange,
+        todayStr,
+        visitDates[visitDates.length - 1] ?? null
+      );
+      const formatDayLabel = (d: string) => {
         const dateObj = new Date(d);
         const dayName = dateObj.toLocaleDateString('id-ID', { weekday: 'short' });
-        const dayNum = dateObj.getDate();
+        return `${dayName} ${dateObj.getDate()}`;
+      };
+      const formattedDailyTrends: DailyTrendPoint[] = dailyRange.map((d) => {
+        const item = dailyMap[d] || { bpjs: 0, umum: 0 };
         return {
           date: d,
-          label: `${dayName} ${dayNum}`,
+          label: formatDayLabel(d),
           bpjs: item.bpjs,
           umum: item.umum,
           total: item.bpjs + item.umum,
@@ -440,15 +457,11 @@ export default function DashboardPage() {
         };
       });
 
-      // Format 14-day daily financial trends
-      const formattedDailyFinances: DailyFinancialPoint[] = last14Dates.map((d) => {
+      const formattedDailyFinances: DailyFinancialPoint[] = dailyRange.map((d) => {
         const fin = dailyFinanceMap[d] || { cashIn: 0, cashOut: 0 };
-        const dateObj = new Date(d);
-        const dayName = dateObj.toLocaleDateString('id-ID', { weekday: 'short' });
-        const dayNum = dateObj.getDate();
         return {
           date: d,
-          label: `${dayName} ${dayNum}`,
+          label: formatDayLabel(d),
           cashIn: fin.cashIn,
           cashOut: fin.cashOut,
           netIncome: fin.cashIn - fin.cashOut,
@@ -525,8 +538,8 @@ export default function DashboardPage() {
 
       setKpiData({
         totalVisits: activeVisitCount,
-        uniquePatients: patientCount || 4238,
-        umumRevenue: umumRev,
+        uniquePatients: patientCount ?? null,
+        kasirRevenue: kasirRev,
         bpjsRevenue: bpjsCapitation,
         totalExpenses: expenses,
         netIncome: netCash,
@@ -538,6 +551,7 @@ export default function DashboardPage() {
       setBpjsCount(bpjsVisits);
       setUmumCount(umumVisits);
       setDailyTrends(formattedDailyTrends);
+      setDailyTrendLabel(describeDailyTrendRange(dailyRange));
       setMonthlyTrends(formattedMonthlyTrends);
       setDailyFinances(formattedDailyFinances);
       setMonthlyFinances(formattedMonthlyFinances);
@@ -557,7 +571,7 @@ export default function DashboardPage() {
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       const msg =
-        err instanceof Error ? err.message : 'Terjadi kesalahan saat memuat data dashboard.';
+        getErrorMessage(err, 'Terjadi kesalahan saat memuat data dashboard.');
       setErrorMessage(msg);
       toast.error(msg);
     } finally {
@@ -692,6 +706,7 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <VisitTrendChart
             dailyData={dailyTrends}
+            dailyLabel={dailyTrendLabel}
             monthlyData={monthlyTrends}
             isLoading={isLoading}
           />
@@ -713,6 +728,7 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <FinancialTrendChart
             dailyData={dailyFinances}
+            dailyLabel={dailyTrendLabel}
             monthlyData={monthlyFinances}
             isLoading={isLoading}
           />

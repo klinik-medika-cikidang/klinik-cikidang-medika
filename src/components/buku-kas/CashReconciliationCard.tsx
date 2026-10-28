@@ -187,7 +187,8 @@ export function CashReconciliationCard({
             + {formatRupiah(active.cashVisitsTotal)}
           </div>
           <p className="text-[10px] text-slate-500 leading-snug">
-            Penerimaan tunai fisik dari pembayaran pasien di loket
+            Penerimaan tunai fisik dari pembayaran pasien di loket, tidak termasuk transfer.
+            Karena itu bisa lebih kecil dari Pendapatan Kasir di Dashboard.
           </p>
         </div>
 

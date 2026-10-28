@@ -18,7 +18,7 @@ import type { Visit } from '@/types/database';
 import { QueueList } from '@/components/rekam-medis/QueueList';
 import { ExaminationForm } from '@/components/rekam-medis/ExaminationForm';
 import { CancelQueueModal } from '@/components/rekam-medis/CancelQueueModal';
-import { cn, formatLocalDateToYMD } from '@/lib/utils';
+import { cn, formatLocalDateToYMD, getErrorMessage } from '@/lib/utils';
 
 export default function RekamMedisPage() {
   const getTodayString = () => formatLocalDateToYMD();
@@ -75,7 +75,7 @@ export default function RekamMedisPage() {
     } catch (err) {
       console.error('Error fetching queue visits:', err);
       setErrorMessage(
-        err instanceof Error ? err.message : 'Gagal memuat antrean pasien dari database.'
+        getErrorMessage(err, 'Gagal memuat antrean pasien dari database.')
       );
     } finally {
       setIsLoading(false);

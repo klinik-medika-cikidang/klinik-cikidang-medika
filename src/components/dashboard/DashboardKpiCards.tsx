@@ -12,8 +12,10 @@ import { formatRupiah } from '@/lib/utils';
 
 export interface DashboardKpiData {
   totalVisits: number;
-  uniquePatients: number;
-  umumRevenue: number;
+  /** Null when the patient count query failed; the card shows "-" instead of a number. */
+  uniquePatients: number | null;
+  /** Settled cashier revenue: UMUM fees plus extra charges paid by BPJS patients. */
+  kasirRevenue: number;
   bpjsRevenue: number;
   totalExpenses: number;
   netIncome: number;
@@ -47,11 +49,12 @@ export function DashboardKpiCards({ data, isLoading }: DashboardKpiCardsProps) {
   }
 
   const totalVisits = data.totalVisits || 0;
-  const uniquePatients = data.uniquePatients || 0;
-  const totalRevenue = (data.umumRevenue || 0) + (data.bpjsRevenue || 0);
+  const uniquePatientsLabel =
+    data.uniquePatients === null ? '-' : data.uniquePatients.toLocaleString('id-ID');
+  const totalRevenue = (data.kasirRevenue || 0) + (data.bpjsRevenue || 0);
 
-  const umumRevPct = totalRevenue > 0 ? Math.round((data.umumRevenue / totalRevenue) * 100) : 0;
-  const bpjsRevPct = totalRevenue > 0 ? 100 - umumRevPct : 0;
+  const kasirRevPct = totalRevenue > 0 ? Math.round((data.kasirRevenue / totalRevenue) * 100) : 0;
+  const bpjsRevPct = totalRevenue > 0 ? 100 - kasirRevPct : 0;
   const expenseRatio = totalRevenue > 0 ? Math.min(100, Math.round((data.totalExpenses / totalRevenue) * 100)) : (data.totalExpenses > 0 ? 100 : 0);
 
   const cards = [
@@ -60,7 +63,7 @@ export function DashboardKpiCards({ data, isLoading }: DashboardKpiCardsProps) {
       title: 'Total Kunjungan',
       value: totalVisits.toLocaleString('id-ID'),
       unit: 'Kunjungan',
-      subtitle: `${uniquePatients.toLocaleString('id-ID')} Pasien Terdaftar`,
+      subtitle: `${uniquePatientsLabel} Pasien Terdaftar`,
       barLabel: 'Volume Pelayanan',
       barDetail: `${totalVisits} Rawat Jalan`,
       barPct: totalVisits > 0 ? 100 : 0,
@@ -71,15 +74,15 @@ export function DashboardKpiCards({ data, isLoading }: DashboardKpiCardsProps) {
       iconBg: 'bg-teal-50 text-teal-600',
     },
     {
-      id: 'umum',
-      title: 'Pendapatan Umum',
-      value: formatRupiah(data.umumRevenue),
-      subtitle: 'Kasir poli rawat jalan',
+      id: 'kasir',
+      title: 'Pendapatan Kasir',
+      value: formatRupiah(data.kasirRevenue),
+      subtitle: 'Tarif umum + biaya tambahan pasien',
       barLabel: 'Kontribusi Omzet',
-      barDetail: `${umumRevPct}% total kasir`,
-      barPct: umumRevPct,
+      barDetail: `${kasirRevPct}% total omzet`,
+      barPct: kasirRevPct,
       barColor: 'bg-emerald-600',
-      badge: `${umumRevPct}% Omzet`,
+      badge: `${kasirRevPct}% Omzet`,
       badgeColor: 'text-emerald-700 bg-emerald-50 border-emerald-200',
       icon: CreditCard,
       iconBg: 'bg-emerald-50 text-emerald-600',
@@ -203,7 +206,7 @@ export function DashboardKpiCards({ data, isLoading }: DashboardKpiCardsProps) {
 
             {/* Footer: Subtitle & Real Badge */}
             <div className="flex items-center justify-between gap-1 text-xs pt-2 border-t border-slate-100">
-              <span className="text-slate-600 text-[11px] font-medium leading-tight truncate">
+              <span className="text-slate-600 text-[11px] font-medium leading-tight min-w-0">
                 {card.subtitle}
               </span>
               <span

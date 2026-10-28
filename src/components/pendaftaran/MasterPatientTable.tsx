@@ -16,6 +16,7 @@ import {
 } from '@phosphor-icons/react';
 import type { Visit, Patient } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
+import { Badge } from '@/components/ui/Badge';
 import { cn, formatDateShort } from '@/lib/utils';
 
 export type TableFilterTab =
@@ -28,6 +29,8 @@ export type TableFilterTab =
 
 export interface MasterPatientTableProps {
   visits: Visit[];
+  /** Jakarta date of the loaded queue; visits dated earlier are carried-over arrears. */
+  queueDate: string;
   isLoadingVisits: boolean;
   resetSignal?: number;
   onSelectForPayment: (visit: Visit) => void;
@@ -49,6 +52,7 @@ interface SearchSuggestion {
 
 export function MasterPatientTable({
   visits,
+  queueDate,
   isLoadingVisits,
   resetSignal,
   onSelectForPayment,
@@ -75,9 +79,14 @@ export function MasterPatientTable({
   const isSettled = (v: Visit) =>
     !isCancelled(v) && (v.status_pembayaran === 'Lunas' || v.status_pembayaran === 'Ditanggung BPJS');
 
+  const isCarryOver = (v: Visit) => v.tanggal_periksa < queueDate;
+
+  // Carried-over rows are loaded only for an unpaid status and no doctor queue shows them
+  // any more, so they always wait for the cashier.
   const isWaitingDoctor = (v: Visit) => {
     if (isCancelled(v)) return false;
     if (isSettled(v)) return false;
+    if (isCarryOver(v)) return false;
     if (v.status_pembayaran === 'Menunggu Kasir') return false;
     return v.status_pembayaran === 'Menunggu Dokter' || !v.kode_icd10;
   };
@@ -85,6 +94,7 @@ export function MasterPatientTable({
   const isWaitingPayment = (v: Visit) => {
     if (isCancelled(v)) return false;
     if (isSettled(v)) return false;
+    if (isCarryOver(v)) return true;
     if (isWaitingDoctor(v)) return false;
     return (
       v.status_pembayaran === 'Menunggu Kasir' ||
@@ -95,11 +105,11 @@ export function MasterPatientTable({
 
   const countMenungguDokter = useMemo(
     () => visits.filter(isWaitingDoctor).length,
-    [visits]
+    [visits, queueDate]
   );
   const countMenungguKasir = useMemo(
     () => visits.filter(isWaitingPayment).length,
-    [visits]
+    [visits, queueDate]
   );
   const countSelesai = useMemo(
     () => visits.filter(isSettled).length,
@@ -202,7 +212,7 @@ export function MasterPatientTable({
       if (activeTab === 'master_pasien') return false;
       return true;
     });
-  }, [activeTab, visits]);
+  }, [activeTab, visits, queueDate]);
 
   const searchSuggestions = useMemo<SearchSuggestion[]>(() => {
     if (!isSearching) return [];
@@ -404,7 +414,7 @@ export function MasterPatientTable({
       </div>
 
       {/* Filter Tabs (Beveled Capsule per component-showcase.html) */}
-      <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-2xl border border-slate-200/80 w-full sm:w-fit overflow-x-auto select-none">
+      <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-2xl border border-slate-200/80 w-full sm:w-fit max-w-full overflow-x-auto select-none">
         <button
           type="button"
           onClick={() => handleTabChange('hari_ini')}
@@ -701,9 +711,16 @@ export function MasterPatientTable({
                           Menunggu Dokter
                         </span>
                       ) : isWaitingPayment(visit) ? (
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-50 text-purple-800 border border-purple-200">
-                          Siap Bayar
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-50 text-purple-800 border border-purple-200">
+                            Siap Bayar
+                          </span>
+                          {isCarryOver(visit) && (
+                            <Badge variant="warning" className="font-mono">
+                              Tunggakan · {formatDateShort(visit.tanggal_periksa)}
+                            </Badge>
+                          )}
+                        </div>
                       ) : isSettled(visit) ? (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
                           Selesai

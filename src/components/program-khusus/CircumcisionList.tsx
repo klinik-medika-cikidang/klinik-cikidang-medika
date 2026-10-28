@@ -27,7 +27,7 @@ import {
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import type { Circumcision } from '@/types/database';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah, getErrorMessage } from '@/lib/utils';
 import { getSignedMedicalPhotoUrl, uploadMedicalPhoto, compressImageToWebP } from '@/lib/storage';
 import { createClient } from '@/lib/supabase/client';
 import { Modal } from '@/components/ui/Modal';
@@ -252,7 +252,7 @@ export function CircumcisionList({ records, onRefresh, isLoading }: Circumcision
       onRefresh();
     } catch (err) {
       console.error('Error uploading follow-up photo:', err);
-      toast.error(err instanceof Error ? err.message : 'Gagal menyimpan foto kontrol');
+      toast.error(getErrorMessage(err, 'Gagal menyimpan foto kontrol'));
     } finally {
       setIsUploading(false);
     }

@@ -32,6 +32,7 @@ import {
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
   cn,
+  getErrorMessage,
 } from '@/lib/utils';
 
 const cashFlowSchema = z.object({
@@ -182,7 +183,7 @@ export function AddCashFlowModal({
       }
       onClose();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Gagal menyimpan transaksi kas ke database.';
+      const msg = getErrorMessage(err, 'Gagal menyimpan transaksi kas ke database.');
       setErrorMessage(msg);
       toast.error(msg);
     } finally {

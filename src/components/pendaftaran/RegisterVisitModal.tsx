@@ -24,6 +24,7 @@ import {
 import { Modal } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
 import { MasterDoctorModal } from './MasterDoctorModal';
+import { getErrorMessage } from '@/lib/utils';
 
 const visitSchema = z.object({
   dokterId: z.string().trim().min(1, 'Pilih dokter pemeriksa terlebih dahulu.'),
@@ -203,7 +204,7 @@ export function RegisterVisitModal({
         onClose();
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Gagal mendaftarkan kunjungan pasien.';
+      const msg = getErrorMessage(err, 'Gagal mendaftarkan kunjungan pasien.');
       setErrorMessage(msg);
     } finally {
       setIsSubmitting(false);

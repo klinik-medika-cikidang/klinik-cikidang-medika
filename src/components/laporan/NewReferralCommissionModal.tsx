@@ -14,6 +14,7 @@ import { Select } from '@/components/ui/Select';
 import { PatientSearchAutocomplete } from '@/components/pendaftaran/PatientSearchAutocomplete';
 import { createClient } from '@/lib/supabase/client';
 import { REFERRAL_SERVICE_OPTIONS } from '@/constants/clinic';
+import { getErrorMessage } from '@/lib/utils';
 
 interface NewReferralCommissionModalProps {
   isOpen: boolean;
@@ -88,7 +89,7 @@ export function NewReferralCommissionModal({
       onClose();
     } catch (err) {
       console.error('Error creating referral commission:', err);
-      const msg = err instanceof Error ? err.message : 'Gagal mencatat rujukan & komisi.';
+      const msg = getErrorMessage(err, 'Gagal mencatat rujukan & komisi.');
       setErrorMsg(msg);
       toast.error(msg);
     } finally {

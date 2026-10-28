@@ -5,7 +5,7 @@ import { DownloadSimple, WarningCircle, ArrowClockwise, FolderOpen } from '@phos
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { PUBLIC_HEALTH_PROGRAM_LABELS, PUBLIC_HEALTH_PROGRAM_ORDER } from '@/constants/clinic';
-import { describePeriod } from '@/lib/utils';
+import { describePeriod, getErrorMessage } from '@/lib/utils';
 import {
   exportPuskesmasRegisterToExcel,
   puskesmasColumnsFor,
@@ -101,7 +101,7 @@ export function PuskesmasReportPanel({
       setRows(collected);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Gagal memuat register kesehatan dari server.';
+        getErrorMessage(error, 'Gagal memuat register kesehatan dari server.');
       setErrorMessage(message);
       setRows([]);
     } finally {

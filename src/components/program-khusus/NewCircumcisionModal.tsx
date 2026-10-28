@@ -21,6 +21,7 @@ import { Modal } from '@/components/ui/Modal';
 import { PatientSearchAutocomplete } from '@/components/pendaftaran/PatientSearchAutocomplete';
 import { createClient } from '@/lib/supabase/client';
 import { compressImageToWebP, uploadMedicalPhoto } from '@/lib/storage';
+import { formatLocalDateToYMD, getErrorMessage } from '@/lib/utils';
 
 interface NewCircumcisionModalProps {
   isOpen: boolean;
@@ -62,7 +63,7 @@ export function NewCircumcisionModal({
     }
   }, [initialPatient, isOpen]);
 
-  const [tanggalTindakan, setTanggalTindakan] = useState(new Date().toISOString().split('T')[0]);
+  const [tanggalTindakan, setTanggalTindakan] = useState(() => formatLocalDateToYMD());
   const [dokterNama, setDokterNama] = useState('dr. Ovan');
   const [metode, setMetode] = useState('Laser / Kauter');
   const [biaya, setBiaya] = useState(750000);
@@ -210,7 +211,7 @@ export function NewCircumcisionModal({
       onClose();
     } catch (err) {
       console.error('Error saving circumcision record:', err);
-      setErrorMsg(err instanceof Error ? err.message : 'Gagal menyimpan data sirkumsisi');
+      setErrorMsg(getErrorMessage(err, 'Gagal menyimpan data sirkumsisi'));
       toast.error('Gagal mendokumentasikan tindakan sirkumsisi');
     } finally {
       setIsSubmitting(false);

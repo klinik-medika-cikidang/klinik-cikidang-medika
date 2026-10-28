@@ -30,6 +30,7 @@ import {
   isDrawerCashExpense,
   isOperationalExpense,
   isSettledCashVisit,
+  getErrorMessage,
 } from '@/lib/utils';
 import { useAuth } from '@/lib/auth/AuthContext';
 
@@ -120,7 +121,7 @@ export default function BukuKasPage() {
     } catch (err) {
       console.error('Error fetching cash flows:', err);
       const msg =
-        err instanceof Error ? err.message : 'Gagal memuat mutasi buku kas dari database.';
+        getErrorMessage(err, 'Gagal memuat mutasi buku kas dari database.');
       setErrorMessage(msg);
       toast.error(msg);
     } finally {

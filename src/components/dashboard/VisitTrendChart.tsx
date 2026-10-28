@@ -36,12 +36,15 @@ export type MonthlyTrendPoint = TrendPoint & { month: string };
 
 interface VisitTrendChartProps {
   dailyData: DailyTrendPoint[];
+  /** Names the plotted month, for example "Harian Okt". */
+  dailyLabel?: string;
   monthlyData: MonthlyTrendPoint[];
   isLoading?: boolean;
 }
 
 export function VisitTrendChart({
   dailyData,
+  dailyLabel = 'Harian',
   monthlyData,
   isLoading,
 }: VisitTrendChartProps) {
@@ -137,7 +140,7 @@ export function VisitTrendChart({
               }`}
             >
               <CalendarBlank weight="duotone" className="w-3.5 h-3.5" />
-              <span>14 Hari</span>
+              <span>{dailyLabel}</span>
             </button>
             <button
               type="button"
@@ -216,119 +219,126 @@ export function VisitTrendChart({
         )}
       </div>
 
-      {/* Chart Viewport */}
-      <div className="w-full h-72 pt-2">
-        {isMounted && currentData.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            {chartType === 'bar' ? (
-              <BarChart
-                data={currentData}
-                margin={{ top: 10, right: 12, left: -8, bottom: viewMode === 'daily' ? 10 : 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: '#64748B' }}
-                  axisLine={{ stroke: '#CBD5E1' }}
-                  tickLine={false}
-                  angle={viewMode === 'daily' ? -45 : 0}
-                  textAnchor={viewMode === 'daily' ? 'end' : 'middle'}
-                  height={viewMode === 'daily' ? 45 : 30}
-                />
-                <YAxis
-                  width={32}
-                  tick={{ fontSize: 11, fill: '#64748B' }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip content={<CustomVisitTooltip />} />
-                <Legend
-                  verticalAlign="top"
-                  align="right"
-                  iconType="circle"
-                  wrapperStyle={{ paddingBottom: '12px', fontSize: '11px' }}
-                />
-                <Bar
-                  dataKey="bpjs"
-                  name="Pasien BPJS"
-                  stackId="visits"
-                  fill="#059669"
-                  radius={[0, 0, 0, 0]}
-                />
-                <Bar
-                  dataKey="umum"
-                  name="Pasien Umum"
-                  stackId="visits"
-                  fill="#2563EB"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            ) : (
-              <AreaChart
-                data={currentData}
-                margin={{ top: 10, right: 12, left: -8, bottom: viewMode === 'daily' ? 10 : 0 }}
-              >
-                <defs>
-                  <linearGradient id="colorBpjs" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#059669" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#059669" stopOpacity={0.02} />
-                  </linearGradient>
-                  <linearGradient id="colorUmum" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: '#64748B' }}
-                  axisLine={{ stroke: '#CBD5E1' }}
-                  tickLine={false}
-                  angle={viewMode === 'daily' ? -45 : 0}
-                  textAnchor={viewMode === 'daily' ? 'end' : 'middle'}
-                  height={viewMode === 'daily' ? 45 : 30}
-                />
-                <YAxis
-                  width={32}
-                  tick={{ fontSize: 11, fill: '#64748B' }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip content={<CustomVisitTooltip />} />
-                <Legend
-                  verticalAlign="top"
-                  align="right"
-                  iconType="circle"
-                  wrapperStyle={{ paddingBottom: '12px', fontSize: '11px' }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="bpjs"
-                  name="Pasien BPJS"
-                  stroke="#059669"
-                  strokeWidth={2.5}
-                  fillOpacity={1}
-                  fill="url(#colorBpjs)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="umum"
-                  name="Pasien Umum"
-                  stroke="#2563EB"
-                  strokeWidth={2.5}
-                  fillOpacity={1}
-                  fill="url(#colorUmum)"
-                />
-              </AreaChart>
-            )}
-          </ResponsiveContainer>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
-            Menyiapkan grafik interaktif...
-          </div>
-        )}
+      {/* A month of daily bars needs ~720px; below md it scrolls inside this wrapper, not the page. */}
+      <div
+        className="w-full overflow-x-auto md:overflow-visible rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+        tabIndex={0}
+        role="region"
+        aria-label="Grafik tren kunjungan"
+      >
+        <div className={`h-72 pt-2 ${viewMode === 'daily' ? 'min-w-[720px] md:min-w-0' : ''}`}>
+          {isMounted && currentData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              {chartType === 'bar' ? (
+                <BarChart
+                  data={currentData}
+                  margin={{ top: 10, right: 12, left: -8, bottom: viewMode === 'daily' ? 10 : 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: '#64748B' }}
+                    axisLine={{ stroke: '#CBD5E1' }}
+                    tickLine={false}
+                    angle={viewMode === 'daily' ? -45 : 0}
+                    textAnchor={viewMode === 'daily' ? 'end' : 'middle'}
+                    height={viewMode === 'daily' ? 45 : 30}
+                  />
+                  <YAxis
+                    width={32}
+                    tick={{ fontSize: 11, fill: '#64748B' }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip content={<CustomVisitTooltip />} />
+                  <Legend
+                    verticalAlign="top"
+                    align="right"
+                    iconType="circle"
+                    wrapperStyle={{ paddingBottom: '12px', fontSize: '11px' }}
+                  />
+                  <Bar
+                    dataKey="bpjs"
+                    name="Pasien BPJS"
+                    stackId="visits"
+                    fill="#059669"
+                    radius={[0, 0, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="umum"
+                    name="Pasien Umum"
+                    stackId="visits"
+                    fill="#2563EB"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              ) : (
+                <AreaChart
+                  data={currentData}
+                  margin={{ top: 10, right: 12, left: -8, bottom: viewMode === 'daily' ? 10 : 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colorBpjs" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#059669" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#059669" stopOpacity={0.02} />
+                    </linearGradient>
+                    <linearGradient id="colorUmum" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563EB" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: '#64748B' }}
+                    axisLine={{ stroke: '#CBD5E1' }}
+                    tickLine={false}
+                    angle={viewMode === 'daily' ? -45 : 0}
+                    textAnchor={viewMode === 'daily' ? 'end' : 'middle'}
+                    height={viewMode === 'daily' ? 45 : 30}
+                  />
+                  <YAxis
+                    width={32}
+                    tick={{ fontSize: 11, fill: '#64748B' }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip content={<CustomVisitTooltip />} />
+                  <Legend
+                    verticalAlign="top"
+                    align="right"
+                    iconType="circle"
+                    wrapperStyle={{ paddingBottom: '12px', fontSize: '11px' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="bpjs"
+                    name="Pasien BPJS"
+                    stroke="#059669"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#colorBpjs)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="umum"
+                    name="Pasien Umum"
+                    stroke="#2563EB"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#colorUmum)"
+                  />
+                </AreaChart>
+              )}
+            </ResponsiveContainer>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
+              Menyiapkan grafik interaktif...
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

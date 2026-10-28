@@ -15,7 +15,7 @@ import {
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { BIDAN_REFERRAL_SOURCES, bidanDisplayName } from '@/constants/clinic';
-import { describePeriod, formatDateIndo } from '@/lib/utils';
+import { describePeriod, formatDateIndo, getErrorMessage } from '@/lib/utils';
 import { exportBidanAnnualRecapToExcel } from '@/lib/excel';
 
 interface ReferralRow {
@@ -83,7 +83,7 @@ export function BidanReferralPanel({
       setRows((data || []) as unknown as ReferralRow[]);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Gagal memuat data rujukan bidan dari server.';
+        getErrorMessage(error, 'Gagal memuat data rujukan bidan dari server.');
       setErrorMessage(message);
       setRows([]);
     } finally {

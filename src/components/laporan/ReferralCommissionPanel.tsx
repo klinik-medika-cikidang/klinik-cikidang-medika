@@ -11,7 +11,7 @@ import {
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { Select } from '@/components/ui/Select';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah, getErrorMessage } from '@/lib/utils';
 import {
   exportReferralCommissionsToExcel,
   type ReferralCommissionExportRow,
@@ -54,7 +54,7 @@ export function ReferralCommissionPanel({ isLoading: externalLoading }: Referral
     } catch (err) {
       console.error('Error fetching referral commissions:', err);
       setErrorMessage(
-        err instanceof Error ? err.message : 'Gagal memuat data komisi rujukan.'
+        getErrorMessage(err, 'Gagal memuat data komisi rujukan.')
       );
     } finally {
       setIsLoading(false);

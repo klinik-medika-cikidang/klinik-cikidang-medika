@@ -22,6 +22,7 @@ import { fetchNextMedicalRecordNumber } from '@/lib/rm';
 import { Modal } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
 import { FlexibleDateInput } from '@/components/ui/FlexibleDateInput';
+import { getErrorMessage } from '@/lib/utils';
 
 const patientSchema = z.object({
   noRm: z
@@ -261,7 +262,7 @@ export function NewPatientModal({
         onClose();
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan data pasien.';
+      const msg = getErrorMessage(err, 'Terjadi kesalahan saat menyimpan data pasien.');
       setErrorMessage(msg);
     } finally {
       setIsLoading(false);
