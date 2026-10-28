@@ -1,4 +1,11 @@
 import * as XLSX from 'xlsx';
+import { formatLocalDateToYMD } from './utils';
+
+// toISOString() is UTC, so a file downloaded before 07:00 WIB was named after the
+// previous day.
+function getFileNameDate(): string {
+  return formatLocalDateToYMD().replace(/-/g, '');
+}
 
 export interface VisitExportRow {
   no_rm: string;
@@ -115,7 +122,7 @@ export function exportVisitsToExcel(visits: VisitExportRow[], dateRange?: DateRa
 
   XLSX.utils.book_append_sheet(wb, ws, 'Rekap Kunjungan');
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Kunjungan_Cikidang_${fileNameDate}.xlsx`);
 }
 
@@ -149,7 +156,7 @@ export function exportCashFlowsToExcel(flows: CashFlowExportRow[], dateRange?: D
 
   XLSX.utils.book_append_sheet(wb, ws, 'Buku Kas');
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Buku_Kas_Cikidang_${fileNameDate}.xlsx`);
 }
 
@@ -183,7 +190,7 @@ export function exportMorbidityToExcel(morbidity: MorbidityExportRow[], dateRang
 
   XLSX.utils.book_append_sheet(wb, ws, 'Morbiditas ICD-10');
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Morbiditas_ICD10_Cikidang_${fileNameDate}.xlsx`);
 }
 
@@ -283,7 +290,7 @@ export function exportFullClinicWorkbook(params: {
   wsFlows['!cols'] = calculateColumnWidths(flowSheetData);
   XLSX.utils.book_append_sheet(wb, wsFlows, 'Arus Kas Operasional');
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Lengkap_Klinik_Cikidang_${fileNameDate}.xlsx`);
 }
 
@@ -483,7 +490,7 @@ export function exportPublicHealthToExcel(
     XLSX.utils.book_append_sheet(wb, ws, 'Program Kesehatan');
   }
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Program_Kesehatan_Cikidang_${fileNameDate}.xlsx`);
 }
 
@@ -629,7 +636,7 @@ export function exportPuskesmasRegisterToExcel(
   recapSheet['!cols'] = calculateColumnWidths(recapData);
   XLSX.utils.book_append_sheet(wb, recapSheet, 'Rekap');
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Puskesmas_Cikidang_${fileNameDate}.xlsx`);
 }
 
@@ -686,7 +693,7 @@ export function exportReferralCommissionsToExcel(
   ws['!cols'] = calculateColumnWidths(sheetData);
   XLSX.utils.book_append_sheet(wb, ws, `Komisi ${year}`);
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Komisi_Rujukan_Cikidang_${year}_${fileNameDate}.xlsx`);
 }
 
@@ -795,6 +802,6 @@ export function exportBidanAnnualRecapToExcel(
     XLSX.utils.book_append_sheet(wb, ws2, 'Rincian Kunjungan Pasien');
   }
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Rekap_Bingkisan_Bidan_${year}_${fileNameDate}.xlsx`);
 }
