@@ -22,9 +22,11 @@ interface PostCareAgendaProps {
   records: PostCare[];
   onRefresh: () => void;
   isLoading?: boolean;
+  /** Shown on the empty "Selesai" sub-tab when completed agendas are hidden by the active scope. */
+  completedHiddenMessage?: string;
 }
 
-export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgendaProps) {
+export function PostCareAgenda({ records, onRefresh, isLoading, completedHiddenMessage }: PostCareAgendaProps) {
   const [filterTab, setFilterTab] = useState<'today' | 'overdue' | 'upcoming' | 'completed'>('today');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
@@ -226,7 +228,9 @@ export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgenda
               : 'Belum ada catatan riwayat kontrol yang ditandai selesai'}
           </h3>
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            Semua pasien pada kategori ini terpantau rapi. Klik &quot;+ Jadwal Observasi&quot; di atas untuk memasukkan jadwal baru.
+            {filterTab === 'completed' && completedHiddenMessage
+              ? completedHiddenMessage
+              : 'Semua pasien pada kategori ini terpantau rapi. Klik "+ Jadwal Observasi" di atas untuk memasukkan jadwal baru.'}
           </p>
         </div>
       ) : (

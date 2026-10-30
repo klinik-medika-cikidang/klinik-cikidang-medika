@@ -9,6 +9,7 @@ import {
   Wallet,
 } from '@phosphor-icons/react';
 import { formatRupiah } from '@/lib/utils';
+import { ExpenseScopeBreakdown } from '@/components/finance/ExpenseScopeBreakdown';
 
 export interface DashboardKpiData {
   totalVisits: number;
@@ -18,6 +19,9 @@ export interface DashboardKpiData {
   kasirRevenue: number;
   bpjsRevenue: number;
   totalExpenses: number;
+  /** F-020 split of totalExpenses; the two always add up to it. */
+  expenseKlinik: number;
+  expenseNonKlinik: number;
   netIncome: number;
 }
 
@@ -105,7 +109,7 @@ export function DashboardKpiCards({ data, isLoading }: DashboardKpiCardsProps) {
       id: 'pengeluaran',
       title: 'Total Pengeluaran',
       value: formatRupiah(data.totalExpenses),
-      subtitle: 'Obat & operasional',
+      subtitle: 'Klinik + non klinik',
       barLabel: 'Beban Operasional',
       barDetail: `${expenseRatio}% pemasukan`,
       barPct: expenseRatio,
@@ -117,6 +121,7 @@ export function DashboardKpiCards({ data, isLoading }: DashboardKpiCardsProps) {
           : 'text-rose-700 bg-rose-50 border-rose-200',
       icon: ArrowUpRight,
       iconBg: 'bg-rose-50 text-rose-600',
+      breakdown: { klinik: data.expenseKlinik, nonKlinik: data.expenseNonKlinik },
     },
     {
       id: 'saldo',
@@ -188,6 +193,14 @@ export function DashboardKpiCards({ data, isLoading }: DashboardKpiCardsProps) {
                   </>
                 )}
               </div>
+
+              {'breakdown' in card && card.breakdown && (
+                <ExpenseScopeBreakdown
+                  className="mt-2"
+                  klinik={card.breakdown.klinik}
+                  nonKlinik={card.breakdown.nonKlinik}
+                />
+              )}
 
               {/* Real Metric Proportional Track (replaces fake distorted sparkline) */}
               <div className="my-3 space-y-1.5">

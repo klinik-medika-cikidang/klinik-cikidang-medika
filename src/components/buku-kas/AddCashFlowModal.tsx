@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import {
   CASH_FLOW_CATEGORIES,
+  CASH_FLOW_KELUAR_GROUPS,
   METODE_PEMBAYARAN_OPTIONS,
   type MetodePembayaranOption,
 } from '@/constants/clinic';
@@ -191,9 +192,12 @@ export function AddCashFlowModal({
     }
   };
 
-  const categoryOptions = (
-    jenis === 'Masuk' ? CASH_FLOW_CATEGORIES.masuk : CASH_FLOW_CATEGORIES.keluar
-  ).map((cat) => ({ value: cat, label: cat }));
+  const categoryOptions =
+    jenis === 'Masuk'
+      ? CASH_FLOW_CATEGORIES.masuk.map((cat) => ({ value: cat, label: cat }))
+      : CASH_FLOW_KELUAR_GROUPS.flatMap((group) =>
+          group.categories.map((cat) => ({ value: cat, label: cat, group: group.label }))
+        );
 
   return (
     <Modal

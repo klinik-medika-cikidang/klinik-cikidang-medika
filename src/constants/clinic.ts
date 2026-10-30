@@ -109,6 +109,27 @@ export const CASH_FLOW_CATEGORIES = {
   ],
 } as const;
 
+// F-020: the Kas Keluar form groups categories the way the clinic sheet splits them.
+// Every category in CASH_FLOW_CATEGORIES.keluar appears in exactly one group (unit-tested).
+export const CASH_FLOW_KELUAR_GROUPS: ReadonlyArray<{
+  label: string;
+  categories: ReadonlyArray<(typeof CASH_FLOW_CATEGORIES.keluar)[number]>;
+}> = [
+  {
+    label: 'Klinik',
+    categories: [
+      'Pengeluaran Obat / Operasional',
+      'Operasional & Listrik/Air',
+      'Honor & Transport',
+      'Perlengkapan Medis',
+    ],
+  },
+  { label: 'Non Klinik', categories: ['Pengeluaran Non Klinik'] },
+  { label: 'Setoran (bukan pengeluaran)', categories: ['Setor ke Rekening Pemilik'] },
+];
+
+export const EXPENSE_SCOPE_LABELS = { klinik: 'Klinik', non_klinik: 'Non Klinik' } as const;
+
 export type CashFlowCategoryMasuk = typeof CASH_FLOW_CATEGORIES.masuk[number];
 export type CashFlowCategoryKeluar = typeof CASH_FLOW_CATEGORIES.keluar[number];
 export type CashFlowCategory = CashFlowCategoryMasuk | CashFlowCategoryKeluar;
@@ -231,3 +252,6 @@ export const KASIR_CARRY_OVER_STATUSES = [
   'Menunggu Pembayaran',
   'Piutang',
 ] as const;
+
+// F-022: a circumcision stays on the active list for this many days, covering the H+7 control.
+export const SIRKUMSISI_ACTIVE_DAYS = 14;

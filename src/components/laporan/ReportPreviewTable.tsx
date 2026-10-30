@@ -206,7 +206,8 @@ export function ReportPreviewTable({
                   <th className="py-3 px-3.5">Nama Pasien</th>
                   <th className="py-3 px-3.5">L/P</th>
                   <th className="py-3 px-3.5">Desa</th>
-                  <th className="py-3 px-3.5">Tanggal</th>
+                  <th className="py-3 px-3.5">Tgl Periksa</th>
+                  <th className="py-3 px-3.5">Tgl Bayar</th>
                   <th className="py-3 px-3.5">Dokter</th>
                   <th className="py-3 px-3.5">Diagnosa ICD-10</th>
                   <th className="py-3 px-3.5">Jenis Pasien</th>
@@ -255,6 +256,9 @@ export function ReportPreviewTable({
                     <td className="py-3 px-3.5 text-slate-600">{row.desa}</td>
                     <td className="py-3 px-3.5 font-mono text-[11px] text-slate-500">
                       {row.tanggal_periksa}
+                    </td>
+                    <td className="py-3 px-3.5 font-mono text-[11px] text-slate-500">
+                      {row.tanggal_bayar}
                     </td>
                     <td className="py-3 px-3.5 font-medium text-slate-700">
                       {row.nama_dokter}
@@ -364,7 +368,7 @@ export function ReportPreviewTable({
                 <strong className="font-mono font-bold">{visitsSummary.bpjsCount}</strong>
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200/80 text-emerald-800 font-medium shadow-2xs">
-                <span>Total Billing:</span>
+                <span>Total Tagihan (tgl periksa):</span>
                 <strong className="font-mono font-bold">{formatRupiah(visitsSummary.totalBiaya)}</strong>
               </span>
             </>

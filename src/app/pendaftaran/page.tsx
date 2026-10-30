@@ -21,6 +21,7 @@ import { ReceiptModal } from '@/components/pendaftaran/ReceiptModal';
 import { QueueTicketModal } from '@/components/pendaftaran/QueueTicketModal';
 import { CancelQueueModal } from '@/components/rekam-medis/CancelQueueModal';
 import { formatLocalDateToYMD, formatRupiah, normalizeRupiah, getErrorMessage } from '@/lib/utils';
+import { buildSettlePaymentDates } from '@/lib/cash-date';
 import { KASIR_CARRY_OVER_DAYS, KASIR_CARRY_OVER_STATUSES } from '@/constants/clinic';
 
 const VISIT_SELECT = `
@@ -271,6 +272,16 @@ function PendaftaranKasirContent() {
             ? 'Lunas'
             : paymentState;
       const remainingPiutang = Math.max(0, totalTagihan - uangDiterima);
+      const paymentDates = buildSettlePaymentDates(
+        visit,
+        {
+          status: finalStatus,
+          total: totalTagihan,
+          outstanding: finalStatus === 'Piutang' ? remainingPiutang : 0,
+          method: isFreeVisit ? 'Tunai' : jenisPembayaran,
+        },
+        getJakartaToday()
+      );
 
       const { data, error } = await supabase
         .from('visits')
@@ -285,6 +296,7 @@ function PendaftaranKasirContent() {
           payment_state: finalStatus,
           piutang_nominal: finalStatus === 'Piutang' ? remainingPiutang : 0,
           piutang_note: finalStatus === 'Piutang' ? `Sisa piutang ${formatRupiah(remainingPiutang)}` : null,
+          ...paymentDates,
         })
         .eq('id', visit.id)
         .select(`
