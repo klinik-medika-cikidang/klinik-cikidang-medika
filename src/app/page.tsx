@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
@@ -43,6 +43,7 @@ import {
 } from '@/components/dashboard/VillageDistributionCard';
 import {
   ClinicalAlertWidget,
+  countPostCareAlerts,
   type ClinicalAlertCounts,
 } from '@/components/dashboard/ClinicalAlertWidget';
 import {
@@ -64,7 +65,7 @@ import {
   type CashLiquidityData,
 } from '@/components/dashboard/CashLiquidityCard';
 import type { CashFlow } from '@/types/database';
-import { circumcisionActiveSince, isActivePostCare } from '@/lib/program-status';
+import { circumcisionActiveSince } from '@/lib/program-status';
 import { cashDateOrFilter, getVisitCashEvents } from '@/lib/cash-date';
 import { loadDrawerOpening } from '@/lib/drawer-opening-loader';
 
@@ -100,6 +101,7 @@ export default function DashboardPage() {
     overduePostCare: 0,
     recentCircumcision: 0,
   });
+  const [clinicalAlertsFailed, setClinicalAlertsFailed] = useState(false);
 
   const [dailyTrends, setDailyTrends] = useState<DailyTrendPoint[]>([]);
   const [dailyTrendLabel, setDailyTrendLabel] = useState('Harian');
@@ -127,7 +129,12 @@ export default function DashboardPage() {
     cashRatio: 75,
     transferRatio: 25,
     recentMutations: [],
+    includesOpeningBalance: false,
   });
+
+  // Only the latest request may write state, so a slower load for an earlier period
+  // cannot overwrite the period the user switched to.
+  const fetchRequestRef = useRef(0);
 
   // The effective date bounds are derived once. Depending on the resolved bounds rather
   // than on the selected preset means switching preset to an equivalent range (for
@@ -160,6 +167,8 @@ export default function DashboardPage() {
   }, [selectedPeriod, customStart, customEnd]);
 
   const fetchDashboardData = useCallback(async () => {
+    const requestId = ++fetchRequestRef.current;
+    const isStale = () => requestId !== fetchRequestRef.current;
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -167,8 +176,10 @@ export default function DashboardPage() {
       const supabase = createClient();
       const todayStr = formatLocalDateToYMD();
 
-      let startDate: string | null = periodRange.start || null;
-      let endDate: string | null = periodRange.end || null;
+      // Full period bounds, the same as Buku Kas and Laporan. Cash flows cannot be dated
+      // after today (AddCashFlowModal), so the month's later days add nothing yet.
+      const startDate: string | null = periodRange.start || null;
+      const endDate: string | null = periodRange.end || null;
 
       // 1. Fetch total unique registered patients
       const { count: patientCount } = await supabase
@@ -229,20 +240,24 @@ export default function DashboardPage() {
         flowPage++;
       }
 
-      // 4. Fetch Clinical Alerts Data
-      const { data: tbcData } = await supabase
-        .from('tbc_programs')
-        .select('id, status_tbc, bulan_ke, tanggal_mulai');
-
-      const { data: postCareData } = await supabase
-        .from('post_cares')
-        .select('id, tanggal_kontrol_berikutnya, status_kontrol');
-
-      const { count: recentCircCount } = await supabase
-        .from('circumcisions')
-        .select('id', { count: 'exact', head: true })
-        // Same active window as Program Khusus (F-022), so both screens show one number.
-        .gte('tanggal_tindakan', circumcisionActiveSince(todayStr));
+      // 4. Fetch Clinical Alerts Data. A failed query must not read as zero patients, so
+      // the banner warns instead of showing the all-clear.
+      const [tbcResult, postCareResult, circResult] = await Promise.all([
+        supabase.from('tbc_programs').select('id, status_tbc, bulan_ke, tanggal_mulai'),
+        supabase.from('post_cares').select('id, tanggal_kontrol_berikutnya, status_kontrol'),
+        supabase
+          .from('circumcisions')
+          .select('id', { count: 'exact', head: true })
+          // Same active window as Program Khusus (F-022), so both screens show one number.
+          .gte('tanggal_tindakan', circumcisionActiveSince(todayStr)),
+      ]);
+      const alertErrors = [tbcResult.error, postCareResult.error, circResult.error].filter(Boolean);
+      if (alertErrors.length > 0) {
+        console.error('Error loading clinical alerts for dashboard:', alertErrors);
+      }
+      const tbcData = tbcResult.error ? null : tbcResult.data;
+      const postCareData = postCareResult.error ? null : postCareResult.data;
+      const recentCircCount = circResult.error ? 0 : circResult.count;
 
       let mangkirTbc = 0;
       if (tbcData) {
@@ -262,28 +277,8 @@ export default function DashboardPage() {
         });
       }
 
-      let todayPostCare = 0;
-      let overduePostCare = 0;
-      if (postCareData) {
-        postCareData.forEach((p) => {
-          if (isActivePostCare(p)) {
-            if (p.tanggal_kontrol_berikutnya === todayStr) {
-              todayPostCare++;
-            } else if (p.tanggal_kontrol_berikutnya < todayStr) {
-              overduePostCare++;
-            }
-          }
-        });
-      }
-
+      const { todayPostCare, overduePostCare } = countPostCareAlerts(postCareData ?? [], todayStr);
       const recentCircumcision = recentCircCount || 0;
-
-      setClinicalAlerts({
-        mangkirTbc,
-        todayPostCare,
-        overduePostCare,
-        recentCircumcision,
-      });
 
       // 5. Data Aggregation
       let bpjsVisits = 0;
@@ -497,16 +492,20 @@ export default function DashboardPage() {
         startDate === formatLocalDateToYMD(new Date(now.getFullYear(), now.getMonth(), 1)) &&
         endDate === formatLocalDateToYMD(new Date(now.getFullYear(), now.getMonth() + 1, 0));
       let saldoAwal = 0;
+      let includesOpeningBalance = false;
       if (isCurrentMonth && startDate) {
         // Saldo Awal only adjusts the drawer estimate, so a failure (for example a database
         // without the F-023 table yet) degrades to the pre-F-023 figure instead of an error page.
         try {
           saldoAwal = (await loadDrawerOpening(supabase, startDate)).saldoAwal;
+          includesOpeningBalance = true;
         } catch (openingErr) {
+          if (isStale()) return;
           console.error('Error loading drawer opening for dashboard:', openingErr);
           toast.warning('Saldo awal laci gagal dimuat; estimasi laci dihitung tanpa saldo awal.');
         }
       }
+      if (isStale()) return;
 
       // Liquidity calculations
       // tunaiRev and tfRev already include extra charges paid by BPJS patients, which
@@ -538,7 +537,16 @@ export default function DashboardPage() {
         cashRatio: cashRatioPct,
         transferRatio: tfRatioPct,
         recentMutations: allFlows.slice(0, 4) as CashFlow[],
+        includesOpeningBalance,
       });
+
+      setClinicalAlerts({
+        mangkirTbc,
+        todayPostCare,
+        overduePostCare,
+        recentCircumcision,
+      });
+      setClinicalAlertsFailed(alertErrors.length > 0);
 
       // Format Top 10 Diseases
       const sortedDiseases: DiseaseStat[] = Object.values(diseaseMap)
@@ -597,13 +605,16 @@ export default function DashboardPage() {
 
       setLastRefreshed(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
     } catch (err) {
+      if (isStale()) return;
       console.error('Error fetching dashboard data:', err);
       const msg =
         getErrorMessage(err, 'Terjadi kesalahan saat memuat data dashboard.');
       setErrorMessage(msg);
+      // The surveillance strip must not keep showing an all-clear the failed load never checked.
+      setClinicalAlertsFailed(true);
       toast.error(msg);
     } finally {
-      setIsLoading(false);
+      if (!isStale()) setIsLoading(false);
     }
   }, [periodRange]);
 
@@ -723,7 +734,11 @@ export default function DashboardPage() {
       )}
 
       {/* Clinical Surveillance Alert Strip */}
-      <ClinicalAlertWidget alerts={clinicalAlerts} isLoading={isLoading} />
+      <ClinicalAlertWidget
+        alerts={clinicalAlerts}
+        loadFailed={clinicalAlertsFailed}
+        isLoading={isLoading}
+      />
 
       {/* 5 Executive KPI Cards */}
       <DashboardKpiCards data={kpiData} isLoading={isLoading} />

@@ -264,7 +264,7 @@ export function QueueList({
                           <MapPin className="w-3 h-3 text-slate-400 shrink-0" weight="duotone" />
                           {visit.pasien?.desa || '-'}
                         </span>
-                        {visit.pasien?.usia !== undefined && (
+                        {visit.pasien?.usia != null && (
                           <>
                             <span>•</span>
                             <span>{visit.pasien.usia} th</span>

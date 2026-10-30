@@ -37,8 +37,12 @@ interface CircumcisionListProps {
   records: Circumcision[];
   onRefresh: () => void;
   isLoading?: boolean;
-  /** Replaces the "no records yet" text when the list is empty only because of the active scope. */
+  /** Replaces the "no records yet" text when the list is empty because of the scope, search, or filter. */
   emptyMessage?: string;
+  /** Heading shown with emptyMessage; defaults to the active-scope heading. */
+  emptyTitle?: string;
+  /** Actions under the empty message, such as switching to Semua Riwayat. */
+  emptyAction?: React.ReactNode;
 }
 
 interface PhotoLightboxState {
@@ -127,7 +131,14 @@ function ThumbnailItem({
   );
 }
 
-export function CircumcisionList({ records, onRefresh, isLoading, emptyMessage }: CircumcisionListProps) {
+export function CircumcisionList({
+  records,
+  onRefresh,
+  isLoading,
+  emptyMessage,
+  emptyTitle,
+  emptyAction,
+}: CircumcisionListProps) {
   const [lightbox, setLightbox] = useState<PhotoLightboxState | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
 
@@ -289,12 +300,15 @@ export function CircumcisionList({ records, onRefresh, isLoading, emptyMessage }
           <Scissors weight="duotone" className="w-8 h-8" />
         </div>
         <h3 className="text-sm font-bold text-slate-800">
-          {emptyMessage ? 'Tidak ada tindakan sirkumsisi aktif' : 'Belum ada riwayat tindakan sirkumsisi'}
+          {emptyMessage
+            ? emptyTitle ?? 'Tidak ada tindakan sirkumsisi aktif'
+            : 'Belum ada riwayat tindakan sirkumsisi'}
         </h3>
         <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
           {emptyMessage ??
             'Klik tombol "+ Catat Sirkumsisi" di atas untuk mendokumentasikan pasien tindakan bedah minor dan foto luka WebP privat.'}
         </p>
+        {emptyMessage && emptyAction}
       </div>
     );
   }

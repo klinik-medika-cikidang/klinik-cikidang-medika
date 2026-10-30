@@ -25,6 +25,9 @@ import {
   exportCashFlowsToExcel,
   exportMorbidityToExcel,
   exportFullClinicWorkbook,
+  buildCashReceiptRows,
+  FULL_WORKBOOK_SHEET_NAMES,
+  type CashReceiptExportRow,
   type VisitExportRow,
   type CashFlowExportRow,
   type MorbidityExportRow,
@@ -89,6 +92,7 @@ export default function LaporanPage() {
   const [latePaymentVisits, setLatePaymentVisits] = useState<VisitExportRow[]>([]);
   const [onlyLatePayments, setOnlyLatePayments] = useState(false);
   const [cashBilling, setCashBilling] = useState(0);
+  const [cashReceipts, setCashReceipts] = useState<CashReceiptExportRow[]>([]);
   const [morbidityData, setMorbidityData] = useState<MorbidityExportRow[]>([]);
   const [cashFlowData, setCashFlowData] = useState<CashFlowExportRow[]>([]);
 
@@ -205,6 +209,16 @@ export default function LaporanPage() {
         (sum, v) => sum + visitCashInRange(v, startDate || null, endDate || null),
         0
       );
+      // Same visits and range as cashBillingTotal, so the Excel sheet total equals the KPI.
+      const formattedReceipts = buildCashReceiptRows(
+        activeVisits.map((v) => ({
+          ...v,
+          no_rm: v.patients?.no_rm || '-',
+          nama_pasien: v.patients?.nama || 'Pasien',
+        })),
+        startDate || null,
+        endDate || null
+      );
 
       const formattedFlows: CashFlowExportRow[] = allFlows.map((f) => ({
         tanggal: f.tanggal,
@@ -243,6 +257,7 @@ export default function LaporanPage() {
       setVisitsData(formattedVisits);
       setLatePaymentVisits(formattedLateVisits);
       setCashBilling(cashBillingTotal);
+      setCashReceipts(formattedReceipts);
       setCashFlowData(formattedFlows);
       setMorbidityData(formattedMorbidity);
     } catch (err) {
@@ -307,8 +322,10 @@ export default function LaporanPage() {
       const dateRange = { start: startDate || 'Awal', end: endDate || 'Akhir' };
 
       if (activeTab === 'kunjungan') {
-        exportVisitsToExcel(shownVisits, dateRange);
-        toast.success(`Laporan kunjungan (${shownVisits.length} baris) berhasil diunduh.`);
+        exportVisitsToExcel(shownVisits, dateRange, cashReceipts);
+        toast.success(
+          `Laporan kunjungan (${shownVisits.length} baris) dan Penerimaan Kasir (${cashReceipts.length} baris) berhasil diunduh.`
+        );
       } else if (activeTab === 'morbiditas') {
         exportMorbidityToExcel(morbidityData, dateRange);
         toast.success(`Laporan morbiditas ICD-10 (${morbidityData.length} baris) berhasil diunduh.`);
@@ -326,11 +343,12 @@ export default function LaporanPage() {
       const dateRange = { start: startDate || 'Awal', end: endDate || 'Akhir' };
       exportFullClinicWorkbook({
         visits: visitsData,
+        receipts: cashReceipts,
         flows: cashFlowData,
         morbidity: morbidityData,
         dateRange,
       });
-      toast.success('Buku kerja konsolidasi lengkap (3 sheet) berhasil diunduh.');
+      toast.success(`Buku kerja konsolidasi lengkap (${FULL_WORKBOOK_SHEET_NAMES.length} sheet) berhasil diunduh.`);
     } catch {
       toast.error('Gagal membuat buku kerja konsolidasi Excel.');
     }
@@ -394,7 +412,6 @@ export default function LaporanPage() {
           </p>
         </div>
 
-        {/* Action Ribbon: Reload + Single Tab Export + Full 3-Sheet Workbook Export */}
         <div className="flex items-center gap-2 w-full lg:w-auto">
           <button
             type="button"
@@ -410,7 +427,9 @@ export default function LaporanPage() {
             type="button"
             onClick={handleExportActiveTab}
             disabled={
-              isLoading || isSelfContainedTab || (activeTab === 'kunjungan' && shownVisits.length === 0)
+              isLoading ||
+              isSelfContainedTab ||
+              (activeTab === 'kunjungan' && shownVisits.length === 0 && cashReceipts.length === 0)
             }
             className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-gradient-to-b from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white px-3.5 py-2 min-h-[40px] sm:min-h-[38px] rounded-xl text-xs font-bold shadow-btn-primary border border-teal-700/80 tactile-btn transition disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
           >
@@ -422,11 +441,13 @@ export default function LaporanPage() {
             <button
               type="button"
               onClick={handleExportFullWorkbook}
-              disabled={isLoading || (visitsData.length === 0 && cashFlowData.length === 0)}
+              disabled={
+                isLoading || (visitsData.length === 0 && cashFlowData.length === 0 && cashReceipts.length === 0)
+              }
               className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-3.5 py-2 min-h-[40px] sm:min-h-[38px] rounded-xl text-xs font-bold shadow-btn-primary border border-emerald-700/80 tactile-btn transition disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:outline-none"
             >
               <Stack weight="bold" className="w-3.5 h-3.5" />
-              <span>Rekap Lengkap (3 Sheet)</span>
+              <span>Rekap Lengkap ({FULL_WORKBOOK_SHEET_NAMES.length} Sheet)</span>
             </button>
           )}
         </div>

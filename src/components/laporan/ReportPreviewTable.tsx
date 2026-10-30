@@ -211,7 +211,7 @@ export function ReportPreviewTable({
                   <th className="py-3 px-3.5">Dokter</th>
                   <th className="py-3 px-3.5">Diagnosa ICD-10</th>
                   <th className="py-3 px-3.5">Jenis Pasien</th>
-                  <th className="py-3 px-3.5 text-right">Biaya Kasir</th>
+                  <th className="py-3 px-3.5 text-right">Tagihan (tgl periksa)</th>
                 </tr>
               </thead>
             )}

@@ -81,3 +81,11 @@ After:   settle visit ──> visits.status_pembayaran + tanggal_bayar
 - Staging: create a visit dated yesterday, settle it today, and confirm Buku Kas per-date shows it today and Dashboard visit counts still show it yesterday.
 - Regression: totals for September 2026 before and after the migration must match (INV-021-1).
 - Responsive: receipt and Laporan filter at 360px, 768px, 1024px.
+
+## Audit amendments (2026-10-30)
+
+- **DEC-021-4 (enforcing DEC-021-2):** after a first payment, the next receipt must settle the whole remaining balance as Lunas. A further receipt is accepted only on the same day with the same method as the recorded payoff; anything else is blocked with an Indonesian message. This keeps money already counted in an earlier day's drawer on that day and in its method. Several instalments per visit need a payment ledger table, proposed as post-MVP work.
+- **Cashier panel:** for a visit that already received money the panel shows "Sudah dibayar" with its date, "Sisa piutang" and "Harus dibayar sekarang", and "Uang Diterima Sekarang" is pre-filled with the amount due now. "Belum Bayar" is hidden and cancelling is blocked for such a visit.
+- **Doctor sends a visit back:** a paid visit keeps its payment date and method; new charges become Piutang for the difference. A visit that never received money (BPJS covered, free, or unpaid) has its payment columns cleared so the new charges are owed today. The doctor's save stops when the cashier changed the bill after the form opened.
+- **Legacy rows:** a row the earlier examination form sent back after payment (unsettled, payment_state Lunas or Piutang, no tanggal_bayar) cannot be settled automatically; the panel asks to check the old receipt. The old staging data has none of these rows; run the same read-only query on production before release.
+- **Concurrency:** settles and doctor saves re-read the payment columns and are guarded on the values read.

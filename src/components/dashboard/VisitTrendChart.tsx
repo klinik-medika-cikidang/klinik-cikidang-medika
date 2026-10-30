@@ -163,7 +163,7 @@ export function VisitTrendChart({
         <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-well flex flex-col justify-between">
           <div className="flex items-center gap-1.5 mb-1">
             <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
-            <span className="text-[11px] font-semibold text-slate-500 truncate">Total Kunjungan</span>
+            <span className="text-[11px] font-semibold text-slate-500 leading-tight min-w-0">Total Kunjungan</span>
           </div>
           <span className="text-base font-extrabold text-slate-900 font-mono tracking-tight">
             {totalPeriodVisits.toLocaleString('id-ID')}
@@ -175,7 +175,7 @@ export function VisitTrendChart({
           <div className="flex items-center justify-between gap-1 mb-1">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-              <span className="text-[11px] font-semibold text-slate-600 truncate">Pasien BPJS</span>
+              <span className="text-[11px] font-semibold text-slate-600 leading-tight min-w-0">Pasien BPJS</span>
             </div>
             <span className="text-[10px] font-bold font-mono text-emerald-700 bg-emerald-50 px-1 rounded border border-emerald-200/60 shrink-0">
               {totalPeriodVisits > 0 ? ((totalBpjsVisits / totalPeriodVisits) * 100).toFixed(0) : 0}%
@@ -191,7 +191,7 @@ export function VisitTrendChart({
           <div className="flex items-center justify-between gap-1 mb-1">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />
-              <span className="text-[11px] font-semibold text-slate-600 truncate">Pasien Umum</span>
+              <span className="text-[11px] font-semibold text-slate-600 leading-tight min-w-0">Pasien Umum</span>
             </div>
             <span className="text-[10px] font-bold font-mono text-teal-700 bg-teal-50 px-1 rounded border border-teal-200/60 shrink-0">
               {totalPeriodVisits > 0 ? ((totalUmumVisits / totalPeriodVisits) * 100).toFixed(0) : 0}%
@@ -207,7 +207,7 @@ export function VisitTrendChart({
           <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-well flex flex-col justify-between">
             <div className="flex items-center gap-1.5 mb-1">
               <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-              <span className="text-[11px] font-semibold text-slate-600 truncate">Puncak Rekor</span>
+              <span className="text-[11px] font-semibold text-slate-600 leading-tight min-w-0">Puncak Rekor</span>
             </div>
             <span className="text-base font-extrabold text-slate-900 font-mono tracking-tight">
               {peakPoint.total} Pasien

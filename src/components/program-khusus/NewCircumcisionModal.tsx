@@ -211,8 +211,9 @@ export function NewCircumcisionModal({
       onClose();
     } catch (err) {
       console.error('Error saving circumcision record:', err);
-      setErrorMsg(getErrorMessage(err, 'Gagal menyimpan data sirkumsisi'));
-      toast.error('Gagal mendokumentasikan tindakan sirkumsisi');
+      const msg = getErrorMessage(err, 'Gagal menyimpan data sirkumsisi.');
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
       setUploadProgress(null);

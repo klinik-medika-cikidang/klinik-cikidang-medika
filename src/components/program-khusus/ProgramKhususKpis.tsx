@@ -171,8 +171,8 @@ export function ProgramKhususKpis({ data, isLoading }: ProgramKhususKpisProps) {
           >
             <div>
               {/* Header: Title & Icon Pill */}
-              <div className="flex items-center justify-between text-slate-500 mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate mr-1">
+              <div className="flex items-start justify-between gap-2 text-slate-500 mb-2">
+                <span className="min-w-0 pt-1 text-[11px] leading-snug font-bold uppercase tracking-wider text-slate-500">
                   {card.title}
                 </span>
                 <div className={`p-1.5 rounded-xl shrink-0 ${card.iconBg}`}>
@@ -192,9 +192,9 @@ export function ProgramKhususKpis({ data, isLoading }: ProgramKhususKpisProps) {
 
               {/* Real Clinical Proportional Progress Track (replaces distorted sparkline) */}
               <div className="my-3 space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 font-semibold">
-                  <span className="truncate">{card.barLabel}</span>
-                  <span className="shrink-0 text-slate-700">{card.barDetail}</span>
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] font-mono text-slate-500 font-semibold">
+                  <span className="min-w-0">{card.barLabel}</span>
+                  <span className="text-slate-700 tabular-nums">{card.barDetail}</span>
                 </div>
                 <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
                   <div
@@ -206,8 +206,8 @@ export function ProgramKhususKpis({ data, isLoading }: ProgramKhususKpisProps) {
             </div>
 
             {/* Footer: Subtitle & Real Clinical Status Badge */}
-            <div className="flex items-center justify-between gap-1 text-xs pt-2 border-t border-slate-100">
-              <span className="text-slate-600 text-[11px] font-medium leading-tight truncate">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs pt-2 border-t border-slate-100">
+              <span className="min-w-0 text-slate-600 text-[11px] font-medium leading-tight">
                 {card.subtitle}
               </span>
               <span

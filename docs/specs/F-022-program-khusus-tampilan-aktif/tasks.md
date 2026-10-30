@@ -33,3 +33,11 @@ Status: code done on branch `claude/f-019-perbaikan-konsistensi-44a314` (2026-10
   - Pending: staging count check and the 360/768/1024px visual check (need a logged-in staging session). The filter bar stacks below `xl` so the search, scope toggle, and filter pills never share one row on a 1024px screen with the sidebar.
   - Staging count check, Program Kesehatan unchanged, responsive check at 360px, 768px, 1024px.
   - _Requirements: INV-022-1 to INV-022-4_
+
+## Staging test and audit (2026-10-30)
+
+Tested end to end on the local build of the `staging` branch against the old staging database (`jpqmnbtowvfctxciuktj`), with an owner and a dokter_admin login and two fictitious test patients. An acceptance and cross-feature audit (5 spec checks plus integration, security/data and responsive/a11y lenses, every finding verified by two independent reviewers) ran three rounds; all confirmed findings were fixed or are listed below as accepted limitations.
+
+- [x] Day-14 vs day-15 boundary checked on staging with test rows (day 14 active, day 15 not).
+- [x] Audit fixes: empty states distinguish "nothing active" from "found only in Semua Riwayat"; tab counters and KPI titles wrap instead of truncating; the scope toggle has 44px buttons 8px apart and fits at 360px; Mangkir agendas count as late the same way on the Dashboard, the KPI cards and the agenda tabs.
+- [x] Responsive: no page-level horizontal scroll at 360, 768, 1024px.

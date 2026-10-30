@@ -114,7 +114,7 @@ export function ReportKpis({ data, isLoading }: ReportKpisProps) {
         </div>
 
         <div className="flex items-center justify-between gap-1 text-xs pt-2 border-t border-slate-100">
-          <span className="text-slate-600 text-[11px] font-medium leading-tight truncate">
+          <span className="text-slate-600 text-[11px] font-medium leading-tight min-w-0">
             {data.umumCount} Umum • {data.bpjsCount} BPJS
           </span>
           <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-md border shrink-0 text-teal-700 bg-teal-50 border-teal-200">
@@ -167,8 +167,8 @@ export function ReportKpis({ data, isLoading }: ReportKpisProps) {
         </div>
 
         <div className="flex items-center justify-between gap-1 text-xs pt-2 border-t border-slate-100">
-          <span className="text-slate-600 text-[11px] font-medium leading-tight truncate">
-            Poli umum, kasir &amp; tindakan
+          <span className="text-slate-600 text-[11px] font-medium leading-tight min-w-0">
+            Menurut tanggal bayar
           </span>
           <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-md border shrink-0 text-emerald-700 bg-emerald-50 border-emerald-200">
             Omzet Faskes
@@ -239,7 +239,7 @@ export function ReportKpis({ data, isLoading }: ReportKpisProps) {
         </div>
 
         <div className="flex items-center justify-between gap-1 text-xs pt-2 border-t border-slate-100">
-          <span className="text-slate-600 text-[11px] font-medium leading-tight truncate">
+          <span className="text-slate-600 text-[11px] font-medium leading-tight min-w-0">
             Masuk {formatRupiah(data.totalKasMasuk)} • Keluar {formatRupiah(data.totalKasKeluar)}
           </span>
           <span

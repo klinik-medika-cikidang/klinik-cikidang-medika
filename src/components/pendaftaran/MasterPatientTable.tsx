@@ -17,7 +17,9 @@ import {
 import type { Visit, Patient } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
 import { Badge } from '@/components/ui/Badge';
+import { toast } from 'sonner';
 import { cn, formatDateShort } from '@/lib/utils';
+import { requiresFullPayoff } from '@/lib/cash-date';
 
 export type TableFilterTab =
   | 'hari_ini'
@@ -581,7 +583,7 @@ export function MasterPatientTable({
                       <div className="font-bold text-slate-900">{fullName}</div>
                       <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1.5 flex-wrap">
                         <span>
-                          {patient.usia !== undefined ? `${patient.usia} thn` : '-'},{' '}
+                          {patient.usia != null ? `${patient.usia} thn` : '-'},{' '}
                           {patient.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}
                         </span>
                         {patient.tanggal_lahir && (
@@ -664,7 +666,7 @@ export function MasterPatientTable({
                       <div className="font-bold text-slate-900">{patientName}</div>
                       <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1.5 flex-wrap">
                         <span>
-                          {p?.usia !== undefined ? `${p.usia} thn` : '-'},{' '}
+                          {p?.usia != null ? `${p.usia} thn` : '-'},{' '}
                           {p?.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}
                         </span>
                         {p?.tanggal_lahir && (
@@ -788,15 +790,34 @@ export function MasterPatientTable({
 
                         {/* 4. Action: Batalkan Antrean untuk pasien yang belum selesai */}
                         {(isWaitingDoctor(visit) || isWaitingPayment(visit)) && onCancelVisit && (
-                          <button
-                            type="button"
-                            onClick={() => onCancelVisit(visit)}
-                            className="p-1.5 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-slate-300 hover:border-rose-300 rounded-xl text-[11px] font-bold shadow-btn-secondary transition-colors tactile-btn min-h-[32px] min-w-[32px] flex items-center justify-center"
-                            title="Batalkan antrean kunjungan pasien ini"
-                            aria-label={`Batalkan antrean ${patientName}`}
-                          >
-                            <XCircle className="w-3.5 h-3.5 text-rose-500" weight="bold" />
-                          </button>
+                          // Batal books no cash, so cancelling a visit that already took money
+                          // would erase that money from the day it was received.
+                          requiresFullPayoff(visit) ? (
+                            <button
+                              type="button"
+                              aria-disabled="true"
+                              onClick={() =>
+                                toast.error(
+                                  'Kunjungan ini sudah menerima pembayaran, jadi tidak bisa dibatalkan. Selesaikan sisa tagihannya di kasir.'
+                                )
+                              }
+                              className="p-1.5 bg-slate-50 text-slate-400 border border-slate-200 rounded-xl text-[11px] font-bold transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-not-allowed"
+                              title="Tidak bisa dibatalkan karena sudah ada pembayaran"
+                              aria-label={`Antrean ${patientName} tidak bisa dibatalkan karena sudah ada pembayaran`}
+                            >
+                              <XCircle className="w-3.5 h-3.5" weight="bold" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onCancelVisit(visit)}
+                              className="p-1.5 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-slate-300 hover:border-rose-300 rounded-xl text-[11px] font-bold shadow-btn-secondary transition-colors tactile-btn min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              title="Batalkan antrean kunjungan pasien ini"
+                              aria-label={`Batalkan antrean ${patientName}`}
+                            >
+                              <XCircle className="w-3.5 h-3.5 text-rose-500" weight="bold" />
+                            </button>
+                          )
                         )}
 
                         {/* Secondary Action: Edit Biodata Pasien */}

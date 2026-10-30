@@ -4,6 +4,8 @@ import {
   isActiveCircumcision,
   isActivePostCare,
   isActiveTbc,
+  isDueTodayPostCare,
+  isOverduePostCare,
 } from './program-status';
 
 describe('isActiveTbc', () => {
@@ -49,5 +51,32 @@ describe('isActivePostCare', () => {
 
   it('treats a completed control as inactive', () => {
     expect(isActivePostCare({ status_kontrol: 'Sudah Kontrol' })).toBe(false);
+  });
+});
+
+describe('isOverduePostCare and isDueTodayPostCare', () => {
+  const today = '2026-10-30';
+  const row = (status_kontrol: 'Menunggu' | 'Mangkir' | 'Sudah Kontrol', tanggal_kontrol_berikutnya: string) => ({
+    status_kontrol,
+    tanggal_kontrol_berikutnya,
+  });
+
+  it('puts a Mangkir agenda in the late group only, whatever its date', () => {
+    for (const date of ['2026-10-29', today, '2026-11-02']) {
+      expect(isOverduePostCare(row('Mangkir', date), today)).toBe(true);
+      expect(isDueTodayPostCare(row('Mangkir', date), today)).toBe(false);
+    }
+  });
+
+  it('places a waiting agenda by its date', () => {
+    expect(isOverduePostCare(row('Menunggu', '2026-10-29'), today)).toBe(true);
+    expect(isDueTodayPostCare(row('Menunggu', today), today)).toBe(true);
+    expect(isOverduePostCare(row('Menunggu', today), today)).toBe(false);
+    expect(isOverduePostCare(row('Menunggu', '2026-10-31'), today)).toBe(false);
+  });
+
+  it('ignores a finished agenda', () => {
+    expect(isOverduePostCare(row('Sudah Kontrol', '2026-10-01'), today)).toBe(false);
+    expect(isDueTodayPostCare(row('Sudah Kontrol', today), today)).toBe(false);
   });
 });

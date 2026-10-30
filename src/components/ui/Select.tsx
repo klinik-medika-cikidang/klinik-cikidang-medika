@@ -334,7 +334,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             className="absolute left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-[0_0_0_1px_rgba(15,23,42,0.08),0_16px_36px_-4px_rgba(15,23,42,0.16),0_6px_12px_-2px_rgba(15,23,42,0.06)] p-1.5 z-50 animate-popover max-h-72 overflow-y-auto"
           >
             {headerTitle && (
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1 select-none">
+              <div role="presentation" className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1 select-none">
                 {headerTitle}
               </div>
             )}
@@ -369,6 +369,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
                     >
                       <div
                         id={`${listboxId}-group-${runIndex}`}
+                        role="presentation"
                         className="px-2.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500"
                       >
                         {run.group}
