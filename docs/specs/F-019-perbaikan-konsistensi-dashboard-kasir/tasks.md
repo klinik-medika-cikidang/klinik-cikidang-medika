@@ -8,10 +8,11 @@ last_updated: 2026-10-28
 
 # Implementation Tasks — F-019
 
-Status: code and audit tasks done on branch `claude/f-019-perbaikan-konsistensi-44a314` (2026-10-30). Task 1.1 and the production part of 6.2 wait for the user: migrations go to the old staging project first, and to the old production project only after the user approves the staging test.
+Status: code and audit tasks done on branch `claude/f-019-perbaikan-konsistensi-44a314` (2026-10-30). Tested on old staging; the user approved the release. Migrations applied to old production on 2026-10-30; the code release to `main` is scheduled after clinic hours.
 
 ## Phase 1: Kategori Kunjungan
-- [ ] **Task 1.1: Verify and promote the F-011 migration to production** (menunggu izin user: production lama masih live; staging lama dulu, production lama setelah di-acc)
+- [x] **Task 1.1: Verify and promote the F-011 migration to production**
+  - Done 2026-10-30 after the user approved the staging test: the column was missing on old production (`aszjzvdmxudmoomdxttx`); `20261009_f011_visit_category.sql` applied with a 5s lock timeout. All 8070 visits read `UMUM`; no other value changed. The ANC save in the code already on `main` works from this point.
   - Run the column check from design §2.A. Apply `20261009_f011_visit_category.sql` only if the column is missing and only after explicit approval.
   - Update the production `migrations_applied` list in `docs/context/state.yaml`.
   - _Requirements: REQ-019-01.1, REQ-019-01.5_
@@ -99,4 +100,5 @@ Tested end to end on the local build of the `staging` branch against the old sta
 - [x] Carry-over queue, Tunggakan badge, and today's KPIs checked on screen.
 - [x] Fixes from the audit: Excel "Penerimaan Kasir" sheet whose total equals the KPI; Loket "Penerimaan Kasir" by received date; Kas Masuk/Kas Keluar dates cannot be after today (keeps Dashboard, Buku Kas and Laporan on the same rows); dashboard alert strip warns instead of showing an all-clear when a load fails; KPI labels, tile captions and quick-cash buttons no longer truncate; "null thn" age display fixed.
 - [x] Responsive check with a headless browser on Dashboard, Loket & Kasir, Pemeriksaan Dokter, Program Khusus, Buku Kas and Laporan at 360, 768 and 1024px: no page-level horizontal scroll on any of the 18 combinations. Remaining ellipsis only on long free-text names inside lists (diagnosis and drug names), unchanged behavior.
+- [x] Production database (2026-10-30): the 4 migrations (F-011, F-021, F-021b, F-023) are applied to old production; its schema fingerprint now equals old staging. Code release (merge to `main`) scheduled after clinic hours; on release, staff must reload every open tab (a stale tab can settle a payoff without the F-021 fields).
 - [ ] Open decision (from the client, 2026-10-30): the clinic sheet's "TOTAL PENDAPATAN" (the purple line on the DASHBOARD tab) equals tarif + Pendapatan lain of ALL visits, BPJS included, and matches the sheet in all 38 months from 2023-08 to 2026-09. The app's "Pendapatan Kasir" follows REQ-019-03.1 and counts the tarif of BPJS visits as 0. Changing the definition needs the owner's approval.

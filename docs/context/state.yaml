@@ -96,31 +96,31 @@ features:
     track: engineering
     status: draft
     spec_path: docs/specs/F-019-perbaikan-konsistensi-dashboard-kasir
-    active_phase: code-done-staging-tested
+    active_phase: prod-db-migrated-code-pending
   - id: F-020
     name: Rekap Pengeluaran Klinik dan Non Klinik
     track: engineering
     status: draft
     spec_path: docs/specs/F-020-rekap-pengeluaran-klinik-non-klinik
-    active_phase: code-done-staging-tested
+    active_phase: prod-db-migrated-code-pending
   - id: F-021
     name: Pencatatan Tanggal Bayar Pasien
     track: engineering
     status: draft
     spec_path: docs/specs/F-021-pencatatan-tanggal-bayar
-    active_phase: code-done-staging-tested
+    active_phase: prod-db-migrated-code-pending
   - id: F-022
     name: Tampilan Pasien Aktif pada Program Khusus
     track: engineering
     status: draft
     spec_path: docs/specs/F-022-program-khusus-tampilan-aktif
-    active_phase: code-done-staging-tested
+    active_phase: prod-db-migrated-code-pending
   - id: F-023
     name: Saldo Awal Laci Kasir
     track: engineering
     status: draft
     spec_path: docs/specs/F-023-saldo-awal-laci-kasir
-    active_phase: code-done-staging-tested
+    active_phase: prod-db-migrated-code-pending
 
 active:
   feature_id: "F-017"
@@ -184,7 +184,12 @@ migration:
         - supabase/migrations/20261010_f012_activate_packages.sql
         - supabase/migrations/20261010_f014_cancel_queue_support.sql
         - supabase/migrations/20261011_f015_puskesmas_reporting_enhancement.sql
-      latest_change: "2026-10-10: F-015 selesai; peningkatan Laporan Puskesmas & Register Program Kesehatan diterapkan di staging & produksi via 20261011_f015_puskesmas_reporting_enhancement.sql, mencakup filter bulanan, input manual GPA untuk ANC, skrining 3 Eliminasi, kategorisasi PTM, serta Universal Baseline Tanggal, No RM, dan Desa."
+        - supabase/migrations/20261009_f011_visit_category.sql
+        - supabase/migrations/20261030_f021_visit_payment_date.sql
+        - supabase/migrations/20261030_f021b_visit_payoff_method.sql
+        - supabase/migrations/20261030_f023_cash_drawer_openings.sql
+      backup_pref021: docs/data/prod-pref021-2026-10-30T06-40-15Z-visits.json (and -cash_flows.json)
+      latest_change: "2026-10-30: migrasi F-011 (kategori_program), F-021, F-021b, dan F-023 diterapkan ke produksi lama setelah tes staging di-acc user. Skema produksi kini identik dengan staging lama (547 objek), 8070 kunjungan dan 1716 cash_flows tidak berubah dibanding cadangan. Kode F-019..F-023 belum di-merge ke main; rilis kode dijadwalkan malam setelah klinik tutup. Sebelumnya 2026-10-10: F-015 selesai; peningkatan Laporan Puskesmas & Register Program Kesehatan diterapkan di staging & produksi via 20261011_f015_puskesmas_reporting_enhancement.sql, mencakup filter bulanan, input manual GPA untuk ANC, skrining 3 Eliminasi, kategorisasi PTM, serta Universal Baseline Tanggal, No RM, dan Desa."
   result:
     patients: 3750
     visits: 7827
