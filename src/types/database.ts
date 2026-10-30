@@ -104,6 +104,17 @@ export type CashFlow = {
   created_at: string;
 };
 
+// F-023: physical cash the owner counted in the drawer at the start of a month.
+export type CashDrawerOpening = {
+  /** Always the first day of the month ('YYYY-MM-01'). */
+  periode: string;
+  nominal: number;
+  catatan: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type TbcProgram = {
   id: string;
   pasien_id: string;

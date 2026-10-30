@@ -66,6 +66,21 @@ describe('summarizeCashPosition', () => {
     expect(drawerCash).toBe(1460000 - (237000 - 87000) - 2450000);
     expect(drawerCash + bankCash).toBe(netIncome);
   });
+
+  it('adds Saldo Awal to the drawer only, leaving net income and bank untouched (INV-023-2)', () => {
+    const without = summarizeCashPosition(input);
+    const withOpening = summarizeCashPosition({ ...input, saldoAwal: 3500000 });
+    expect(withOpening.drawerCash).toBe(without.drawerCash + 3500000);
+    expect(withOpening.netIncome).toBe(without.netIncome);
+    expect(withOpening.bankCash).toBe(without.bankCash);
+    expect(withOpening.drawerCash + withOpening.bankCash).toBe(withOpening.netIncome + 3500000);
+  });
+
+  it('treats a missing or zero Saldo Awal as the F-018 value (INV-023-1)', () => {
+    const base = summarizeCashPosition(input);
+    expect(summarizeCashPosition({ ...input, saldoAwal: 0 })).toEqual(base);
+    expect(summarizeCashPosition({ ...input, saldoAwal: undefined })).toEqual(base);
+  });
 });
 
 describe('isTransferPayment', () => {

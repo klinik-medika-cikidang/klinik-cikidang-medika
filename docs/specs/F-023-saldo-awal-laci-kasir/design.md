@@ -49,6 +49,8 @@ export function resolveDrawerOpening(params: {
 - `saldoAwal = openings[P] + Σ monthlyNet[m]` for `P <= m < month`.
 - `monthlyNet` for the months between `P` and the selected month is loaded with the same drawer rules as today (`isSettledCashVisit`, `isDrawerCashExpense`, `isCashHandoverToOwnerOrBank`). The query range is `P` to the end of the selected month.
 
+Implementation note (2026-10-30): the resolvers live in their own module `src/lib/drawer-opening.ts` instead of `utils.ts`, together with `resolveDailyDrawerOpening`, `drawerNetByDay`, and `sumDrawerNetByMonth`. The Supabase side is `loadDrawerOpening` in `src/lib/drawer-opening-loader.ts`: it reads only the latest opening `P <= month`, and when `P` is earlier it loads `P` to the end of the previous month (the selected month is already loaded by the page). Drawer cash follows the payment date from F-021 (`drawerCashEntries`, per-event method) instead of `isSettledCashVisit`.
+
 ## 3. Component Inventory
 
 | File | Change |

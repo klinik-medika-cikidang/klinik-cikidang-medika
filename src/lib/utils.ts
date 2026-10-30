@@ -73,10 +73,13 @@ export interface CashPositionInput {
   /** Portion of operationalExpenses paid by transfer; it leaves the bank, not the drawer. */
   transferExpenses?: number;
   ownerOrBankDeposits: number;
+  /** F-023: cash already in the drawer at the start of the period; never income. */
+  saldoAwal?: number;
 }
 
 // Net income is derived from the same buckets as the drawer and bank balances, so
-// drawer + bank always equals net income and no revenue source can be left out of one side.
+// drawer + bank always equals net income plus Saldo Awal and no revenue source can be
+// left out of one side.
 export function summarizeCashPosition(input: CashPositionInput) {
   const netIncome =
     input.tunaiRevenue +
@@ -86,6 +89,7 @@ export function summarizeCashPosition(input: CashPositionInput) {
     input.operationalExpenses;
   const transferExpenses = input.transferExpenses ?? 0;
   const drawerCash =
+    (input.saldoAwal ?? 0) +
     input.tunaiRevenue -
     (input.operationalExpenses - transferExpenses) -
     input.ownerOrBankDeposits;

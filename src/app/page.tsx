@@ -66,6 +66,7 @@ import {
 import type { CashFlow } from '@/types/database';
 import { circumcisionActiveSince, isActivePostCare } from '@/lib/program-status';
 import { cashDateOrFilter, getVisitCashEvents } from '@/lib/cash-date';
+import { loadDrawerOpening } from '@/lib/drawer-opening-loader';
 
 export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<DashboardPeriod>('this_month');
@@ -487,6 +488,26 @@ export default function DashboardPage() {
         };
       });
 
+      // F-023: "Bulan Ini" is the month Buku Kas opens on, so the drawer starts from the
+      // same Saldo Awal there (REQ-023-03.1). Checked on the bounds, not the preset, so a
+      // custom range equal to this month matches too. Other periods keep the period's own
+      // movements without an opening balance, as before F-023.
+      const now = new Date();
+      const isCurrentMonth =
+        startDate === formatLocalDateToYMD(new Date(now.getFullYear(), now.getMonth(), 1)) &&
+        endDate === formatLocalDateToYMD(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+      let saldoAwal = 0;
+      if (isCurrentMonth && startDate) {
+        // Saldo Awal only adjusts the drawer estimate, so a failure (for example a database
+        // without the F-023 table yet) degrades to the pre-F-023 figure instead of an error page.
+        try {
+          saldoAwal = (await loadDrawerOpening(supabase, startDate)).saldoAwal;
+        } catch (openingErr) {
+          console.error('Error loading drawer opening for dashboard:', openingErr);
+          toast.warning('Saldo awal laci gagal dimuat; estimasi laci dihitung tanpa saldo awal.');
+        }
+      }
+
       // Liquidity calculations
       // tunaiRev and tfRev already include extra charges paid by BPJS patients, which
       // umumRev does not, so net income must come from the loket buckets.
@@ -502,6 +523,7 @@ export default function DashboardPage() {
         operationalExpenses: expenses,
         transferExpenses,
         ownerOrBankDeposits: bankSetoran,
+        saldoAwal,
       });
       const totalLoketRevenue = tunaiRev + tfRev;
       const cashRatioPct =

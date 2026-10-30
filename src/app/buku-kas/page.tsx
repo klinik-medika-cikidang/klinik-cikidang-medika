@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   Wallet,
@@ -11,13 +11,15 @@ import {
   ArrowUpRight,
 } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
-import type { CashFlow } from '@/types/database';
+import type { CashDrawerOpening, CashFlow } from '@/types/database';
 import { MONTH_NAMES_ID } from '@/constants/clinic';
 import { CashFlowSummaryCards } from '@/components/buku-kas/CashFlowSummaryCards';
 import {
   CashReconciliationCard,
+  type DrawerOpeningView,
   type DrawerReconciliationMetrics,
 } from '@/components/buku-kas/CashReconciliationCard';
+import { DrawerOpeningModal } from '@/components/buku-kas/DrawerOpeningModal';
 import { CashFlowTable } from '@/components/buku-kas/CashFlowTable';
 import { AddCashFlowModal } from '@/components/buku-kas/AddCashFlowModal';
 import { Button } from '@/components/ui/Button';
@@ -39,11 +41,14 @@ import {
   type DrawerCashEntry,
 } from '@/lib/cash-date';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { drawerNetByDay, resolveDailyDrawerOpening } from '@/lib/drawer-opening';
+import { loadDrawerOpening, type DrawerOpeningState } from '@/lib/drawer-opening-loader';
 
 type CashVisitRow = CashDateVisit & { id: string; jenis_pembayaran?: string | null };
 
 export default function BukuKasPage() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
+  const isOwner = role === 'owner';
   // F-011 BR-002: Dokter/Admin records transactions but does not see the income,
   // expense, and balance summaries, which stay owner-only.
   const isDokterAdmin = role === 'dokter_admin';
@@ -64,6 +69,42 @@ export default function BukuKasPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'Masuk' | 'Keluar'>('Masuk');
+
+  // F-023: Saldo Awal of the selected month; null when it could not be loaded.
+  const [drawerOpening, setDrawerOpening] = useState<DrawerOpeningState | null>(null);
+  const [openingError, setOpeningError] = useState<string | null>(null);
+  const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false);
+  const openingRequestRef = useRef(0);
+
+  const selectedPeriode = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+
+  const fetchDrawerOpening = useCallback(async () => {
+    // Saldo Awal only feeds the owner-only reconciliation card.
+    if (isDokterAdmin) return;
+    // Switching months quickly must not let an older, slower answer win.
+    const requestId = ++openingRequestRef.current;
+    // Cleared first so the card and the edit button never show the previous month's opening
+    // while this month's answer is still on its way.
+    setDrawerOpening(null);
+    setOpeningError(null);
+    try {
+      const state = await loadDrawerOpening(createClient(), selectedPeriode);
+      if (requestId !== openingRequestRef.current) return;
+      setDrawerOpening(state);
+      setOpeningError(null);
+    } catch (err) {
+      if (requestId !== openingRequestRef.current) return;
+      console.error('Error fetching drawer opening:', err);
+      const msg = `Gagal memuat saldo awal laci kasir: ${getErrorMessage(err, 'kesalahan tidak dikenal.')}`;
+      setDrawerOpening(null);
+      setOpeningError(msg);
+      toast.error(msg);
+    }
+  }, [isDokterAdmin, selectedPeriode]);
+
+  useEffect(() => {
+    fetchDrawerOpening();
+  }, [fetchDrawerOpening]);
 
   const fetchCashFlows = useCallback(async () => {
     setIsLoading(true);
@@ -223,6 +264,26 @@ export default function BukuKasPage() {
     cashDepositsCount: dailyDepositFlows.length,
   };
 
+  // Per-date Saldo Awal is the month's Saldo Awal plus the drawer movements of the
+  // earlier days of the month (REQ-023-02.5), from the rows already loaded for the month.
+  const openingView: DrawerOpeningView | null = drawerOpening
+    ? {
+        monthly: drawerOpening.saldoAwal,
+        daily: resolveDailyDrawerOpening({
+          date: selectedReconciliationDate,
+          monthOpening: drawerOpening.saldoAwal,
+          dailyNet: drawerNetByDay(monthCashEntries, cashFlows),
+        }),
+        source: drawerOpening.source,
+        fromPeriode: drawerOpening.fromPeriode,
+        catatan: drawerOpening.recorded?.catatan ?? null,
+      }
+    : null;
+
+  const handleOpeningSaved = (row: CashDrawerOpening) => {
+    if (row.periode === selectedPeriode) fetchDrawerOpening();
+  };
+
   const handleOpenModal = (type: 'Masuk' | 'Keluar') => {
     setModalType(type);
     setIsModalOpen(true);
@@ -243,6 +304,9 @@ export default function BukuKasPage() {
     const [flowYear, flowMonth] = newFlow.tanggal.split('-').map(Number);
     if (flowYear === selectedYear && flowMonth === selectedMonth) {
       setCashFlows((prev) => [newFlow, ...prev]);
+    } else if (newFlow.tanggal < selectedPeriode) {
+      // A back-dated flow changes the carried Saldo Awal of this month.
+      fetchDrawerOpening();
     }
   };
 
@@ -264,6 +328,7 @@ export default function BukuKasPage() {
 
   const handleManualRefresh = () => {
     fetchCashFlows();
+    fetchDrawerOpening();
     toast.info('Memperbarui data mutasi kas...');
   };
 
@@ -420,6 +485,9 @@ export default function BukuKasPage() {
           selectedDate={selectedReconciliationDate}
           onSelectedDateChange={setSelectedReconciliationDate}
           onOpenSetorTunai={() => handleOpenModal('Masuk')}
+          opening={openingView}
+          openingError={openingError}
+          onEditOpening={isOwner ? () => setIsOpeningModalOpen(true) : undefined}
         />
       )}
 
@@ -436,6 +504,19 @@ export default function BukuKasPage() {
         initialType={modalType}
         onSuccess={handleCashFlowAdded}
       />
+
+      {isOwner && (
+        <DrawerOpeningModal
+          isOpen={isOpeningModalOpen}
+          onClose={() => setIsOpeningModalOpen(false)}
+          periode={selectedPeriode}
+          monthLabel={`${selectedMonthName} ${selectedYear}`}
+          recorded={drawerOpening?.recorded ?? null}
+          carriedSaldo={drawerOpening?.source === 'carried' ? drawerOpening.saldoAwal : null}
+          userId={user?.id ?? null}
+          onSaved={handleOpeningSaved}
+        />
+      )}
     </div>
   );
 }

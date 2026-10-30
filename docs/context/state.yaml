@@ -120,7 +120,7 @@ features:
     track: engineering
     status: draft
     spec_path: docs/specs/F-023-saldo-awal-laci-kasir
-    active_phase: awaiting-client-approval
+    active_phase: code-done-awaiting-staging-test
 
 active:
   feature_id: "F-017"
