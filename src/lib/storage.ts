@@ -1,4 +1,5 @@
 import { createClient } from './supabase/client';
+import { getErrorMessage } from './utils';
 
 export type StorageProvider = 'supabase' | 'cloudinary';
 
@@ -125,7 +126,7 @@ export async function uploadMedicalPhoto(
           console.error('Fallback Cloudinary juga gagal:', cloudinaryErr);
         }
       }
-      const errMessage = err instanceof Error ? err.message : 'Terjadi kendala saat menyimpan foto medis';
+      const errMessage = getErrorMessage(err, 'Terjadi kendala saat menyimpan foto medis');
       throw new Error(`Gagal mengunggah foto ke Supabase Storage: ${errMessage}`);
     }
   }

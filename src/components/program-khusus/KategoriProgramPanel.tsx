@@ -14,7 +14,7 @@ import {
   OBSERVASI_LABEL,
   type VisitCategory,
 } from '@/constants/clinic';
-import { cn } from '@/lib/utils';
+import { cn, getErrorMessage } from '@/lib/utils';
 
 // ANC, PTM, KB, and 3 Eliminasi each have a register row in public_health_records. The
 // visit category is the summary that lets a visit be filtered without reading the register.
@@ -57,7 +57,7 @@ export function KategoriProgramPanel({ visit, onSaved, className }: KategoriProg
       toast.success(`Kategori kunjungan disimpan: ${VISIT_CATEGORY_LABELS[kategori]}.`);
       onSaved?.(kategori);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Gagal menyimpan kategori kunjungan.';
+      const msg = getErrorMessage(err, 'Gagal menyimpan kategori kunjungan.');
       toast.error(msg);
     } finally {
       setIsSaving(false);

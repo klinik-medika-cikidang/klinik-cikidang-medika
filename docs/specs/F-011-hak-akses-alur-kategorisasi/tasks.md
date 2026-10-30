@@ -49,7 +49,7 @@ untuk unit test matriks izin (perintah `npm test`).
   _Requirements: FR-004, AC-004.1_
 
 - [x] **TASK-011-7**: Buat `supabase/migrations/20261009_f011_visit_category.sql` yang menambah
-  `visits.kategori_program VARCHAR(30)` dengan default `UMUM`. Sudah diterapkan ke staging.
+  `visits.kategori_program VARCHAR(30)` dengan default `UMUM`. Sudah diterapkan ke staging, dan ke produksi lama pada 2026-10-30 (F-019 Task 1.1).
   _Requirements: FR-005, INV-001_
 
 - [x] **TASK-011-8**: Tambah `kategori_program` ke `src/types/database.ts`.

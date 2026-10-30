@@ -14,7 +14,15 @@ import {
   summarizeCashPosition,
   isTransferPayment,
   isDrawerCashExpense,
+  computeVisitRevenue,
+  getErrorMessage,
+  buildDailyTrendRange,
+  describeDailyTrendRange,
+  getExpenseScope,
+  summarizeExpensesByScope,
+  groupExpensesByMonth,
 } from './utils';
+import { CASH_FLOW_CATEGORIES, CASH_FLOW_KELUAR_GROUPS } from '@/constants/clinic';
 
 describe('isLikelyShorthandRupiah', () => {
   it('flags positive amounts below Rp 1.000 typed in the old thousands habit', () => {
@@ -57,6 +65,21 @@ describe('summarizeCashPosition', () => {
     expect(netIncome).toBe(1435000 + 25000 + 150000 - 237000);
     expect(drawerCash).toBe(1460000 - (237000 - 87000) - 2450000);
     expect(drawerCash + bankCash).toBe(netIncome);
+  });
+
+  it('adds Saldo Awal to the drawer only, leaving net income and bank untouched (INV-023-2)', () => {
+    const without = summarizeCashPosition(input);
+    const withOpening = summarizeCashPosition({ ...input, saldoAwal: 3500000 });
+    expect(withOpening.drawerCash).toBe(without.drawerCash + 3500000);
+    expect(withOpening.netIncome).toBe(without.netIncome);
+    expect(withOpening.bankCash).toBe(without.bankCash);
+    expect(withOpening.drawerCash + withOpening.bankCash).toBe(withOpening.netIncome + 3500000);
+  });
+
+  it('treats a missing or zero Saldo Awal as the F-018 value (INV-023-1)', () => {
+    const base = summarizeCashPosition(input);
+    expect(summarizeCashPosition({ ...input, saldoAwal: 0 })).toEqual(base);
+    expect(summarizeCashPosition({ ...input, saldoAwal: undefined })).toEqual(base);
   });
 });
 
@@ -237,5 +260,248 @@ describe('isCashHandoverToOwnerOrBank & isOperationalExpense', () => {
     expect(isCashHandoverToOwnerOrBank(obat)).toBe(false);
     expect(isOperationalExpense(obat)).toBe(true);
     expect(isOperationalExpense(nonKlinik)).toBe(true);
+  });
+});
+
+describe('getErrorMessage', () => {
+  it('reads the message of a plain PostgrestError object and appends the hint', () => {
+    const pgError = {
+      message: 'column "kategori_program" of relation "visits" does not exist',
+      details: null,
+      hint: 'Apply the F-011 migration.',
+      code: '42703',
+    };
+    expect(getErrorMessage(pgError, 'fallback')).toBe(
+      'column "kategori_program" of relation "visits" does not exist (Apply the F-011 migration.)'
+    );
+  });
+
+  it('omits an empty hint', () => {
+    expect(getErrorMessage({ message: 'permission denied', hint: '' }, 'fallback')).toBe(
+      'permission denied'
+    );
+  });
+
+  it('reads Error instances', () => {
+    expect(getErrorMessage(new Error('Network down'), 'fallback')).toBe('Network down');
+  });
+
+  it('falls back when the error carries no message', () => {
+    expect(getErrorMessage(null, 'fallback')).toBe('fallback');
+    expect(getErrorMessage(undefined, 'fallback')).toBe('fallback');
+    expect(getErrorMessage('boom', 'fallback')).toBe('fallback');
+    expect(getErrorMessage({ message: '   ' }, 'fallback')).toBe('fallback');
+    expect(getErrorMessage({ code: '42501' }, 'fallback')).toBe('fallback');
+  });
+});
+
+describe('computeVisitRevenue', () => {
+  it('counts the fee and extra charges of a settled UMUM visit', () => {
+    expect(
+      computeVisitRevenue({
+        jenis_pasien: 'UMUM',
+        biaya_periksa: 150000,
+        pendapatan_lain: '25000',
+        status_pembayaran: 'Lunas',
+      })
+    ).toBe(175000);
+  });
+
+  it('counts only the extra charge of a BPJS visit', () => {
+    expect(
+      computeVisitRevenue({
+        jenis_pasien: 'BPJS',
+        biaya_periksa: 150000,
+        pendapatan_lain: 25000,
+        status_pembayaran: 'Lunas',
+      })
+    ).toBe(25000);
+  });
+
+  it('returns zero for a free visit', () => {
+    expect(
+      computeVisitRevenue({
+        jenis_pasien: 'UMUM',
+        biaya_periksa: 0,
+        pendapatan_lain: null,
+        status_pembayaran: 'Lunas',
+      })
+    ).toBe(0);
+  });
+
+  it('returns zero for cancelled and unpaid visits', () => {
+    const base = { jenis_pasien: 'UMUM', biaya_periksa: 150000, pendapatan_lain: 25000 };
+    expect(computeVisitRevenue({ ...base, status_pembayaran: 'Batal' })).toBe(0);
+    expect(computeVisitRevenue({ ...base, status_pembayaran: 'Belum Bayar' })).toBe(0);
+  });
+
+  it('treats legacy rows without a status as settled', () => {
+    expect(
+      computeVisitRevenue({ jenis_pasien: 'UMUM', biaya_periksa: 50000, status_pembayaran: null })
+    ).toBe(50000);
+  });
+});
+
+describe('buildDailyTrendRange', () => {
+  it('plots every day of a past 30-day month', () => {
+    const days = buildDailyTrendRange({ start: '2026-09-01', end: '2026-09-30' }, '2026-10-28');
+    expect(days).toHaveLength(30);
+    expect(days[0]).toBe('2026-09-01');
+    expect(days[29]).toBe('2026-09-30');
+  });
+
+  it('cuts the current month at today', () => {
+    const days = buildDailyTrendRange({ start: '2026-10-01', end: '2026-10-31' }, '2026-10-28');
+    expect(days).toHaveLength(28);
+    expect(days[days.length - 1]).toBe('2026-10-28');
+  });
+
+  it('handles February in a non-leap and a leap year', () => {
+    expect(buildDailyTrendRange({ start: '2026-02-01', end: '2026-02-28' }, '2026-10-28')).toHaveLength(28);
+    expect(buildDailyTrendRange({ start: '2028-02-01', end: '2028-02-29' }, '2028-03-15')).toHaveLength(29);
+  });
+
+  it('uses the month of the latest visit for an unbounded period', () => {
+    const days = buildDailyTrendRange({ start: '', end: '' }, '2026-10-28', '2026-10-09');
+    expect(days[0]).toBe('2026-10-01');
+    expect(days[days.length - 1]).toBe('2026-10-28');
+
+    const older = buildDailyTrendRange({ start: '', end: '' }, '2026-10-28', '2026-08-14');
+    expect(older[0]).toBe('2026-08-01');
+    expect(older).toHaveLength(31);
+  });
+
+  it('uses the current month when an unbounded period has no visits', () => {
+    const days = buildDailyTrendRange({ start: '', end: '' }, '2026-10-28', null);
+    expect(days[0]).toBe('2026-10-01');
+    expect(days).toHaveLength(28);
+  });
+
+  it('falls back to the last month inside a year range', () => {
+    const days = buildDailyTrendRange({ start: '2026-01-01', end: '2026-12-31' }, '2026-10-28');
+    expect(days[0]).toBe('2026-10-01');
+    expect(days).toHaveLength(28);
+
+    const pastYear = buildDailyTrendRange({ start: '2025-01-01', end: '2025-12-31' }, '2026-10-28');
+    expect(pastYear[0]).toBe('2025-12-01');
+    expect(pastYear).toHaveLength(31);
+  });
+
+  it('keeps a short range that crosses months', () => {
+    const days = buildDailyTrendRange({ start: '2026-09-20', end: '2026-10-05' }, '2026-10-28');
+    expect(days).toHaveLength(16);
+    expect(days[0]).toBe('2026-09-20');
+  });
+
+  it('falls back to the last month of a long custom range', () => {
+    const days = buildDailyTrendRange({ start: '2026-08-20', end: '2026-09-25' }, '2026-10-28');
+    expect(days[0]).toBe('2026-09-01');
+    expect(days[days.length - 1]).toBe('2026-09-25');
+  });
+
+  it('returns no days for a period that has not started yet', () => {
+    expect(buildDailyTrendRange({ start: '2026-11-01', end: '2026-11-30' }, '2026-10-28')).toEqual([]);
+  });
+});
+
+describe('describeDailyTrendRange', () => {
+  it('names the plotted month', () => {
+    expect(describeDailyTrendRange(['2026-10-01', '2026-10-28'])).toBe('Harian Okt');
+  });
+
+  it('names both months for a range that crosses months', () => {
+    expect(describeDailyTrendRange(['2026-09-20', '2026-10-05'])).toBe('Harian Sep/Okt');
+  });
+
+  it('falls back to a plain label for an empty range', () => {
+    expect(describeDailyTrendRange([])).toBe('Harian');
+  });
+});
+
+describe('getExpenseScope', () => {
+  it('marks only Pengeluaran Non Klinik as non-clinic', () => {
+    expect(getExpenseScope({ jenis: 'Keluar', kategori: 'Pengeluaran Non Klinik' })).toBe('non_klinik');
+  });
+
+  it('marks every other operational expense category as clinic', () => {
+    for (const kategori of [
+      'Pengeluaran Obat / Operasional',
+      'Operasional & Listrik/Air',
+      'Honor & Transport',
+      'Perlengkapan Medis',
+    ]) {
+      expect(getExpenseScope({ jenis: 'Keluar', kategori })).toBe('klinik');
+    }
+  });
+
+  it('ignores cash handovers and income', () => {
+    expect(getExpenseScope({ jenis: 'Keluar', kategori: 'Setor ke Rekening Pemilik' })).toBeNull();
+    expect(getExpenseScope({ jenis: 'Masuk', kategori: 'Setor Tunai' })).toBeNull();
+    expect(getExpenseScope({ jenis: 'Masuk', kategori: 'Kapitasi BPJS' })).toBeNull();
+  });
+});
+
+describe('summarizeExpensesByScope', () => {
+  it('splits expenses and keeps the total equal to all operational expenses', () => {
+    const flows = [
+      { jenis: 'Keluar', kategori: 'Pengeluaran Obat / Operasional', nominal: 200000 },
+      { jenis: 'Keluar', kategori: 'Honor & Transport', nominal: '50000' },
+      { jenis: 'Keluar', kategori: 'Pengeluaran Non Klinik', nominal: 75000 },
+      { jenis: 'Keluar', kategori: 'Setor ke Rekening Pemilik', nominal: 1000000 },
+      { jenis: 'Masuk', kategori: 'Kapitasi BPJS', nominal: 3000000 },
+    ];
+    const operational = flows
+      .filter((f) => isOperationalExpense(f))
+      .reduce((sum, f) => sum + Number(f.nominal), 0);
+    const result = summarizeExpensesByScope(flows);
+    expect(result).toEqual({ klinik: 250000, nonKlinik: 75000, total: 325000 });
+    expect(result.total).toBe(operational);
+  });
+});
+
+describe('groupExpensesByMonth', () => {
+  const flows = [
+    { tanggal: '2025-12-30', jenis: 'Keluar', kategori: 'Pengeluaran Obat / Operasional', nominal: 100000 },
+    { tanggal: '2026-02-03', jenis: 'Keluar', kategori: 'Pengeluaran Non Klinik', nominal: 40000 },
+    { tanggal: '2026-02-10', jenis: 'Keluar', kategori: 'Perlengkapan Medis', nominal: 60000 },
+    { tanggal: '2026-02-11', jenis: 'Masuk', kategori: 'Setor Tunai', nominal: 999000 },
+  ];
+
+  it('crosses a year boundary and keeps empty months as zero rows', () => {
+    expect(groupExpensesByMonth(flows)).toEqual([
+      { year: 2025, month: 12, klinik: 100000, nonKlinik: 0, total: 100000 },
+      { year: 2026, month: 1, klinik: 0, nonKlinik: 0, total: 0 },
+      { year: 2026, month: 2, klinik: 60000, nonKlinik: 40000, total: 100000 },
+    ]);
+  });
+
+  it('follows the requested range', () => {
+    const rows = groupExpensesByMonth(flows, { start: '2026-01-01', end: '2026-03-31' });
+    expect(rows.map((r) => `${r.year}-${r.month}`)).toEqual(['2026-1', '2026-2', '2026-3']);
+    expect(rows[2].total).toBe(0);
+  });
+
+  it('returns no rows when there is neither data nor a range', () => {
+    expect(groupExpensesByMonth([])).toEqual([]);
+  });
+});
+
+describe('CASH_FLOW_KELUAR_GROUPS', () => {
+  it('lists every Kas Keluar category exactly once', () => {
+    const grouped = CASH_FLOW_KELUAR_GROUPS.flatMap((g) => [...g.categories]).sort();
+    expect(grouped).toEqual([...CASH_FLOW_CATEGORIES.keluar].sort());
+  });
+});
+
+describe('groupExpensesByMonth range guard', () => {
+  it('ignores a half-typed year and falls back to the data months', () => {
+    const flows = [{ tanggal: '2026-10-05', jenis: 'Keluar', kategori: 'Honor & Transport', nominal: 1000 }];
+    expect(groupExpensesByMonth(flows, { start: '0002-10-01', end: '2026-10-31' })).toHaveLength(1);
+  });
+
+  it('caps a very long range at 240 months ending at the range end', () => {
+    const rows = groupExpensesByMonth([], { start: '1990-01-01', end: '2026-12-31' });
+    expect(rows).toHaveLength(240);
+    expect(rows[rows.length - 1]).toMatchObject({ year: 2026, month: 12 });
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
@@ -14,12 +14,16 @@ import {
 } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
 import {
+  buildDailyTrendRange,
+  describeDailyTrendRange,
   formatLocalDateToYMD,
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
   isSettledVisit,
   summarizeCashPosition,
   isTransferPayment,
+  getErrorMessage,
+  getExpenseScope,
 } from '@/lib/utils';
 import {
   DashboardKpiCards,
@@ -39,6 +43,7 @@ import {
 } from '@/components/dashboard/VillageDistributionCard';
 import {
   ClinicalAlertWidget,
+  countPostCareAlerts,
   type ClinicalAlertCounts,
 } from '@/components/dashboard/ClinicalAlertWidget';
 import {
@@ -60,9 +65,12 @@ import {
   type CashLiquidityData,
 } from '@/components/dashboard/CashLiquidityCard';
 import type { CashFlow } from '@/types/database';
+import { circumcisionActiveSince } from '@/lib/program-status';
+import { cashDateOrFilter, getVisitCashEvents } from '@/lib/cash-date';
+import { loadDrawerOpening } from '@/lib/drawer-opening-loader';
 
 export default function DashboardPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState<DashboardPeriod>('all');
+  const [selectedPeriod, setSelectedPeriod] = useState<DashboardPeriod>('this_month');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -70,10 +78,12 @@ export default function DashboardPage() {
 
   const [kpiData, setKpiData] = useState<DashboardKpiData>({
     totalVisits: 0,
-    uniquePatients: 0,
-    umumRevenue: 0,
+    uniquePatients: null,
+    kasirRevenue: 0,
     bpjsRevenue: 0,
     totalExpenses: 0,
+    expenseKlinik: 0,
+    expenseNonKlinik: 0,
     netIncome: 0,
   });
 
@@ -91,8 +101,10 @@ export default function DashboardPage() {
     overduePostCare: 0,
     recentCircumcision: 0,
   });
+  const [clinicalAlertsFailed, setClinicalAlertsFailed] = useState(false);
 
   const [dailyTrends, setDailyTrends] = useState<DailyTrendPoint[]>([]);
+  const [dailyTrendLabel, setDailyTrendLabel] = useState('Harian');
   const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrendPoint[]>([]);
 
   const [dailyFinances, setDailyFinances] = useState<DailyFinancialPoint[]>([]);
@@ -117,7 +129,12 @@ export default function DashboardPage() {
     cashRatio: 75,
     transferRatio: 25,
     recentMutations: [],
+    includesOpeningBalance: false,
   });
+
+  // Only the latest request may write state, so a slower load for an earlier period
+  // cannot overwrite the period the user switched to.
+  const fetchRequestRef = useRef(0);
 
   // The effective date bounds are derived once. Depending on the resolved bounds rather
   // than on the selected preset means switching preset to an equivalent range (for
@@ -150,6 +167,8 @@ export default function DashboardPage() {
   }, [selectedPeriod, customStart, customEnd]);
 
   const fetchDashboardData = useCallback(async () => {
+    const requestId = ++fetchRequestRef.current;
+    const isStale = () => requestId !== fetchRequestRef.current;
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -157,8 +176,10 @@ export default function DashboardPage() {
       const supabase = createClient();
       const todayStr = formatLocalDateToYMD();
 
-      let startDate: string | null = periodRange.start || null;
-      let endDate: string | null = periodRange.end || null;
+      // Full period bounds, the same as Buku Kas and Laporan. Cash flows cannot be dated
+      // after today (AddCashFlowModal), so the month's later days add nothing yet.
+      const startDate: string | null = periodRange.start || null;
+      const endDate: string | null = periodRange.end || null;
 
       // 1. Fetch total unique registered patients
       const { count: patientCount } = await supabase
@@ -173,11 +194,16 @@ export default function DashboardPage() {
       while (true) {
         let query = supabase
           .from('visits')
-          .select('id, tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran, kode_icd10, diagnosa_deskripsi, patients(desa)')
+          .select('id, tanggal_periksa, tanggal_bayar, tanggal_pelunasan, nominal_pelunasan, metode_pelunasan, piutang_nominal, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran, kode_icd10, diagnosa_deskripsi, patients(desa)')
+          // A unique tiebreaker keeps page boundaries stable, so no row is read twice or skipped.
+          .order('tanggal_periksa', { ascending: false })
+          .order('id', { ascending: true })
           .range(visitPage * pageSize, (visitPage + 1) * pageSize - 1);
 
+        // F-021: also load visits examined earlier but paid inside the period, so cash
+        // follows the day it was received.
         if (startDate && endDate) {
-          query = query.gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate);
+          query = query.or(cashDateOrFilter(startDate, endDate));
         }
 
         const { data, error } = await query;
@@ -198,6 +224,7 @@ export default function DashboardPage() {
           .from('cash_flows')
           .select('id, tanggal, jenis, kategori, nominal, keterangan, jenis_pembayaran')
           .order('tanggal', { ascending: false })
+          .order('id', { ascending: true })
           .range(flowPage * pageSize, (flowPage + 1) * pageSize - 1);
 
         if (startDate && endDate) {
@@ -213,22 +240,24 @@ export default function DashboardPage() {
         flowPage++;
       }
 
-      // 4. Fetch Clinical Alerts Data
-      const { data: tbcData } = await supabase
-        .from('tbc_programs')
-        .select('id, status_tbc, bulan_ke, tanggal_mulai');
-
-      const { data: postCareData } = await supabase
-        .from('post_cares')
-        .select('id, tanggal_kontrol_berikutnya, status_kontrol');
-
-      const { count: recentCircCount } = await supabase
-        .from('circumcisions')
-        .select('id', { count: 'exact', head: true })
-        .gte(
-          'tanggal_tindakan',
-          formatLocalDateToYMD(new Date(Date.now() - 7 * 86400000))
-        );
+      // 4. Fetch Clinical Alerts Data. A failed query must not read as zero patients, so
+      // the banner warns instead of showing the all-clear.
+      const [tbcResult, postCareResult, circResult] = await Promise.all([
+        supabase.from('tbc_programs').select('id, status_tbc, bulan_ke, tanggal_mulai'),
+        supabase.from('post_cares').select('id, tanggal_kontrol_berikutnya, status_kontrol'),
+        supabase
+          .from('circumcisions')
+          .select('id', { count: 'exact', head: true })
+          // Same active window as Program Khusus (F-022), so both screens show one number.
+          .gte('tanggal_tindakan', circumcisionActiveSince(todayStr)),
+      ]);
+      const alertErrors = [tbcResult.error, postCareResult.error, circResult.error].filter(Boolean);
+      if (alertErrors.length > 0) {
+        console.error('Error loading clinical alerts for dashboard:', alertErrors);
+      }
+      const tbcData = tbcResult.error ? null : tbcResult.data;
+      const postCareData = postCareResult.error ? null : postCareResult.data;
+      const recentCircCount = circResult.error ? 0 : circResult.count;
 
       let mangkirTbc = 0;
       if (tbcData) {
@@ -248,33 +277,14 @@ export default function DashboardPage() {
         });
       }
 
-      let todayPostCare = 0;
-      let overduePostCare = 0;
-      if (postCareData) {
-        postCareData.forEach((p) => {
-          if (p.status_kontrol !== 'Sudah Kontrol') {
-            if (p.tanggal_kontrol_berikutnya === todayStr) {
-              todayPostCare++;
-            } else if (p.tanggal_kontrol_berikutnya < todayStr) {
-              overduePostCare++;
-            }
-          }
-        });
-      }
-
+      const { todayPostCare, overduePostCare } = countPostCareAlerts(postCareData ?? [], todayStr);
       const recentCircumcision = recentCircCount || 0;
-
-      setClinicalAlerts({
-        mangkirTbc,
-        todayPostCare,
-        overduePostCare,
-        recentCircumcision,
-      });
 
       // 5. Data Aggregation
       let bpjsVisits = 0;
       let umumVisits = 0;
       let umumRev = 0;
+      let kasirRev = 0;
       let tunaiRev = 0;
       let tfRev = 0;
       let tunaiVisits = 0;
@@ -287,11 +297,39 @@ export default function DashboardPage() {
       const dailyFinanceMap: Record<string, { cashIn: number; cashOut: number }> = {};
       const monthlyFinanceMap: Record<string, { cashIn: number; cashOut: number }> = {};
       let diagnosisTotalCount = 0;
+      // Same rule as the queries above: a period counts as bounded only with both ends.
+      const periodBounds = startDate && endDate ? { start: startDate, end: endDate } : null;
+      const isInPeriod = (date: string | null | undefined) =>
+        !periodBounds || Boolean(date && date >= periodBounds.start && date <= periodBounds.end);
       // Cancelled queue entries never became a visit, so the Dashboard counts match Laporan.
-      const activeVisitCount = allVisits.filter((v) => v.status_pembayaran !== 'Batal').length;
+      const activeVisitCount = allVisits.filter(
+        (v) => v.status_pembayaran !== 'Batal' && isInPeriod(v.tanggal_periksa)
+      ).length;
 
       allVisits.forEach((v) => {
         if (v.status_pembayaran === 'Batal') return;
+
+        // Cash follows the day it was received and the method it was paid with (F-021).
+        getVisitCashEvents(v).forEach((event) => {
+          const isTransfer = isTransferPayment(event.method);
+          if (!isInPeriod(event.date)) return;
+          const cashMonthKey = event.date.substring(0, 7);
+          if (!dailyFinanceMap[event.date]) {
+            dailyFinanceMap[event.date] = { cashIn: 0, cashOut: 0 };
+          }
+          if (!monthlyFinanceMap[cashMonthKey]) {
+            monthlyFinanceMap[cashMonthKey] = { cashIn: 0, cashOut: 0 };
+          }
+          kasirRev += event.amount;
+          dailyFinanceMap[event.date].cashIn += event.amount;
+          monthlyFinanceMap[cashMonthKey].cashIn += event.amount;
+          if (isTransfer) tfRev += event.amount;
+          else tunaiRev += event.amount;
+          if (v.jenis_pasien !== 'BPJS') umumRev += event.amount;
+        });
+
+        // Visit counts, morbidity, and villages stay on the examination date.
+        if (!isInPeriod(v.tanggal_periksa)) return;
 
         const tgl = v.tanggal_periksa;
         const monthKey = tgl ? tgl.substring(0, 7) : '';
@@ -303,48 +341,18 @@ export default function DashboardPage() {
           monthlyMap[monthKey] = { bpjs: 0, umum: 0 };
         }
 
-        if (!dailyFinanceMap[tgl]) {
-          dailyFinanceMap[tgl] = { cashIn: 0, cashOut: 0 };
-        }
-        if (monthKey && !monthlyFinanceMap[monthKey]) {
-          monthlyFinanceMap[monthKey] = { cashIn: 0, cashOut: 0 };
-        }
-
-        const isSettled = isSettledVisit(v);
-        const biaya = v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa) || 0;
-        const lain = Number(v.pendapatan_lain) || 0;
-        const totalRev = isSettled ? (biaya + lain) : 0;
-
-        dailyFinanceMap[tgl].cashIn += totalRev;
-        if (monthKey) {
-          monthlyFinanceMap[monthKey].cashIn += totalRev;
-        }
-
         if (v.jenis_pasien === 'BPJS') {
           bpjsVisits++;
           dailyMap[tgl].bpjs++;
           if (monthKey) monthlyMap[monthKey].bpjs++;
-          if (isSettled && lain > 0) {
-            if (v.jenis_pembayaran === 'TF' || v.jenis_pembayaran === 'Transfer') {
-              tfRev += lain;
-            } else {
-              tunaiRev += lain;
-            }
-          }
         } else {
           umumVisits++;
           dailyMap[tgl].umum++;
           if (monthKey) monthlyMap[monthKey].umum++;
-          umumRev += totalRev;
 
-          if (isSettled) {
-            if (v.jenis_pembayaran === 'TF' || v.jenis_pembayaran === 'Transfer') {
-              tfRev += totalRev;
-              tfVisits++;
-            } else {
-              tunaiRev += totalRev;
-              tunaiVisits++;
-            }
+          if (isSettledVisit(v)) {
+            if (isTransferPayment(v.jenis_pembayaran)) tfVisits++;
+            else tunaiVisits++;
           }
         }
 
@@ -370,6 +378,7 @@ export default function DashboardPage() {
       let bpjsCapitation = 0;
       let otherCashIn = 0;
       let expenses = 0;
+      let expensesNonKlinik = 0;
       let transferExpenses = 0;
       let bankSetoran = 0;
 
@@ -400,23 +409,31 @@ export default function DashboardPage() {
           if (monthKeyFlow) monthlyFinanceMap[monthKeyFlow].cashIn += nom;
         } else if (isOperationalExpense(f)) {
           expenses += nom;
+          if (getExpenseScope(f) === 'non_klinik') expensesNonKlinik += nom;
           if (isTransferPayment(f.jenis_pembayaran)) transferExpenses += nom;
           dailyFinanceMap[tglFlow].cashOut += nom;
           if (monthKeyFlow) monthlyFinanceMap[monthKeyFlow].cashOut += nom;
         }
       });
 
-      // Format 14-day daily visit trends
-      const sortedDailyDates = Object.keys(dailyMap).sort();
-      const last14Dates = sortedDailyDates.slice(-14);
-      const formattedDailyTrends: DailyTrendPoint[] = last14Dates.map((d) => {
-        const item = dailyMap[d];
+      // Daily trends plot calendar days of the selected period, with quiet days as zero,
+      // so the trend summary matches the KPI cards for the same month.
+      const visitDates = Object.keys(dailyMap).sort();
+      const dailyRange = buildDailyTrendRange(
+        periodRange,
+        todayStr,
+        visitDates[visitDates.length - 1] ?? null
+      );
+      const formatDayLabel = (d: string) => {
         const dateObj = new Date(d);
         const dayName = dateObj.toLocaleDateString('id-ID', { weekday: 'short' });
-        const dayNum = dateObj.getDate();
+        return `${dayName} ${dateObj.getDate()}`;
+      };
+      const formattedDailyTrends: DailyTrendPoint[] = dailyRange.map((d) => {
+        const item = dailyMap[d] || { bpjs: 0, umum: 0 };
         return {
           date: d,
-          label: `${dayName} ${dayNum}`,
+          label: formatDayLabel(d),
           bpjs: item.bpjs,
           umum: item.umum,
           total: item.bpjs + item.umum,
@@ -440,15 +457,11 @@ export default function DashboardPage() {
         };
       });
 
-      // Format 14-day daily financial trends
-      const formattedDailyFinances: DailyFinancialPoint[] = last14Dates.map((d) => {
+      const formattedDailyFinances: DailyFinancialPoint[] = dailyRange.map((d) => {
         const fin = dailyFinanceMap[d] || { cashIn: 0, cashOut: 0 };
-        const dateObj = new Date(d);
-        const dayName = dateObj.toLocaleDateString('id-ID', { weekday: 'short' });
-        const dayNum = dateObj.getDate();
         return {
           date: d,
-          label: `${dayName} ${dayNum}`,
+          label: formatDayLabel(d),
           cashIn: fin.cashIn,
           cashOut: fin.cashOut,
           netIncome: fin.cashIn - fin.cashOut,
@@ -470,6 +483,30 @@ export default function DashboardPage() {
         };
       });
 
+      // F-023: "Bulan Ini" is the month Buku Kas opens on, so the drawer starts from the
+      // same Saldo Awal there (REQ-023-03.1). Checked on the bounds, not the preset, so a
+      // custom range equal to this month matches too. Other periods keep the period's own
+      // movements without an opening balance, as before F-023.
+      const now = new Date();
+      const isCurrentMonth =
+        startDate === formatLocalDateToYMD(new Date(now.getFullYear(), now.getMonth(), 1)) &&
+        endDate === formatLocalDateToYMD(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+      let saldoAwal = 0;
+      let includesOpeningBalance = false;
+      if (isCurrentMonth && startDate) {
+        // Saldo Awal only adjusts the drawer estimate, so a failure (for example a database
+        // without the F-023 table yet) degrades to the pre-F-023 figure instead of an error page.
+        try {
+          saldoAwal = (await loadDrawerOpening(supabase, startDate)).saldoAwal;
+          includesOpeningBalance = true;
+        } catch (openingErr) {
+          if (isStale()) return;
+          console.error('Error loading drawer opening for dashboard:', openingErr);
+          toast.warning('Saldo awal laci gagal dimuat; estimasi laci dihitung tanpa saldo awal.');
+        }
+      }
+      if (isStale()) return;
+
       // Liquidity calculations
       // tunaiRev and tfRev already include extra charges paid by BPJS patients, which
       // umumRev does not, so net income must come from the loket buckets.
@@ -485,6 +522,7 @@ export default function DashboardPage() {
         operationalExpenses: expenses,
         transferExpenses,
         ownerOrBankDeposits: bankSetoran,
+        saldoAwal,
       });
       const totalLoketRevenue = tunaiRev + tfRev;
       const cashRatioPct =
@@ -499,7 +537,16 @@ export default function DashboardPage() {
         cashRatio: cashRatioPct,
         transferRatio: tfRatioPct,
         recentMutations: allFlows.slice(0, 4) as CashFlow[],
+        includesOpeningBalance,
       });
+
+      setClinicalAlerts({
+        mangkirTbc,
+        todayPostCare,
+        overduePostCare,
+        recentCircumcision,
+      });
+      setClinicalAlertsFailed(alertErrors.length > 0);
 
       // Format Top 10 Diseases
       const sortedDiseases: DiseaseStat[] = Object.values(diseaseMap)
@@ -525,10 +572,12 @@ export default function DashboardPage() {
 
       setKpiData({
         totalVisits: activeVisitCount,
-        uniquePatients: patientCount || 4238,
-        umumRevenue: umumRev,
+        uniquePatients: patientCount ?? null,
+        kasirRevenue: kasirRev,
         bpjsRevenue: bpjsCapitation,
         totalExpenses: expenses,
+        expenseKlinik: expenses - expensesNonKlinik,
+        expenseNonKlinik: expensesNonKlinik,
         netIncome: netCash,
       });
 
@@ -538,6 +587,7 @@ export default function DashboardPage() {
       setBpjsCount(bpjsVisits);
       setUmumCount(umumVisits);
       setDailyTrends(formattedDailyTrends);
+      setDailyTrendLabel(describeDailyTrendRange(dailyRange));
       setMonthlyTrends(formattedMonthlyTrends);
       setDailyFinances(formattedDailyFinances);
       setMonthlyFinances(formattedMonthlyFinances);
@@ -555,13 +605,16 @@ export default function DashboardPage() {
 
       setLastRefreshed(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
     } catch (err) {
+      if (isStale()) return;
       console.error('Error fetching dashboard data:', err);
       const msg =
-        err instanceof Error ? err.message : 'Terjadi kesalahan saat memuat data dashboard.';
+        getErrorMessage(err, 'Terjadi kesalahan saat memuat data dashboard.');
       setErrorMessage(msg);
+      // The surveillance strip must not keep showing an all-clear the failed load never checked.
+      setClinicalAlertsFailed(true);
       toast.error(msg);
     } finally {
-      setIsLoading(false);
+      if (!isStale()) setIsLoading(false);
     }
   }, [periodRange]);
 
@@ -681,7 +734,11 @@ export default function DashboardPage() {
       )}
 
       {/* Clinical Surveillance Alert Strip */}
-      <ClinicalAlertWidget alerts={clinicalAlerts} isLoading={isLoading} />
+      <ClinicalAlertWidget
+        alerts={clinicalAlerts}
+        loadFailed={clinicalAlertsFailed}
+        isLoading={isLoading}
+      />
 
       {/* 5 Executive KPI Cards */}
       <DashboardKpiCards data={kpiData} isLoading={isLoading} />
@@ -692,6 +749,7 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <VisitTrendChart
             dailyData={dailyTrends}
+            dailyLabel={dailyTrendLabel}
             monthlyData={monthlyTrends}
             isLoading={isLoading}
           />
@@ -713,6 +771,7 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <FinancialTrendChart
             dailyData={dailyFinances}
+            dailyLabel={dailyTrendLabel}
             monthlyData={monthlyFinances}
             isLoading={isLoading}
           />

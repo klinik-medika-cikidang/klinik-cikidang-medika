@@ -16,14 +16,18 @@ import { toast } from 'sonner';
 import type { PostCare } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
 import { Modal } from '@/components/ui/Modal';
+import { formatLocalDateToYMD, getErrorMessage } from '@/lib/utils';
+import { isActivePostCare, isDueTodayPostCare, isOverduePostCare } from '@/lib/program-status';
 
 interface PostCareAgendaProps {
   records: PostCare[];
   onRefresh: () => void;
   isLoading?: boolean;
+  /** Shown on the empty "Selesai" sub-tab when completed agendas are hidden by the active scope. */
+  completedHiddenMessage?: string;
 }
 
-export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgendaProps) {
+export function PostCareAgenda({ records, onRefresh, isLoading, completedHiddenMessage }: PostCareAgendaProps) {
   const [filterTab, setFilterTab] = useState<'today' | 'overdue' | 'upcoming' | 'completed'>('today');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
@@ -32,16 +36,13 @@ export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgenda
   const [newDate, setNewDate] = useState<string>('');
   const [isRescheduling, setIsRescheduling] = useState<boolean>(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDateToYMD();
 
-  const todayList = records.filter(
-    (r) => r.tanggal_kontrol_berikutnya === todayStr && r.status_kontrol !== 'Sudah Kontrol'
-  );
-  const overdueList = records.filter(
-    (r) => r.tanggal_kontrol_berikutnya < todayStr && r.status_kontrol !== 'Sudah Kontrol'
-  );
+  // Same groups as the Program Khusus KPI and the Dashboard: a Mangkir agenda is listed as late only.
+  const todayList = records.filter((r) => isDueTodayPostCare(r, todayStr));
+  const overdueList = records.filter((r) => isOverduePostCare(r, todayStr));
   const upcomingList = records.filter(
-    (r) => r.tanggal_kontrol_berikutnya > todayStr && r.status_kontrol !== 'Sudah Kontrol'
+    (r) => isActivePostCare(r) && !isOverduePostCare(r, todayStr) && r.tanggal_kontrol_berikutnya > todayStr
   );
   const completedList = records.filter((r) => r.status_kontrol === 'Sudah Kontrol');
 
@@ -59,7 +60,7 @@ export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgenda
       onRefresh();
     } catch (err) {
       console.error('Error updating post-care status:', err);
-      toast.error('Gagal memperbarui status kontrol');
+      toast.error(getErrorMessage(err, 'Gagal memperbarui status kontrol.'));
     } finally {
       setUpdatingId(null);
     }
@@ -93,7 +94,7 @@ export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgenda
       onRefresh();
     } catch (err) {
       console.error('Error rescheduling post-care:', err);
-      toast.error('Gagal menjadwalkan ulang kontrol');
+      toast.error(getErrorMessage(err, 'Gagal menjadwalkan ulang kontrol.'));
     } finally {
       setIsRescheduling(false);
     }
@@ -225,7 +226,9 @@ export function PostCareAgenda({ records, onRefresh, isLoading }: PostCareAgenda
               : 'Belum ada catatan riwayat kontrol yang ditandai selesai'}
           </h3>
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            Semua pasien pada kategori ini terpantau rapi. Klik &quot;+ Jadwal Observasi&quot; di atas untuk memasukkan jadwal baru.
+            {filterTab === 'completed' && completedHiddenMessage
+              ? completedHiddenMessage
+              : 'Semua pasien pada kategori ini terpantau rapi. Klik "+ Jadwal Observasi" di atas untuk memasukkan jadwal baru.'}
           </p>
         </div>
       ) : (

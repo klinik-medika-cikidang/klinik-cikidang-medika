@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   Wallet,
@@ -11,13 +11,15 @@ import {
   ArrowUpRight,
 } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
-import type { CashFlow } from '@/types/database';
+import type { CashDrawerOpening, CashFlow } from '@/types/database';
 import { MONTH_NAMES_ID } from '@/constants/clinic';
 import { CashFlowSummaryCards } from '@/components/buku-kas/CashFlowSummaryCards';
 import {
   CashReconciliationCard,
+  type DrawerOpeningView,
   type DrawerReconciliationMetrics,
 } from '@/components/buku-kas/CashReconciliationCard';
+import { DrawerOpeningModal } from '@/components/buku-kas/DrawerOpeningModal';
 import { CashFlowTable } from '@/components/buku-kas/CashFlowTable';
 import { AddCashFlowModal } from '@/components/buku-kas/AddCashFlowModal';
 import { Button } from '@/components/ui/Button';
@@ -29,21 +31,24 @@ import {
   isCashHandoverToOwnerOrBank,
   isDrawerCashExpense,
   isOperationalExpense,
-  isSettledCashVisit,
+  summarizeExpensesByScope,
+  getErrorMessage,
 } from '@/lib/utils';
+import {
+  cashDateOrFilter,
+  drawerCashEntries,
+  type CashDateVisit,
+  type DrawerCashEntry,
+} from '@/lib/cash-date';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { drawerNetByDay, resolveDailyDrawerOpening } from '@/lib/drawer-opening';
+import { loadDrawerOpening, type DrawerOpeningState } from '@/lib/drawer-opening-loader';
 
-interface CashVisitRow {
-  tanggal_periksa: string;
-  jenis_pasien: string;
-  biaya_periksa: number;
-  pendapatan_lain: number;
-  jenis_pembayaran?: string | null;
-  status_pembayaran?: string | null;
-}
+type CashVisitRow = CashDateVisit & { id: string; jenis_pembayaran?: string | null };
 
 export default function BukuKasPage() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
+  const isOwner = role === 'owner';
   // F-011 BR-002: Dokter/Admin records transactions but does not see the income,
   // expense, and balance summaries, which stay owner-only.
   const isDokterAdmin = role === 'dokter_admin';
@@ -57,14 +62,61 @@ export default function BukuKasPage() {
   const [selectedReconciliationDate, setSelectedReconciliationDate] = useState<string>(todayStr);
 
   const [cashFlows, setCashFlows] = useState<CashFlow[]>([]);
-  const [monthCashVisits, setMonthCashVisits] = useState<CashVisitRow[]>([]);
+  // F-021: drawer cash per day received, not per examination day.
+  const [monthCashEntries, setMonthCashEntries] = useState<DrawerCashEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'Masuk' | 'Keluar'>('Masuk');
 
+  // F-023: Saldo Awal tagged with its month, so a refetch keeps showing the current value
+  // while another month's value is never shown; null when it could not be loaded.
+  const [loadedOpening, setLoadedOpening] = useState<{
+    periode: string;
+    state: DrawerOpeningState;
+  } | null>(null);
+  const [openingError, setOpeningError] = useState<string | null>(null);
+  const [isOpeningRefreshing, setIsOpeningRefreshing] = useState(false);
+  const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false);
+  const openingRequestRef = useRef(0);
+  const cashFlowsRequestRef = useRef(0);
+
+  const selectedPeriode = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+  const drawerOpening =
+    loadedOpening && loadedOpening.periode === selectedPeriode ? loadedOpening.state : null;
+
+  const fetchDrawerOpening = useCallback(async () => {
+    // Saldo Awal only feeds the owner-only reconciliation card.
+    if (isDokterAdmin) return;
+    // Switching months quickly must not let an older, slower answer win.
+    const requestId = ++openingRequestRef.current;
+    setOpeningError(null);
+    setIsOpeningRefreshing(true);
+    try {
+      const state = await loadDrawerOpening(createClient(), selectedPeriode);
+      if (requestId !== openingRequestRef.current) return;
+      setLoadedOpening({ periode: selectedPeriode, state });
+      setOpeningError(null);
+    } catch (err) {
+      if (requestId !== openingRequestRef.current) return;
+      console.error('Error fetching drawer opening:', err);
+      const msg = `Gagal memuat saldo awal laci kasir: ${getErrorMessage(err, 'kesalahan tidak dikenal.')}`;
+      setLoadedOpening(null);
+      setOpeningError(msg);
+      toast.error(msg);
+    } finally {
+      if (requestId === openingRequestRef.current) setIsOpeningRefreshing(false);
+    }
+  }, [isDokterAdmin, selectedPeriode]);
+
+  useEffect(() => {
+    fetchDrawerOpening();
+  }, [fetchDrawerOpening]);
+
   const fetchCashFlows = useCallback(async () => {
+    // Same guard as the opening: an older month's answer must not land after a newer one.
+    const requestId = ++cashFlowsRequestRef.current;
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -75,6 +127,7 @@ export default function BukuKasPage() {
       const nextMonth = selectedMonth === 12 ? 1 : selectedMonth + 1;
       const nextYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear;
       const endOfMonth = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+      const lastDayOfMonth = formatLocalDateToYMD(new Date(selectedYear, selectedMonth, 0));
 
       // Client request (Okt 2026): Dokter/Admin only needs today's mutations, so the
       // query itself is narrowed instead of fetching the month and hiding rows.
@@ -87,15 +140,29 @@ export default function BukuKasPage() {
             .lt('tanggal', endOfMonth);
 
       // Visit cash only feeds the owner-only summary and reconciliation cards.
-      const visitsQuery = isDokterAdmin
-        ? Promise.resolve({ data: [] as CashVisitRow[], error: null })
-        : supabase
+      // Paged so a busy month is never cut at the PostgREST row limit; the unique
+      // (tanggal_periksa, id) order keeps page boundaries stable.
+      const fetchCashVisits = async () => {
+        const rows: CashVisitRow[] = [];
+        const pageSize = 1000;
+        for (let page = 0; ; page++) {
+          const { data, error } = await supabase
             .from('visits')
             .select(
-              'tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran'
+              'id, tanggal_periksa, tanggal_bayar, tanggal_pelunasan, nominal_pelunasan, metode_pelunasan, piutang_nominal, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran'
             )
-            .gte('tanggal_periksa', startOfMonth)
-            .lt('tanggal_periksa', endOfMonth);
+            .or(cashDateOrFilter(startOfMonth, lastDayOfMonth))
+            .order('tanggal_periksa', { ascending: true })
+            .order('id', { ascending: true })
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+          if (error) return { data: null, error };
+          rows.push(...((data as unknown as CashVisitRow[]) || []));
+          if (!data || data.length < pageSize) return { data: rows, error: null };
+        }
+      };
+      const visitsQuery = isDokterAdmin
+        ? Promise.resolve({ data: [] as CashVisitRow[], error: null })
+        : fetchCashVisits();
 
       const [flowsRes, visitsRes] = await Promise.all([
         flowsQuery
@@ -104,27 +171,27 @@ export default function BukuKasPage() {
         visitsQuery,
       ]);
 
+      if (requestId !== cashFlowsRequestRef.current) return;
       if (flowsRes.error) throw flowsRes.error;
       if (visitsRes.error) throw visitsRes.error;
 
       const loadedFlows = (flowsRes.data as unknown as CashFlow[]) || [];
-      const loadedVisits = ((visitsRes.data as unknown as CashVisitRow[]) || []).filter((v) => {
-        if (!isSettledCashVisit(v)) return false;
-        const biaya = v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa) || 0;
-        const lain = Number(v.pendapatan_lain) || 0;
-        return biaya + lain > 0;
-      });
+      const loadedVisits = (visitsRes.data as unknown as CashVisitRow[]) || [];
 
       setCashFlows(loadedFlows);
-      setMonthCashVisits(loadedVisits);
+      setMonthCashEntries(drawerCashEntries(loadedVisits, startOfMonth, lastDayOfMonth));
     } catch (err) {
+      if (requestId !== cashFlowsRequestRef.current) return;
       console.error('Error fetching cash flows:', err);
       const msg =
-        err instanceof Error ? err.message : 'Gagal memuat mutasi buku kas dari database.';
+        getErrorMessage(err, 'Gagal memuat mutasi buku kas dari database.');
+      // Drop the previous month's movements so they never sit next to this month's Saldo Awal.
+      setCashFlows([]);
+      setMonthCashEntries([]);
       setErrorMessage(msg);
       toast.error(msg);
     } finally {
-      setIsLoading(false);
+      if (requestId === cashFlowsRequestRef.current) setIsLoading(false);
     }
   }, [selectedMonth, selectedYear, isDokterAdmin, todayStr]);
 
@@ -144,16 +211,7 @@ export default function BukuKasPage() {
     }
   }, [selectedMonth, selectedYear, selectedReconciliationDate, todayStr]);
 
-  const computeVisitCashAmount = (v: CashVisitRow) => {
-    const biaya = v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa) || 0;
-    const lain = Number(v.pendapatan_lain) || 0;
-    return biaya + lain;
-  };
-
-  const monthCashVisitsTotal = monthCashVisits.reduce(
-    (acc, v) => acc + computeVisitCashAmount(v),
-    0
-  );
+  const monthCashVisitsTotal = monthCashEntries.reduce((acc, e) => acc + e.amount, 0);
 
   const otherMasukFlows = cashFlows.filter(
     (cf) => cf.jenis === 'Masuk' && !isCashHandoverToOwnerOrBank(cf)
@@ -176,6 +234,9 @@ export default function BukuKasPage() {
     0
   );
 
+  const { klinik: keluarKlinik, nonKlinik: keluarNonKlinik } =
+    summarizeExpensesByScope(operationalExpenseFlows);
+
   const saldoBersih = totalMasuk - totalKeluar;
 
   const totalSetorTunai = depositFlows.reduce(
@@ -185,15 +246,16 @@ export default function BukuKasPage() {
 
   const monthlyMetrics: DrawerReconciliationMetrics = {
     cashVisitsTotal: monthCashVisitsTotal,
-    cashVisitsCount: monthCashVisits.length,
+    // A Piutang paid off within the month brings two entries but is still one patient.
+    cashVisitsCount: new Set(monthCashEntries.map((e) => e.visitId)).size,
     cashExpensesTotal: drawerExpenseFlows.reduce((acc, cf) => acc + (Number(cf.nominal) || 0), 0),
     cashExpensesCount: drawerExpenseFlows.length,
     cashDepositsTotal: totalSetorTunai,
     cashDepositsCount: depositFlows.length,
   };
 
-  const dailyCashVisits = monthCashVisits.filter(
-    (v) => v.tanggal_periksa === selectedReconciliationDate
+  const dailyCashEntries = monthCashEntries.filter(
+    (e) => e.date === selectedReconciliationDate
   );
   const dailyExpenseFlows = drawerExpenseFlows.filter(
     (cf) => cf.tanggal === selectedReconciliationDate
@@ -203,8 +265,8 @@ export default function BukuKasPage() {
   );
 
   const dailyMetrics: DrawerReconciliationMetrics = {
-    cashVisitsTotal: dailyCashVisits.reduce((acc, v) => acc + computeVisitCashAmount(v), 0),
-    cashVisitsCount: dailyCashVisits.length,
+    cashVisitsTotal: dailyCashEntries.reduce((acc, e) => acc + e.amount, 0),
+    cashVisitsCount: dailyCashEntries.length,
     cashExpensesTotal: dailyExpenseFlows.reduce(
       (acc, cf) => acc + (Number(cf.nominal) || 0),
       0
@@ -215,6 +277,33 @@ export default function BukuKasPage() {
       0
     ),
     cashDepositsCount: dailyDepositFlows.length,
+  };
+
+  // Per-date Saldo Awal is the month's Saldo Awal plus the drawer movements of the
+  // earlier days of the month (REQ-023-02.5), from the rows already loaded for the month.
+  const openingView: DrawerOpeningView | null = drawerOpening
+    ? {
+        monthly: drawerOpening.saldoAwal,
+        daily: resolveDailyDrawerOpening({
+          date: selectedReconciliationDate,
+          monthOpening: drawerOpening.saldoAwal,
+          dailyNet: drawerNetByDay(monthCashEntries, cashFlows),
+        }),
+        source: drawerOpening.source,
+        fromPeriode: drawerOpening.fromPeriode,
+        catatan: drawerOpening.recorded?.catatan ?? null,
+      }
+    : null;
+
+  const handleOpeningSaved = (row: CashDrawerOpening) => {
+    if (row.periode !== selectedPeriode) return;
+    // A recorded month starts from its own count, so the saved row is already the answer;
+    // the refetch only confirms it.
+    setLoadedOpening({
+      periode: row.periode,
+      state: { saldoAwal: Number(row.nominal) || 0, source: 'recorded', fromPeriode: row.periode, recorded: row },
+    });
+    fetchDrawerOpening();
   };
 
   const handleOpenModal = (type: 'Masuk' | 'Keluar') => {
@@ -237,27 +326,23 @@ export default function BukuKasPage() {
     const [flowYear, flowMonth] = newFlow.tanggal.split('-').map(Number);
     if (flowYear === selectedYear && flowMonth === selectedMonth) {
       setCashFlows((prev) => [newFlow, ...prev]);
+    } else if (newFlow.tanggal < selectedPeriode) {
+      // A back-dated flow changes the carried Saldo Awal of this month.
+      fetchDrawerOpening();
     }
   };
 
+  // Throws on failure so CashFlowTable shows one error toast and never the success toast.
   const handleDeleteCashFlow = async (id: string) => {
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.from('cash_flows').delete().eq('id', id);
-
-      if (error) {
-        toast.error(`Gagal menghapus transaksi: ${error.message}`);
-        return;
-      }
-
-      setCashFlows((prev) => prev.filter((cf) => cf.id !== id));
-    } catch {
-      toast.error('Terjadi kesalahan saat menghapus transaksi kas.');
-    }
+    const supabase = createClient();
+    const { error } = await supabase.from('cash_flows').delete().eq('id', id);
+    if (error) throw error;
+    setCashFlows((prev) => prev.filter((cf) => cf.id !== id));
   };
 
   const handleManualRefresh = () => {
     fetchCashFlows();
+    fetchDrawerOpening();
     toast.info('Memperbarui data mutasi kas...');
   };
 
@@ -391,10 +476,12 @@ export default function BukuKasPage() {
         </div>
       )}
 
-      {!isDokterAdmin && (
+      {!isDokterAdmin && !errorMessage && (
         <CashFlowSummaryCards
           totalMasuk={totalMasuk}
           totalKeluar={totalKeluar}
+          keluarKlinik={keluarKlinik}
+          keluarNonKlinik={keluarNonKlinik}
           saldoBersih={saldoBersih}
           totalSetorTunai={totalSetorTunai}
           monthName={`${selectedMonthName} ${selectedYear}`}
@@ -412,15 +499,23 @@ export default function BukuKasPage() {
           selectedDate={selectedReconciliationDate}
           onSelectedDateChange={setSelectedReconciliationDate}
           onOpenSetorTunai={() => handleOpenModal('Masuk')}
+          opening={openingView}
+          openingError={openingError}
+          isOpeningRefreshing={isOpeningRefreshing && drawerOpening !== null}
+          onEditOpening={isOwner ? () => setIsOpeningModalOpen(true) : undefined}
+          isLoading={isLoading}
+          movementsError={errorMessage}
         />
       )}
 
-      <CashFlowTable
-        cashFlows={cashFlows}
-        isLoading={isLoading}
-        periodLabel={isDokterAdmin ? 'hari ini' : undefined}
-        onDelete={handleDeleteCashFlow}
-      />
+      {!errorMessage && (
+        <CashFlowTable
+          cashFlows={cashFlows}
+          isLoading={isLoading}
+          periodLabel={isDokterAdmin ? 'hari ini' : undefined}
+          onDelete={handleDeleteCashFlow}
+        />
+      )}
 
       <AddCashFlowModal
         isOpen={isModalOpen}
@@ -428,6 +523,20 @@ export default function BukuKasPage() {
         initialType={modalType}
         onSuccess={handleCashFlowAdded}
       />
+
+      {isOwner && (
+        <DrawerOpeningModal
+          isOpen={isOpeningModalOpen}
+          onClose={() => setIsOpeningModalOpen(false)}
+          periode={selectedPeriode}
+          monthLabel={`${selectedMonthName} ${selectedYear}`}
+          recorded={drawerOpening?.recorded ?? null}
+          carriedSaldo={drawerOpening?.source === 'carried' ? drawerOpening.saldoAwal : null}
+          userId={user?.id ?? null}
+          onSaved={handleOpeningSaved}
+          onRecordedElsewhere={fetchDrawerOpening}
+        />
+      )}
     </div>
   );
 }

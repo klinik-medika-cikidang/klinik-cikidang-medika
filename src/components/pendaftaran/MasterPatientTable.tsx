@@ -16,7 +16,10 @@ import {
 } from '@phosphor-icons/react';
 import type { Visit, Patient } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
+import { Badge } from '@/components/ui/Badge';
+import { toast } from 'sonner';
 import { cn, formatDateShort } from '@/lib/utils';
+import { requiresFullPayoff } from '@/lib/cash-date';
 
 export type TableFilterTab =
   | 'hari_ini'
@@ -28,6 +31,8 @@ export type TableFilterTab =
 
 export interface MasterPatientTableProps {
   visits: Visit[];
+  /** Jakarta date of the loaded queue; visits dated earlier are carried-over arrears. */
+  queueDate: string;
   isLoadingVisits: boolean;
   resetSignal?: number;
   onSelectForPayment: (visit: Visit) => void;
@@ -49,6 +54,7 @@ interface SearchSuggestion {
 
 export function MasterPatientTable({
   visits,
+  queueDate,
   isLoadingVisits,
   resetSignal,
   onSelectForPayment,
@@ -75,9 +81,14 @@ export function MasterPatientTable({
   const isSettled = (v: Visit) =>
     !isCancelled(v) && (v.status_pembayaran === 'Lunas' || v.status_pembayaran === 'Ditanggung BPJS');
 
+  const isCarryOver = (v: Visit) => v.tanggal_periksa < queueDate;
+
+  // Carried-over rows are loaded only for an unpaid status and no doctor queue shows them
+  // any more, so they always wait for the cashier.
   const isWaitingDoctor = (v: Visit) => {
     if (isCancelled(v)) return false;
     if (isSettled(v)) return false;
+    if (isCarryOver(v)) return false;
     if (v.status_pembayaran === 'Menunggu Kasir') return false;
     return v.status_pembayaran === 'Menunggu Dokter' || !v.kode_icd10;
   };
@@ -85,6 +96,7 @@ export function MasterPatientTable({
   const isWaitingPayment = (v: Visit) => {
     if (isCancelled(v)) return false;
     if (isSettled(v)) return false;
+    if (isCarryOver(v)) return true;
     if (isWaitingDoctor(v)) return false;
     return (
       v.status_pembayaran === 'Menunggu Kasir' ||
@@ -95,11 +107,11 @@ export function MasterPatientTable({
 
   const countMenungguDokter = useMemo(
     () => visits.filter(isWaitingDoctor).length,
-    [visits]
+    [visits, queueDate]
   );
   const countMenungguKasir = useMemo(
     () => visits.filter(isWaitingPayment).length,
-    [visits]
+    [visits, queueDate]
   );
   const countSelesai = useMemo(
     () => visits.filter(isSettled).length,
@@ -202,7 +214,7 @@ export function MasterPatientTable({
       if (activeTab === 'master_pasien') return false;
       return true;
     });
-  }, [activeTab, visits]);
+  }, [activeTab, visits, queueDate]);
 
   const searchSuggestions = useMemo<SearchSuggestion[]>(() => {
     if (!isSearching) return [];
@@ -404,7 +416,7 @@ export function MasterPatientTable({
       </div>
 
       {/* Filter Tabs (Beveled Capsule per component-showcase.html) */}
-      <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-2xl border border-slate-200/80 w-full sm:w-fit overflow-x-auto select-none">
+      <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-2xl border border-slate-200/80 w-full sm:w-fit max-w-full overflow-x-auto select-none">
         <button
           type="button"
           onClick={() => handleTabChange('hari_ini')}
@@ -571,7 +583,7 @@ export function MasterPatientTable({
                       <div className="font-bold text-slate-900">{fullName}</div>
                       <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1.5 flex-wrap">
                         <span>
-                          {patient.usia !== undefined ? `${patient.usia} thn` : '-'},{' '}
+                          {patient.usia != null ? `${patient.usia} thn` : '-'},{' '}
                           {patient.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}
                         </span>
                         {patient.tanggal_lahir && (
@@ -654,7 +666,7 @@ export function MasterPatientTable({
                       <div className="font-bold text-slate-900">{patientName}</div>
                       <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1.5 flex-wrap">
                         <span>
-                          {p?.usia !== undefined ? `${p.usia} thn` : '-'},{' '}
+                          {p?.usia != null ? `${p.usia} thn` : '-'},{' '}
                           {p?.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}
                         </span>
                         {p?.tanggal_lahir && (
@@ -701,9 +713,16 @@ export function MasterPatientTable({
                           Menunggu Dokter
                         </span>
                       ) : isWaitingPayment(visit) ? (
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-50 text-purple-800 border border-purple-200">
-                          Siap Bayar
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-50 text-purple-800 border border-purple-200">
+                            Siap Bayar
+                          </span>
+                          {isCarryOver(visit) && (
+                            <Badge variant="warning" className="font-mono">
+                              Tunggakan · {formatDateShort(visit.tanggal_periksa)}
+                            </Badge>
+                          )}
+                        </div>
                       ) : isSettled(visit) ? (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
                           Selesai
@@ -771,15 +790,34 @@ export function MasterPatientTable({
 
                         {/* 4. Action: Batalkan Antrean untuk pasien yang belum selesai */}
                         {(isWaitingDoctor(visit) || isWaitingPayment(visit)) && onCancelVisit && (
-                          <button
-                            type="button"
-                            onClick={() => onCancelVisit(visit)}
-                            className="p-1.5 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-slate-300 hover:border-rose-300 rounded-xl text-[11px] font-bold shadow-btn-secondary transition-colors tactile-btn min-h-[32px] min-w-[32px] flex items-center justify-center"
-                            title="Batalkan antrean kunjungan pasien ini"
-                            aria-label={`Batalkan antrean ${patientName}`}
-                          >
-                            <XCircle className="w-3.5 h-3.5 text-rose-500" weight="bold" />
-                          </button>
+                          // Batal books no cash, so cancelling a visit that already took money
+                          // would erase that money from the day it was received.
+                          requiresFullPayoff(visit) ? (
+                            <button
+                              type="button"
+                              aria-disabled="true"
+                              onClick={() =>
+                                toast.error(
+                                  'Kunjungan ini sudah menerima pembayaran, jadi tidak bisa dibatalkan. Selesaikan sisa tagihannya di kasir.'
+                                )
+                              }
+                              className="p-1.5 bg-slate-50 text-slate-400 border border-slate-200 rounded-xl text-[11px] font-bold transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-not-allowed"
+                              title="Tidak bisa dibatalkan karena sudah ada pembayaran"
+                              aria-label={`Antrean ${patientName} tidak bisa dibatalkan karena sudah ada pembayaran`}
+                            >
+                              <XCircle className="w-3.5 h-3.5" weight="bold" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onCancelVisit(visit)}
+                              className="p-1.5 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-slate-300 hover:border-rose-300 rounded-xl text-[11px] font-bold shadow-btn-secondary transition-colors tactile-btn min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              title="Batalkan antrean kunjungan pasien ini"
+                              aria-label={`Batalkan antrean ${patientName}`}
+                            >
+                              <XCircle className="w-3.5 h-3.5 text-rose-500" weight="bold" />
+                            </button>
+                          )
                         )}
 
                         {/* Secondary Action: Edit Biodata Pasien */}

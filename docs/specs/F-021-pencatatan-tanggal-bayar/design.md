@@ -3,64 +3,89 @@ id: F-021-DESIGN
 title: "Technical Design: F-021 Pencatatan Tanggal Bayar Pasien"
 status: draft
 owner: Developer
-last_updated: 2026-10-28
+last_updated: 2026-10-30
 ---
 
 # Technical Design — F-021
 
-The change touches persistent shared state (a new column and a view used by four modules), but not module boundaries, communication, or caching. The data-model decisions are recorded here instead of a separate `system-architecture.md`.
+The change touches persistent shared state (new columns read by four modules), but not module boundaries, communication, or caching. The data-model decisions are recorded here instead of a separate `system-architecture.md`.
 
 ## 1. Schema
 
-New migration `supabase/migrations/<ts>_f021_visit_payment_date.sql`:
+Migration `supabase/migrations/20261030_f021_visit_payment_date.sql` (additive, no row updated):
 
 ```sql
 ALTER TABLE public.visits ADD COLUMN IF NOT EXISTS tanggal_bayar DATE;
+ALTER TABLE public.visits ADD COLUMN IF NOT EXISTS tanggal_pelunasan DATE;
 ALTER TABLE public.visits ADD COLUMN IF NOT EXISTS nominal_pelunasan NUMERIC(15,2);
-
-CREATE INDEX IF NOT EXISTS idx_visits_tanggal_bayar ON public.visits(tanggal_bayar);
-
--- security_invoker keeps the caller's RLS on visits.
-CREATE OR REPLACE VIEW public.visit_cash_events
-WITH (security_invoker = true) AS
-SELECT v.id AS visit_id,
-       COALESCE(v.tanggal_bayar, v.tanggal_periksa) AS tanggal_kas,
-       v.tanggal_periksa, v.jenis_pasien, v.biaya_periksa, v.pendapatan_lain,
-       v.jenis_pembayaran, v.status_pembayaran, v.piutang_nominal, v.nominal_pelunasan
-FROM public.visits v;
+-- plus CHECK (nominal_pelunasan IS NULL OR nominal_pelunasan >= 0)
+-- and indexes on tanggal_bayar and tanggal_pelunasan
 ```
 
-Decision **DEC-021-1**: no backfill. `COALESCE` gives historical rows their examination date, which is what every report shows today (INV-021-1, INV-021-2).
+| Column | Meaning |
+|---|---|
+| `tanggal_bayar` | WIB date of the first payment: settle as Lunas, Piutang, or a free/BPJS visit |
+| `tanggal_pelunasan` | WIB date a Piutang balance was paid off |
+| `nominal_pelunasan` | Outstanding balance received on `tanggal_pelunasan` |
 
-Decision **DEC-021-2**: one payoff per piutang visit (`nominal_pelunasan` plus the updated `tanggal_bayar`). A multi-instalment ledger would need its own table and is out of scope.
+Decision **DEC-021-1**: no backfill. Rows with `tanggal_bayar` null are read as paid on `tanggal_periksa`, which is what every report showed before (INV-021-1, INV-021-2).
 
-## 2. Component Inventory
+Decision **DEC-021-2**: one payoff per piutang visit. A multi-instalment ledger would need its own table and is out of scope.
+
+Decision **DEC-021-3** (2026-10-30, supersedes the earlier draft that moved `tanggal_bayar` to the payoff date and read revenue from a `visit_cash_events` view): keep three nullable columns and no view.
+
+- Moving `tanggal_bayar` to the payoff date would move the part received on the first day to the payoff day, so the first day's drawer would no longer match the cash counted that evening.
+- One visit with a paid-off Piutang brings money on two dates. A view with a single `COALESCE(tanggal_bayar, tanggal_periksa)` column cannot express two cash dates per row.
+- Cash dates are derived in `src/lib/cash-date.ts` (`getVisitCashEvents`), and queries load visits examined, first paid, or paid off in the period through `cashDateOrFilter`. RLS on `visits` applies unchanged (INV-021-3).
+- Review follow-up (2026-10-30): a fourth column `metode_pelunasan` (`20261030_f021b_visit_payoff_method.sql`) keeps the payoff method apart from `jenis_pembayaran`, so a cash first payment and a transfer payoff land in the drawer and the bank respectively. Any settle of a visit that still owes money from an earlier payment (Piutang to Lunas, Piutang to Piutang, or a Piutang sent back through Menunggu Kasir with its balance kept) keeps the first payment date and method and books what is received now, including charges added at the counter, on `tanggal_pelunasan`. Several instalments collapse onto the latest one (DEC-021-2).
+
+## 2. Cash Rules (`src/lib/cash-date.ts`)
+
+| Visit state | Cash events |
+|---|---|
+| Unsettled (Belum Bayar, Menunggu, Pending, Batal) | none |
+| Open Piutang | bill minus `piutang_nominal` on the first payment date |
+| Paid-off Piutang | bill minus `nominal_pelunasan` on `tanggal_bayar`, `nominal_pelunasan` on `tanggal_pelunasan` |
+| Any other settled visit | whole bill on `COALESCE(tanggal_bayar, tanggal_periksa)` |
+
+Writing on settle (`buildSettlePaymentDates`): a Piutang that becomes Lunas keeps `tanggal_bayar` (or takes `tanggal_periksa` when it was null), and sets `tanggal_pelunasan` = today and `nominal_pelunasan` = the previous `piutang_nominal`. Any other settle sets `tanggal_bayar` = today and clears the payoff columns. A visit left as Belum Bayar gets no payment date.
+
+## 3. Component Inventory
 
 | File | Change |
 |---|---|
-| `src/types/database.ts` | `tanggal_bayar`, `nominal_pelunasan` |
-| `src/app/pendaftaran/page.tsx` (`handlePosPayment`) | Set `tanggal_bayar` on settle and on piutang payoff |
-| `src/components/pendaftaran/PaymentModal.tsx` | Same, if the modal is still reachable (currently not imported; confirm and remove or align) |
-| `src/lib/utils.ts` | `getCashDate(v)` and revenue helpers keyed by cash date |
-| `src/app/page.tsx` | Revenue and finance trend from `visit_cash_events`; visit counts unchanged |
-| `src/app/laporan/page.tsx`, `src/lib/excel.ts` | Revenue by cash date, "Tanggal Bayar" column, delayed-payment filter |
-| `src/app/buku-kas/page.tsx`, `CashReconciliationCard.tsx` | Drawer cash by cash date |
-| `src/components/pendaftaran/ReceiptModal.tsx` | Print payment date when it differs |
+| `src/types/database.ts` | `tanggal_bayar`, `tanggal_pelunasan`, `nominal_pelunasan` on `Visit` |
+| `src/lib/cash-date.ts` | Cash-date rules, settle columns, Laporan/receipt labels, drawer entries |
+| `src/app/pendaftaran/page.tsx` (`handleSettlePayment`) | Writes the payment-date columns on settle and on piutang payoff |
+| `src/components/pendaftaran/PaymentModal.tsx` | Not changed: it is not imported anywhere, so it cannot settle a visit |
+| `src/app/page.tsx` | Revenue, finance trend, and liquidity by cash event date; visit counts, ICD-10, villages by `tanggal_periksa` |
+| `src/app/laporan/page.tsx`, `src/lib/excel.ts`, `ReportPreviewTable.tsx` | Billing KPI by cash date, "Tanggal Bayar" column, "Hanya pembayaran beda hari" filter |
+| `src/app/buku-kas/page.tsx` | "Tunai Masuk Laci" monthly and per date by cash event date |
+| `src/components/pendaftaran/ReceiptModal.tsx` | Prints payment and payoff dates when they differ from the examination date |
 
-## 3. Data Flow
+## 4. Data Flow
 
 ```text
 Before:  settle visit ──> visits.status_pembayaran
          reports filter revenue by tanggal_periksa
 
-After:   settle visit ──> visits.status_pembayaran + tanggal_bayar (+ nominal_pelunasan on payoff)
-         revenue queries ──> visit_cash_events filtered by tanggal_kas
-         visit/morbidity queries ──> visits filtered by tanggal_periksa (unchanged)
+After:   settle visit ──> visits.status_pembayaran + tanggal_bayar
+                          (+ tanggal_pelunasan, nominal_pelunasan on piutang payoff)
+         revenue queries ──> visits .or(cashDateOrFilter) ──> getVisitCashEvents, filtered by event date
+         visit/morbidity aggregates ──> same rows filtered by tanggal_periksa
 ```
 
-## 4. Test Plan
+## 5. Test Plan
 
-- Unit: `getCashDate` with and without `tanggal_bayar`; revenue totals for a visit examined on D and paid on D+1.
+- Unit (`src/lib/cash-date.test.ts`): `getCashDate` with and without `tanggal_bayar`; revenue for a visit examined on D and paid on D+1; open and paid-off Piutang; settle columns; drawer entries.
 - Staging: create a visit dated yesterday, settle it today, and confirm Buku Kas per-date shows it today and Dashboard visit counts still show it yesterday.
 - Regression: totals for September 2026 before and after the migration must match (INV-021-1).
 - Responsive: receipt and Laporan filter at 360px, 768px, 1024px.
+
+## Audit amendments (2026-10-30)
+
+- **DEC-021-4 (enforcing DEC-021-2):** after a first payment, the next receipt must settle the whole remaining balance as Lunas. A further receipt is accepted only on the same day with the same method as the recorded payoff; anything else is blocked with an Indonesian message. This keeps money already counted in an earlier day's drawer on that day and in its method. Several instalments per visit need a payment ledger table, proposed as post-MVP work.
+- **Cashier panel:** for a visit that already received money the panel shows "Sudah dibayar" with its date, "Sisa piutang" and "Harus dibayar sekarang", and "Uang Diterima Sekarang" is pre-filled with the amount due now. "Belum Bayar" is hidden and cancelling is blocked for such a visit.
+- **Doctor sends a visit back:** a paid visit keeps its payment date and method; new charges become Piutang for the difference. A visit that never received money (BPJS covered, free, or unpaid) has its payment columns cleared so the new charges are owed today. The doctor's save stops when the cashier changed the bill after the form opened.
+- **Legacy rows:** a row the earlier examination form sent back after payment (unsettled, payment_state Lunas or Piutang, no tanggal_bayar) cannot be settled automatically; the panel asks to check the old receipt. The old staging data has none of these rows; run the same read-only query on production before release.
+- **Concurrency:** settles and doctor saves re-read the payment columns and are guarded on the values read.

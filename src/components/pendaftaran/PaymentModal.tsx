@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import type { Visit } from '@/types/database';
 import { Modal, Button, Input, Select, Badge, RupiahShorthandHint } from '@/components/ui';
-import { formatRupiah, normalizeRupiah, isLikelyShorthandRupiah, cn } from '@/lib/utils';
+import { formatRupiah, normalizeRupiah, isLikelyShorthandRupiah, cn, getErrorMessage } from '@/lib/utils';
 import { METODE_PEMBAYARAN_OPTIONS } from '@/constants/clinic';
 
 export interface PaymentModalProps {
@@ -146,7 +146,7 @@ export function PaymentModal({
       onClose();
     } catch (err) {
       console.error('Error settling payment:', err);
-      const msg = err instanceof Error ? err.message : 'Gagal memproses pelunasan kasir.';
+      const msg = getErrorMessage(err, 'Gagal memproses pelunasan kasir.');
       setErrorMessage(msg);
       toast.error(msg);
     } finally {

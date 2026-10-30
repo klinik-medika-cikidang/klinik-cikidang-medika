@@ -22,6 +22,7 @@ import type { TbcProgram } from '@/types/database';
 import { Modal } from '@/components/ui/Modal';
 import { TbTreatmentCardPrint } from '@/components/program-khusus/TbTreatmentCardPrint';
 import { createClient } from '@/lib/supabase/client';
+import { getErrorMessage } from '@/lib/utils';
 
 interface TbcControlCardProps {
   program: TbcProgram;
@@ -88,7 +89,7 @@ export function TbcControlCard({ program, onRefresh }: TbcControlCardProps) {
       onRefresh();
     } catch (err) {
       console.error('Error updating TBC program:', err);
-      toast.error('Gagal memperbarui status kendali TBC');
+      toast.error(getErrorMessage(err, 'Gagal memperbarui status kendali TBC.'));
     } finally {
       setIsUpdating(false);
     }

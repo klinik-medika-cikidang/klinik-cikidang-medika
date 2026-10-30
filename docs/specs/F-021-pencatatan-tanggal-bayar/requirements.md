@@ -3,7 +3,7 @@ id: F-021-REQ
 title: "Pencatatan Tanggal Bayar Pasien"
 status: draft
 owner: Developer
-last_updated: 2026-10-28
+last_updated: 2026-10-30
 priority: P1
 milestone: Change Request
 billing: new feature (charged)
@@ -27,7 +27,7 @@ Related observation: `Piutang` is not in `UNSETTLED_PAYMENT_STATUSES`, so the fu
 ### User Story 1: Simpan Tanggal Bayar (Kasir)
 - **REQ-021-01.1**: The `visits` table SHALL have a nullable column `tanggal_bayar DATE`.
 - **REQ-021-01.2**: WHEN a cashier settles a visit (Lunas, Piutang, or free visit), THEN `tanggal_bayar` SHALL be set to the current WIB date.
-- **REQ-021-01.3**: WHEN a `Piutang` visit is paid off on a later day, THEN `tanggal_bayar` SHALL be updated to the payoff date and the paid-off amount SHALL be recorded for that date.
+- **REQ-021-01.3**: WHEN a `Piutang` visit is paid off on a later day, THEN `tanggal_bayar` SHALL keep the date of the first payment, `tanggal_pelunasan` SHALL be set to the payoff date, and `nominal_pelunasan` SHALL record the outstanding balance received on that date (DEC-021-3).
 - **REQ-021-01.4**: Visits settled before this change SHALL keep `tanggal_bayar` null and SHALL be treated as paid on `tanggal_periksa` (no backfill of historical rows).
 
 ### User Story 2: Kas Mengikuti Tanggal Bayar (Owner / Kasir)

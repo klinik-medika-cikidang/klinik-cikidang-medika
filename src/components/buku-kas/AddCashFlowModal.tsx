@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import {
   CASH_FLOW_CATEGORIES,
+  CASH_FLOW_KELUAR_GROUPS,
   METODE_PEMBAYARAN_OPTIONS,
   type MetodePembayaranOption,
 } from '@/constants/clinic';
@@ -32,10 +33,17 @@ import {
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
   cn,
+  getErrorMessage,
 } from '@/lib/utils';
 
 const cashFlowSchema = z.object({
-  tanggal: z.string().trim().min(1, 'Tanggal transaksi wajib diisi.'),
+  // A row dated later than today would sit in this month's Buku Kas and Laporan before
+  // it happened, and the Dashboard covers the whole month too.
+  tanggal: z
+    .string()
+    .trim()
+    .min(1, 'Tanggal transaksi wajib diisi.')
+    .refine((value) => value <= formatLocalDateToYMD(), 'Tanggal tidak boleh setelah hari ini.'),
   jenis: z.enum(['Masuk', 'Keluar'], {
     message: 'Jenis transaksi wajib dipilih.',
   }),
@@ -182,7 +190,7 @@ export function AddCashFlowModal({
       }
       onClose();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Gagal menyimpan transaksi kas ke database.';
+      const msg = getErrorMessage(err, 'Gagal menyimpan transaksi kas ke database.');
       setErrorMessage(msg);
       toast.error(msg);
     } finally {
@@ -190,9 +198,12 @@ export function AddCashFlowModal({
     }
   };
 
-  const categoryOptions = (
-    jenis === 'Masuk' ? CASH_FLOW_CATEGORIES.masuk : CASH_FLOW_CATEGORIES.keluar
-  ).map((cat) => ({ value: cat, label: cat }));
+  const categoryOptions =
+    jenis === 'Masuk'
+      ? CASH_FLOW_CATEGORIES.masuk.map((cat) => ({ value: cat, label: cat }))
+      : CASH_FLOW_KELUAR_GROUPS.flatMap((group) =>
+          group.categories.map((cat) => ({ value: cat, label: cat, group: group.label }))
+        );
 
   return (
     <Modal
@@ -254,6 +265,7 @@ export function AddCashFlowModal({
             label="Tanggal Transaksi"
             type="date"
             requiredIndicator
+            max={getTodayString()}
             value={tanggal}
             onChange={(e) => {
               setTanggal(e.target.value);

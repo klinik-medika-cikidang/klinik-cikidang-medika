@@ -25,10 +25,84 @@ import { PostCareAgenda } from '@/components/program-khusus/PostCareAgenda';
 import { NewPostCareModal } from '@/components/program-khusus/NewPostCareModal';
 import { PublicHealthRegistry } from '@/components/program-khusus/PublicHealthRegistry';
 import { NewPublicHealthModal } from '@/components/program-khusus/NewPublicHealthModal';
+import { formatLocalDateToYMD, getErrorMessage } from '@/lib/utils';
+import {
+  isActiveCircumcision,
+  isActivePostCare,
+  isActiveTbc,
+  isDueTodayPostCare,
+  isOverduePostCare,
+} from '@/lib/program-status';
+import { SIRKUMSISI_ACTIVE_DAYS } from '@/constants/clinic';
+import {
+  ProgramScopeToggle,
+  scopeEmptyReason,
+  type ProgramScope,
+  type ScopeEmptyReason,
+} from '@/components/program-khusus/ProgramScopeToggle';
+import { Button } from '@/components/ui/Button';
 
 type ProgramTab = 'tbc' | 'circumcision' | 'postcare' | 'kesehatan';
 type TbcFilter = 'all' | 'intensif' | 'lanjutan' | 'mangkir' | 'selesai';
 type CircumcisionFilter = 'all' | 'laser' | 'klamp' | 'konvensional' | 'pending-photo';
+type ScopedTab = Exclude<ProgramTab, 'kesehatan'>;
+
+interface EmptyCopy {
+  title: string;
+  message: string;
+}
+
+function tbcEmptyCopy(reason: ScopeEmptyReason, hiddenCount: number, query: string): EmptyCopy {
+  switch (reason) {
+    case 'empty-register':
+      return {
+        title: 'Belum ada pasien di kohort TBC',
+        message: 'Klik tombol "Pasien TBC Baru" untuk mendaftarkan.',
+      };
+    case 'none-active':
+      return {
+        title: 'Tidak ada pasien TBC aktif',
+        message:
+          'Tidak ada pasien TBC yang sedang dalam pengobatan atau mangkir. Pilih "Semua Riwayat" untuk melihat riwayat kohort.',
+      };
+    case 'hidden-by-scope':
+      return {
+        title: 'Tidak ditemukan di Pasien Aktif',
+        message: `${hiddenCount} pasien yang cocok sudah sembuh atau selesai berobat. Pilih "Semua Riwayat" untuk melihatnya.`,
+      };
+    case 'no-match':
+      return {
+        title: 'Tidak ada pasien TBC yang sesuai kriteria',
+        message: query
+          ? `Pencarian "${query}" tidak menemukan data di seluruh riwayat kohort. Periksa ejaan nama, No. RM, atau desa.`
+          : 'Tidak ada pasien yang cocok dengan filter ini. Pilih filter lain.',
+      };
+  }
+}
+
+function circumcisionEmptyCopy(reason: ScopeEmptyReason, hiddenCount: number, query: string): EmptyCopy | null {
+  switch (reason) {
+    case 'empty-register':
+      return null;
+    case 'none-active':
+      return {
+        title: 'Tidak ada tindakan sirkumsisi aktif',
+        message: `Tidak ada tindakan sirkumsisi dalam ${SIRKUMSISI_ACTIVE_DAYS} hari terakhir. Pilih "Semua Riwayat" untuk melihat tindakan sebelumnya.`,
+      };
+    case 'hidden-by-scope':
+      return {
+        title: 'Tidak ditemukan di Pasien Aktif',
+        message: `${hiddenCount} tindakan yang cocok sudah lewat ${SIRKUMSISI_ACTIVE_DAYS} hari atau belum punya tanggal tindakan. Pilih "Semua Riwayat" untuk melihatnya.`,
+      };
+    case 'no-match':
+      return {
+        title: 'Tidak ada tindakan yang sesuai kriteria',
+        message: query
+          ? `Pencarian "${query}" tidak menemukan data di seluruh riwayat sirkumsisi. Periksa ejaan nama, No. RM, desa, atau dokter.`
+          : 'Tidak ada tindakan yang cocok dengan filter ini. Pilih filter lain.',
+      };
+  }
+}
 
 export default function ProgramKhususPage() {
   const [activeTab, setActiveTab] = useState<ProgramTab>('tbc');
@@ -39,6 +113,12 @@ export default function ProgramKhususPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [tbcFilter, setTbcFilter] = useState<TbcFilter>('all');
   const [circFilter, setCircFilter] = useState<CircumcisionFilter>('all');
+  // F-022: the three registers open on active patients; "Semua" restores the full history.
+  const [viewScope, setViewScope] = useState<Record<ScopedTab, ProgramScope>>({
+    tbc: 'aktif',
+    circumcision: 'aktif',
+    postcare: 'aktif',
+  });
 
   // Data states
   const [tbcList, setTbcList] = useState<TbcProgram[]>([]);
@@ -94,7 +174,7 @@ export default function ProgramKhususPage() {
     } catch (err) {
       console.error('Error fetching program khusus data:', err);
       setErrorMessage(
-        err instanceof Error ? err.message : 'Gagal memuat data program khusus medis.'
+        getErrorMessage(err, 'Gagal memuat data program khusus medis.')
       );
     } finally {
       setIsLoading(false);
@@ -106,10 +186,23 @@ export default function ProgramKhususPage() {
   }, [fetchData]);
 
   // Derived surveillance counts
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => formatLocalDateToYMD(), []);
 
+  const activeTbcList = useMemo(() => tbcList.filter(isActiveTbc), [tbcList]);
+  const activeCircumcisionList = useMemo(
+    () => circumcisionList.filter((c) => isActiveCircumcision(c, todayStr)),
+    [circumcisionList, todayStr]
+  );
+  const activePostCareList = useMemo(() => postCareList.filter(isActivePostCare), [postCareList]);
+
+  const scopedTbcList = viewScope.tbc === 'aktif' ? activeTbcList : tbcList;
+  const scopedCircumcisionList =
+    viewScope.circumcision === 'aktif' ? activeCircumcisionList : circumcisionList;
+  const scopedPostCareList = viewScope.postcare === 'aktif' ? activePostCareList : postCareList;
+
+  // KPI cards and tab counters always count active rows, whatever scope the list shows.
   const mangkirTbcCount = useMemo(() => {
-    return tbcList.filter((t) => {
+    return activeTbcList.filter((t) => {
       if (t.status_tbc === 'Mangkir') return true;
       if (t.status_tbc === 'Dalam Pengobatan') {
         const startDate = new Date(t.tanggal_mulai);
@@ -121,49 +214,39 @@ export default function ProgramKhususPage() {
       }
       return false;
     }).length;
-  }, [tbcList]);
+  }, [activeTbcList]);
 
   const intensifTbcCount = useMemo(
-    () => tbcList.filter((t) => t.fase_pengobatan === 'Intensif' || (t.bulan_ke || 1) <= 2).length,
-    [tbcList]
+    () => activeTbcList.filter((t) => t.fase_pengobatan === 'Intensif' || (t.bulan_ke || 1) <= 2).length,
+    [activeTbcList]
   );
   const lanjutanTbcCount = useMemo(
-    () => tbcList.filter((t) => t.fase_pengobatan === 'Lanjutan' || (t.bulan_ke || 1) > 2).length,
-    [tbcList]
+    () => activeTbcList.filter((t) => t.fase_pengobatan === 'Lanjutan' || (t.bulan_ke || 1) > 2).length,
+    [activeTbcList]
   );
 
   const totalCircumcisionRevenue = useMemo(
-    () => circumcisionList.reduce((sum, c) => sum + (Number(c.biaya) || 0), 0),
-    [circumcisionList]
+    () => activeCircumcisionList.reduce((sum, c) => sum + (Number(c.biaya) || 0), 0),
+    [activeCircumcisionList]
   );
   const pendingFollowUpPhotos = useMemo(
-    () => circumcisionList.filter((c) => !c.foto_2_url).length,
-    [circumcisionList]
+    () => activeCircumcisionList.filter((c) => !c.foto_2_url).length,
+    [activeCircumcisionList]
   );
 
   const todayPostCareCount = useMemo(
-    () =>
-      postCareList.filter(
-        (p) => p.tanggal_kontrol_berikutnya === todayStr && p.status_kontrol !== 'Sudah Kontrol'
-      ).length,
-    [postCareList, todayStr]
+    () => activePostCareList.filter((p) => isDueTodayPostCare(p, todayStr)).length,
+    [activePostCareList, todayStr]
   );
   const overduePostCareCount = useMemo(
-    () =>
-      postCareList.filter(
-        (p) => p.tanggal_kontrol_berikutnya < todayStr && p.status_kontrol !== 'Sudah Kontrol'
-      ).length,
-    [postCareList, todayStr]
-  );
-  const completedPostCareCount = useMemo(
-    () => postCareList.filter((p) => p.status_kontrol === 'Sudah Kontrol').length,
-    [postCareList]
+    () => activePostCareList.filter((p) => isOverduePostCare(p, todayStr)).length,
+    [activePostCareList, todayStr]
   );
 
-  // Filtered lists based on search & contextual filter
-  const filteredTbcList = useMemo(() => {
-    return tbcList.filter((prog) => {
-      // Search match
+  // Search and filter predicates are shared by the scoped list and the hidden-match
+  // count, so the empty state can tell "outside Pasien Aktif" apart from "not recorded".
+  const matchesTbc = useCallback(
+    (prog: TbcProgram) => {
       const q = searchQuery.toLowerCase().trim();
       const matchSearch =
         !q ||
@@ -173,18 +256,18 @@ export default function ProgramKhususPage() {
 
       if (!matchSearch) return false;
 
-      // Status filter
       if (tbcFilter === 'intensif') return (prog.bulan_ke || 1) <= 2;
       if (tbcFilter === 'lanjutan') return (prog.bulan_ke || 1) > 2;
       if (tbcFilter === 'mangkir') return prog.status_tbc === 'Mangkir';
       if (tbcFilter === 'selesai')
         return prog.status_tbc === 'Sembuh' || prog.status_tbc === 'Pengobatan Lengkap';
       return true;
-    });
-  }, [tbcList, searchQuery, tbcFilter]);
+    },
+    [searchQuery, tbcFilter]
+  );
 
-  const filteredCircumcisionList = useMemo(() => {
-    return circumcisionList.filter((rec) => {
+  const matchesCircumcision = useCallback(
+    (rec: Circumcision) => {
       const q = searchQuery.toLowerCase().trim();
       const matchSearch =
         !q ||
@@ -201,11 +284,48 @@ export default function ProgramKhususPage() {
       if (circFilter === 'konvensional') return m.includes('konvensional');
       if (circFilter === 'pending-photo') return !rec.foto_2_url;
       return true;
-    });
-  }, [circumcisionList, searchQuery, circFilter]);
+    },
+    [searchQuery, circFilter]
+  );
+
+  const filteredTbcList = useMemo(() => scopedTbcList.filter(matchesTbc), [scopedTbcList, matchesTbc]);
+  const filteredCircumcisionList = useMemo(
+    () => scopedCircumcisionList.filter(matchesCircumcision),
+    [scopedCircumcisionList, matchesCircumcision]
+  );
+
+  const hiddenTbcMatchCount = useMemo(
+    () => tbcList.filter((t) => !isActiveTbc(t) && matchesTbc(t)).length,
+    [tbcList, matchesTbc]
+  );
+  const hiddenCircumcisionMatchCount = useMemo(
+    () =>
+      circumcisionList.filter((c) => !isActiveCircumcision(c, todayStr) && matchesCircumcision(c)).length,
+    [circumcisionList, todayStr, matchesCircumcision]
+  );
+  const tbcEmptyReason = scopeEmptyReason({
+    scope: viewScope.tbc,
+    totalCount: tbcList.length,
+    hiddenMatchCount: hiddenTbcMatchCount,
+    isNarrowed: searchQuery.trim() !== '' || tbcFilter !== 'all',
+  });
+  const circumcisionEmptyReason = scopeEmptyReason({
+    scope: viewScope.circumcision,
+    totalCount: circumcisionList.length,
+    hiddenMatchCount: hiddenCircumcisionMatchCount,
+    isNarrowed: searchQuery.trim() !== '' || circFilter !== 'all',
+  });
+  const tbcEmpty = tbcEmptyCopy(tbcEmptyReason, hiddenTbcMatchCount, searchQuery.trim());
+  const circumcisionEmpty = circumcisionEmptyCopy(
+    circumcisionEmptyReason,
+    hiddenCircumcisionMatchCount,
+    searchQuery.trim()
+  );
+
+  const showAllHistory = (tab: ScopedTab) => setViewScope((prev) => ({ ...prev, [tab]: 'semua' }));
 
   const filteredPostCareList = useMemo(() => {
-    return postCareList.filter((item) => {
+    return scopedPostCareList.filter((item) => {
       const q = searchQuery.toLowerCase().trim();
       return (
         !q ||
@@ -214,7 +334,7 @@ export default function ProgramKhususPage() {
         item.pasien?.desa?.toLowerCase().includes(q)
       );
     });
-  }, [postCareList, searchQuery]);
+  }, [scopedPostCareList, searchQuery]);
 
   const filteredPublicHealthList = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -307,16 +427,16 @@ export default function ProgramKhususPage() {
       <ProgramKhususKpis
         isLoading={isLoading}
         data={{
-          totalTbc: tbcList.length,
+          totalTbc: activeTbcList.length,
           mangkirTbc: mangkirTbcCount,
           intensifTbc: intensifTbcCount,
           lanjutanTbc: lanjutanTbcCount,
-          totalCircumcisions: circumcisionList.length,
+          totalCircumcisions: activeCircumcisionList.length,
           totalCircumcisionRevenue: totalCircumcisionRevenue,
           pendingFollowUpPhotos: pendingFollowUpPhotos,
           postCareTodayCount: todayPostCareCount,
           postCareOverdueCount: overduePostCareCount,
-          postCareCompletedCount: completedPostCareCount,
+          postCareActiveCount: activePostCareList.length,
         }}
       />
 
@@ -339,78 +459,98 @@ export default function ProgramKhususPage() {
 
       {/* 3. Sleek Recessed Track Segmented Sub-Tab Switcher */}
       <div className="w-full bg-slate-100/90 p-1 rounded-xl border border-slate-200/90 shadow-2xs">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 w-full">
           <button
             type="button"
             onClick={() => setActiveTab('tbc')}
-            className={`h-9 px-3 rounded-lg text-xs font-semibold transition-all tactile-btn flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+            className={`min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-all tactile-btn flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
               activeTab === 'tbc'
                 ? 'bg-white text-teal-700 font-bold shadow-xs border border-slate-200/70'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 border border-transparent'
             }`}
           >
             <Lungs className="w-4 h-4 text-purple-600 shrink-0" />
-            <span className="truncate">Kartu Kendali TBC ({tbcList.length})</span>
-            {mangkirTbcCount > 0 && (
-              <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-md font-mono font-bold animate-pulse shrink-0">
-                {mangkirTbcCount} Mangkir
+            <span className="min-w-0 flex flex-col items-start text-left leading-tight">
+              <span>Kartu Kendali TBC</span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span className="font-mono tabular-nums text-[11px] font-semibold text-slate-600">{activeTbcList.length} aktif</span>
+                {mangkirTbcCount > 0 && (
+                  <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-md font-mono font-bold animate-pulse">
+                    {mangkirTbcCount} Mangkir
+                  </span>
+                )}
               </span>
-            )}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('circumcision')}
-            className={`h-9 px-3 rounded-lg text-xs font-semibold transition-all tactile-btn flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+            className={`min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-all tactile-btn flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
               activeTab === 'circumcision'
                 ? 'bg-white text-teal-700 font-bold shadow-xs border border-slate-200/70'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 border border-transparent'
             }`}
           >
             <BandageAdhesive className="w-4 h-4 text-teal-600 shrink-0" />
-            <span className="truncate">Sirkumsisi &amp; Foto ({circumcisionList.length})</span>
-            {pendingFollowUpPhotos > 0 && (
-              <span className="bg-teal-100 text-teal-800 text-[10px] px-1.5 py-0.2 rounded-md font-mono font-bold shrink-0">
-                {pendingFollowUpPhotos} Foto H+7
+            <span className="min-w-0 flex flex-col items-start text-left leading-tight">
+              <span>Sirkumsisi &amp; Foto</span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span className="font-mono tabular-nums text-[11px] font-semibold text-slate-600">{activeCircumcisionList.length} aktif</span>
+                {pendingFollowUpPhotos > 0 && (
+                  <span className="bg-teal-100 text-teal-800 text-[10px] px-1.5 py-0.5 rounded-md font-mono font-bold">
+                    {pendingFollowUpPhotos} Foto H+7
+                  </span>
+                )}
               </span>
-            )}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('postcare')}
-            className={`h-9 px-3 rounded-lg text-xs font-semibold transition-all tactile-btn flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+            className={`min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-all tactile-btn flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
               activeTab === 'postcare'
                 ? 'bg-white text-teal-700 font-bold shadow-xs border border-slate-200/70'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 border border-transparent'
             }`}
           >
             <CalendarCheck className="w-4 h-4 text-emerald-600 shrink-0" weight="duotone" />
-            <span className="truncate">Agenda Observasi ({postCareList.length})</span>
-            {todayPostCareCount > 0 && (
-              <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.2 rounded-md font-mono font-bold shrink-0">
-                {todayPostCareCount} Hari Ini
+            <span className="min-w-0 flex flex-col items-start text-left leading-tight">
+              <span>Agenda Observasi</span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span className="font-mono tabular-nums text-[11px] font-semibold text-slate-600">{activePostCareList.length} aktif</span>
+                {todayPostCareCount > 0 && (
+                  <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded-md font-mono font-bold">
+                    {todayPostCareCount} Hari Ini
+                  </span>
+                )}
               </span>
-            )}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('kesehatan')}
-            className={`h-9 px-3 rounded-lg text-xs font-semibold transition-all tactile-btn flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+            className={`min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-all tactile-btn flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
               activeTab === 'kesehatan'
                 ? 'bg-white text-teal-700 font-bold shadow-xs border border-slate-200/70'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 border border-transparent'
             }`}
           >
             <Heartbeat className="w-4 h-4 text-rose-600 shrink-0" weight="duotone" />
-            <span className="truncate">Program Kesehatan ({publicHealthList.length})</span>
+            <span className="min-w-0 flex flex-col items-start text-left leading-tight">
+              <span>Program Kesehatan</span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span className="font-mono tabular-nums text-[11px] font-semibold text-slate-600">{publicHealthList.length} data</span>
+              </span>
+            </span>
           </button>
         </div>
       </div>
 
       {/* 4. Sub-Tab Filter & Universal Search Bar */}
-      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-card-double flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-card-double flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
         {/* Search input */}
         <div className="relative flex-1 max-w-md">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -434,8 +574,32 @@ export default function ProgramKhususPage() {
           )}
         </div>
 
+        {activeTab !== 'kesehatan' && (
+          <ProgramScopeToggle
+            value={viewScope[activeTab]}
+            onChange={(scope) => {
+              setViewScope((prev) => ({ ...prev, [activeTab]: scope }));
+              if (activeTab === 'tbc' && scope === 'aktif' && tbcFilter === 'selesai') setTbcFilter('all');
+            }}
+            activeCount={
+              activeTab === 'tbc'
+                ? activeTbcList.length
+                : activeTab === 'circumcision'
+                  ? activeCircumcisionList.length
+                  : activePostCareList.length
+            }
+            totalCount={
+              activeTab === 'tbc'
+                ? tbcList.length
+                : activeTab === 'circumcision'
+                  ? circumcisionList.length
+                  : postCareList.length
+            }
+          />
+        )}
+
         {/* Contextual Sub-tab Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+        <div className="flex flex-wrap items-center gap-1.5 min-w-0 overflow-x-auto pb-1 xl:pb-0">
           <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500 mr-1 shrink-0">
             <Funnel className="w-3.5 h-3.5 text-slate-400" />
             <span>Filter:</span>
@@ -451,7 +615,9 @@ export default function ProgramKhususPage() {
                   { id: 'mangkir', label: 'Mangkir' },
                   { id: 'selesai', label: 'Sembuh / Selesai' },
                 ] as const
-              ).map((f) => (
+              )
+                .filter((f) => !(viewScope.tbc === 'aktif' && f.id === 'selesai'))
+                .map((f) => (
                 <button
                   key={f.id}
                   type="button"
@@ -525,7 +691,7 @@ export default function ProgramKhususPage() {
                   Menampilkan kohort OAT terstandar • Pasien mangkir memerlukan kunjungan rumah segera
                 </span>
                 <span className="text-[11px] font-bold text-slate-700 font-mono">
-                  {filteredTbcList.length} dari {tbcList.length} Pasien
+                  {filteredTbcList.length} dari {scopedTbcList.length} Pasien{viewScope.tbc === 'aktif' ? ' Aktif' : ''}
                 </span>
               </div>
 
@@ -550,24 +716,37 @@ export default function ProgramKhususPage() {
                   <div className="p-3 bg-purple-50 text-purple-700 rounded-2xl w-fit mx-auto mb-3 border border-purple-200">
                     <Lungs className="w-8 h-8" />
                   </div>
-                  <h3 className="text-sm font-bold text-slate-800">Tidak ada pasien TBC yang sesuai kriteria</h3>
+                  <h3 className="text-sm font-bold text-slate-800">
+                    {tbcEmpty.title}
+                  </h3>
                   <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                    {searchQuery
-                      ? `Pencarian "${searchQuery}" tidak menemukan data. Coba sesuaikan kata kunci atau reset filter.`
-                      : 'Belum ada pasien terdaftar di kohort TBC. Klik tombol "Pasien TBC Baru" untuk mendaftarkan.'}
+                    {tbcEmpty.message}
                   </p>
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setTbcFilter('all');
-                      }}
-                      className="mt-3 text-xs font-bold text-teal-600 hover:text-teal-800 underline"
-                    >
-                      Reset Pencarian &amp; Filter
-                    </button>
-                  )}
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    {(tbcEmptyReason === 'hidden-by-scope' || tbcEmptyReason === 'none-active') && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="min-h-[44px]"
+                        onClick={() => showAllHistory('tbc')}
+                      >
+                        Tampilkan Semua Riwayat
+                      </Button>
+                    )}
+                    {(searchQuery.trim() !== '' || tbcFilter !== 'all') && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="min-h-[44px] text-teal-700 hover:text-teal-900"
+                        onClick={() => {
+                          setSearchQuery('');
+                          setTbcFilter('all');
+                        }}
+                      >
+                        Reset Pencarian &amp; Filter
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -586,11 +765,40 @@ export default function ProgramKhususPage() {
                   Dokumentasi bedah minor sirkumsisi modern, operator pelaksana, dan evaluasi foto luka privat
                 </span>
                 <span className="text-[11px] font-bold text-slate-700 font-mono">
-                  {filteredCircumcisionList.length} dari {circumcisionList.length} Tindakan
+                  {filteredCircumcisionList.length} dari {scopedCircumcisionList.length} Tindakan{viewScope.circumcision === 'aktif' ? ' Aktif' : ''}
                 </span>
               </div>
               <CircumcisionList
                 records={filteredCircumcisionList}
+                emptyTitle={circumcisionEmpty?.title}
+                emptyMessage={circumcisionEmpty?.message}
+                emptyAction={
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    {(circumcisionEmptyReason === 'hidden-by-scope' || circumcisionEmptyReason === 'none-active') && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="min-h-[44px]"
+                        onClick={() => showAllHistory('circumcision')}
+                      >
+                        Tampilkan Semua Riwayat
+                      </Button>
+                    )}
+                    {(searchQuery.trim() !== '' || circFilter !== 'all') && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="min-h-[44px] text-teal-700 hover:text-teal-900"
+                        onClick={() => {
+                          setSearchQuery('');
+                          setCircFilter('all');
+                        }}
+                      >
+                        Reset Pencarian &amp; Filter
+                      </Button>
+                    )}
+                  </div>
+                }
                 onRefresh={fetchData}
                 isLoading={isLoading}
               />
@@ -604,11 +812,16 @@ export default function ProgramKhususPage() {
                   Observasi jadwal kontrol berkala pasien pasca rawat inap atau tindakan medis operatif
                 </span>
                 <span className="text-[11px] font-bold text-slate-700 font-mono">
-                  {filteredPostCareList.length} dari {postCareList.length} Pasien
+                  {filteredPostCareList.length} dari {scopedPostCareList.length} Pasien{viewScope.postcare === 'aktif' ? ' Aktif' : ''}
                 </span>
               </div>
               <PostCareAgenda
                 records={filteredPostCareList}
+                completedHiddenMessage={
+                  viewScope.postcare === 'aktif' && postCareList.length > activePostCareList.length
+                    ? 'Kontrol yang sudah selesai tidak tampil pada Pasien Aktif. Pilih "Semua Riwayat" untuk melihatnya.'
+                    : undefined
+                }
                 onRefresh={fetchData}
                 isLoading={isLoading}
               />

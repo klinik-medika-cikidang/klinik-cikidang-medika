@@ -69,6 +69,12 @@ export type Visit = {
   piutang_nominal?: number;
   piutang_note?: string;
   piutang_approved_by_owner_at?: string;
+  /** F-021: WIB date of the first payment; null on rows settled before F-021. */
+  tanggal_bayar?: string | null;
+  /** F-021: WIB date a Piutang balance was paid off. */
+  tanggal_pelunasan?: string | null;
+  nominal_pelunasan?: number | null;
+  metode_pelunasan?: 'Tunai' | 'TF' | null;
   pasien?: Patient;
   dokter?: Doctor;
   created_at: string;
@@ -96,6 +102,17 @@ export type CashFlow = {
   // Optional so rows read before the 20261015 migration still type-check; missing means Tunai.
   jenis_pembayaran?: 'Tunai' | 'TF' | null;
   created_at: string;
+};
+
+// F-023: physical cash the owner counted in the drawer at the start of a month.
+export type CashDrawerOpening = {
+  /** Always the first day of the month ('YYYY-MM-01'). */
+  periode: string;
+  nominal: number;
+  catatan: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type TbcProgram = {

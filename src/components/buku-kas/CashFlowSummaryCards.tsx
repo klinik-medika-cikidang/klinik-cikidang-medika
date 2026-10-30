@@ -9,10 +9,14 @@ import {
   CircleNotch,
 } from '@phosphor-icons/react';
 import { formatRupiah, cn } from '@/lib/utils';
+import { ExpenseScopeBreakdown } from '@/components/finance/ExpenseScopeBreakdown';
 
 export interface CashFlowSummaryCardsProps {
   totalMasuk: number;
   totalKeluar: number;
+  /** F-020 split of totalKeluar. */
+  keluarKlinik: number;
+  keluarNonKlinik: number;
   saldoBersih: number;
   totalSetorTunai: number;
   monthName?: string;
@@ -23,6 +27,8 @@ export interface CashFlowSummaryCardsProps {
 export function CashFlowSummaryCards({
   totalMasuk,
   totalKeluar,
+  keluarKlinik,
+  keluarNonKlinik,
   saldoBersih,
   totalSetorTunai,
   monthName = 'Bulan Ini',
@@ -39,10 +45,11 @@ export function CashFlowSummaryCards({
     },
     {
       title: 'Pengeluaran Operasional',
-      subtitle: `Obat & Operasional (${monthName}, Tanpa Setoran)`,
+      subtitle: `Klinik + Non Klinik (${monthName}, Tanpa Setoran)`,
       amount: totalKeluar,
       icon: ArrowUpRight,
       iconBg: 'bg-rose-50 text-rose-600 border-rose-100',
+      breakdown: { klinik: keluarKlinik, nonKlinik: keluarNonKlinik },
     },
     {
       title: 'Selisih Kas Bulan Ini',
@@ -95,9 +102,18 @@ export function CashFlowSummaryCards({
                   <span className="text-xs font-medium">Menghitung...</span>
                 </div>
               ) : (
-                <div className="text-xl sm:text-2xl font-extrabold font-mono tracking-tight text-slate-900 tabular-nums">
-                  {formatRupiah(item.amount)}
-                </div>
+                <>
+                  <div className="text-xl sm:text-2xl font-extrabold font-mono tracking-tight text-slate-900 tabular-nums">
+                    {formatRupiah(item.amount)}
+                  </div>
+                  {'breakdown' in item && item.breakdown && (
+                    <ExpenseScopeBreakdown
+                      className="mt-2"
+                      klinik={item.breakdown.klinik}
+                      nonKlinik={item.breakdown.nonKlinik}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>

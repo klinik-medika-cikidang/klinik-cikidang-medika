@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { createClient } from '@/lib/supabase/client';
 import type { Doctor } from '@/types/database';
+import { getErrorMessage } from '@/lib/utils';
 
 interface MasterDoctorModalProps {
   isOpen: boolean;
@@ -55,7 +56,7 @@ export function MasterDoctorModal({
       if (error) throw error;
       setDoctors((data as Doctor[]) || []);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Gagal memuat daftar dokter.';
+      const msg = getErrorMessage(err, 'Gagal memuat daftar dokter.');
       setErrorMessage(msg);
       toast.error(msg);
     } finally {
@@ -103,7 +104,7 @@ export function MasterDoctorModal({
       await fetchDoctors();
       onDoctorsUpdated?.();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Gagal mengubah status dokter.';
+      const msg = getErrorMessage(err, 'Gagal mengubah status dokter.');
       toast.error(msg);
     }
   };
@@ -150,7 +151,7 @@ export function MasterDoctorModal({
       await fetchDoctors();
       onDoctorsUpdated?.();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Gagal menyimpan data dokter.';
+      const msg = getErrorMessage(err, 'Gagal menyimpan data dokter.');
       toast.error(msg);
     } finally {
       setIsSubmitting(false);

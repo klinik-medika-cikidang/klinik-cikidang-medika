@@ -17,6 +17,7 @@ import { Select } from '@/components/ui/Select';
 import { createClient } from '@/lib/supabase/client';
 import { compressImageToWebP, getSignedMedicalPhotoUrl, uploadMedicalPhoto } from '@/lib/storage';
 import type { Circumcision } from '@/types/database';
+import { getErrorMessage } from '@/lib/utils';
 
 const METODE_OPTIONS = [
   { value: 'Laser / Kauter', label: 'Laser / Kauter' },
@@ -231,7 +232,7 @@ export function EditCircumcisionModal({
       onClose();
     } catch (error) {
       console.error('Error updating circumcision:', error);
-      toast.error(error instanceof Error ? error.message : 'Gagal menyimpan perubahan data sirkumsisi.');
+      toast.error(getErrorMessage(error, 'Gagal menyimpan perubahan data sirkumsisi.'));
     } finally {
       setIsSubmitting(false);
     }

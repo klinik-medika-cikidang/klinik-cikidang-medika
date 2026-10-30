@@ -14,12 +14,24 @@ import {
 } from '@phosphor-icons/react';
 import type { TherapyPackage, Visit } from '@/types/database';
 import { ALASAN_GRATIS_OPTIONS, DEFAULT_TARIFFS } from '@/constants/clinic';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ApplyPackageModal } from '@/components/paket-terapi/ApplyPackageModal';
-import { formatRupiah, normalizeRupiah, cn } from '@/lib/utils';
+import { formatDateShort, formatRupiah, normalizeRupiah, cn, getErrorMessage } from '@/lib/utils';
+import {
+  computeSettleAmounts,
+  FULL_PAYOFF_MESSAGE,
+  getPriorPayment,
+  getSettleBlockReason,
+  requiresFullPayoff,
+} from '@/lib/cash-date';
+
+type PaymentStateOption = 'Lunas' | 'Piutang' | 'Belum Bayar';
 
 export interface CashierPosPanelProps {
   waitingVisits: Visit[];
+  /** Jakarta date of the loaded queue; visits dated earlier are carried-over arrears. */
+  queueDate: string;
   selectedVisit: Visit | null;
   onSelectVisit: (visit: Visit) => void;
   onSettlePayment: (
@@ -39,6 +51,7 @@ export interface CashierPosPanelProps {
 
 export function CashierPosPanel({
   waitingVisits,
+  queueDate,
   selectedVisit,
   onSelectVisit,
   onSettlePayment,
@@ -78,9 +91,12 @@ export function CashierPosPanel({
       return;
     }
 
+    // A visit that already took money keeps its stored charges; only is_gratis makes it free.
     const isFree = Boolean(
       selectedVisit.is_gratis ||
-      (selectedVisit.jenis_pasien === 'UMUM' && selectedVisit.biaya_periksa === 0)
+      (!getPriorPayment(selectedVisit) &&
+        selectedVisit.jenis_pasien === 'UMUM' &&
+        selectedVisit.biaya_periksa === 0)
     );
     const periksa =
       selectedVisit.jenis_pasien === 'BPJS' || isFree
@@ -96,18 +112,33 @@ export function CashierPosPanel({
     setPendapatanLain(lain);
     setKeteranganPendapatan(selectedVisit.keterangan_pendapatan || '');
     setJenisPembayaran(selectedVisit.jenis_pembayaran || 'Tunai');
+    // A visit that already took money opens on paying off what is due now; Belum Bayar is
+    // not offered for it.
+    const visitPrior = getPriorPayment(selectedVisit);
     setPaymentState(
-      selectedVisit.status_pembayaran === 'Piutang'
-        ? 'Piutang'
-        : selectedVisit.status_pembayaran === 'Belum Bayar'
-          ? 'Belum Bayar'
-          : 'Lunas'
+      visitPrior
+        ? 'Lunas'
+        : selectedVisit.status_pembayaran === 'Piutang'
+          ? 'Piutang'
+          : selectedVisit.status_pembayaran === 'Belum Bayar'
+            ? 'Belum Bayar'
+            : 'Lunas'
     );
     setErrorMessage(null);
 
     const total = isFree ? 0 : periksa + lain;
-    setUangDiterimaStr(total > 0 ? formatRupiahInput(total) : '0');
+    const due = computeSettleAmounts(selectedVisit, { status: 'Lunas', total, tendered: 0 }).dueNow;
+    setUangDiterimaStr(due > 0 ? formatRupiahInput(due) : '0');
   }, [selectedVisit]);
+
+  const prior = useMemo(() => (selectedVisit ? getPriorPayment(selectedVisit) : null), [selectedVisit]);
+  // After money was received, Piutang is not offered: the next payment must clear the balance.
+  const fullPayoffOnly = selectedVisit ? requiresFullPayoff(selectedVisit) : false;
+  const paymentStateOptions: PaymentStateOption[] = !prior
+    ? ['Lunas', 'Piutang', 'Belum Bayar']
+    : fullPayoffOnly
+      ? ['Lunas']
+      : ['Lunas', 'Piutang'];
 
   const totalTagihan = useMemo(() => {
     if (!selectedVisit) return 0;
@@ -118,27 +149,50 @@ export function CashierPosPanel({
   }, [selectedVisit, isGratis, biayaPeriksa, pendapatanLain]);
 
   const nominalDiterima = parseRupiahInput(uangDiterimaStr);
-  const uangKembalian = Math.max(0, nominalDiterima - totalTagihan);
+  // Same helper as handleSettlePayment, so the panel shows exactly what will be saved.
+  const amounts = useMemo(
+    () =>
+      selectedVisit
+        ? computeSettleAmounts(selectedVisit, {
+            status: paymentState,
+            total: totalTagihan,
+            tendered: nominalDiterima,
+          })
+        : null,
+    [selectedVisit, paymentState, totalTagihan, nominalDiterima]
+  );
+  const dueNow = amounts?.dueNow ?? 0;
+  const blockReason =
+    selectedVisit && amounts
+      ? getSettleBlockReason(
+          selectedVisit,
+          { status: amounts.status, paidNow: amounts.paidNow, method: jenisPembayaran },
+          queueDate
+        )
+      : null;
+  const uangKembalian = Math.max(0, nominalDiterima - dueNow);
+  const sisaSetelahBayar = Math.max(0, dueNow - nominalDiterima);
   const isKurangBayar =
     paymentState === 'Lunas' &&
     jenisPembayaran === 'Tunai' &&
-    totalTagihan > 0 &&
-    nominalDiterima < totalTagihan;
+    dueNow > 0 &&
+    nominalDiterima < dueNow;
+  const showTender = dueNow > 0 && (jenisPembayaran === 'Tunai' || paymentState === 'Piutang');
 
   // Quick cash tender options
   const quickCashOptions = useMemo(() => {
     const list: Array<{ label: string; value: number; isPas: boolean }> = [];
-    if (totalTagihan > 0) {
-      list.push({ label: `Uang Pas (${formatRupiah(totalTagihan)})`, value: totalTagihan, isPas: true });
+    if (dueNow > 0) {
+      list.push({ label: `Uang Pas (${formatRupiah(dueNow)})`, value: dueNow, isPas: true });
     }
     const defaultNominals = [50000, 70000, 100000, 200000];
     defaultNominals.forEach((val) => {
-      if (val !== totalTagihan) {
+      if (val !== dueNow) {
         list.push({ label: formatRupiah(val), value: val, isPas: false });
       }
     });
     return list;
-  }, [totalTagihan]);
+  }, [dueNow]);
 
   // Parse structured doctor prescription
   const parsedPrescription = useMemo(() => {
@@ -178,7 +232,23 @@ export function CashierPosPanel({
     }
 
     if (isKurangBayar) {
-      setErrorMessage('Uang tunai yang diterima kurang dari total tagihan lunas. Pilih status Piutang jika pasien belum membayar penuh.');
+      setErrorMessage(
+        fullPayoffOnly
+          ? `Uang tunai yang diterima kurang dari jumlah yang harus dibayar sekarang. ${FULL_PAYOFF_MESSAGE}`
+          : prior
+            ? 'Uang tunai yang diterima kurang dari jumlah yang harus dibayar sekarang. Pilih status Piutang jika pasien belum melunasi.'
+            : 'Uang tunai yang diterima kurang dari total tagihan lunas. Pilih status Piutang jika pasien belum membayar penuh.'
+      );
+      return;
+    }
+
+    if (!paymentStateOptions.includes(paymentState)) {
+      setErrorMessage('Status pembayaran ini tidak tersedia untuk kunjungan yang sudah menerima pembayaran.');
+      return;
+    }
+
+    if (blockReason) {
+      setErrorMessage(blockReason);
       return;
     }
 
@@ -195,7 +265,7 @@ export function CashierPosPanel({
         alasanGratis
       );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Gagal memproses transaksi kasir.';
+      const msg = getErrorMessage(err, 'Gagal memproses transaksi kasir.');
       setErrorMessage(msg);
     }
   };
@@ -272,7 +342,7 @@ export function CashierPosPanel({
 
                 const isVisitGratis = Boolean(
                   visit.is_gratis ||
-                  (visit.jenis_pasien === 'UMUM' && visit.biaya_periksa === 0)
+                  (!getPriorPayment(visit) && visit.jenis_pasien === 'UMUM' && visit.biaya_periksa === 0)
                 );
                 const visitPeriksa =
                   visit.jenis_pasien === 'BPJS' || isVisitGratis
@@ -284,19 +354,20 @@ export function CashierPosPanel({
                   visitPeriksa + (isVisitGratis ? 0 : normalizeRupiah(Number(visit.pendapatan_lain || 0)));
 
                 const isBpjs = visit.jenis_pasien === 'BPJS';
+                const visitPrior = getPriorPayment(visit);
 
                 return (
                   <div
                     key={visit.id}
                     onClick={() => onSelectVisit(visit)}
                     className={cn(
-                      'border rounded-2xl p-3.5 shadow-well transition-all flex items-center justify-between gap-3 tactile-card cursor-pointer select-none',
+                      'border rounded-2xl p-3.5 shadow-well transition-all flex flex-wrap items-center justify-between gap-3 tactile-card cursor-pointer select-none',
                       isSelected
                         ? 'bg-teal-50/80 border-teal-500 ring-2 ring-teal-500/20 shadow-card-hover'
                         : 'bg-slate-50/70 border-slate-200/90 hover:border-teal-400'
                     )}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0 flex-1 basis-56">
                       <div
                         className={cn(
                           'w-9 h-9 rounded-xl font-mono font-bold text-xs flex items-center justify-center shrink-0 border',
@@ -328,6 +399,11 @@ export function CashierPosPanel({
                               Free 100%
                             </span>
                           )}
+                          {visit.tanggal_periksa < queueDate && (
+                            <Badge variant="warning" className="font-mono">
+                              Tunggakan · {formatDateShort(visit.tanggal_periksa)}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-[11px] text-slate-600 mt-0.5 truncate font-medium">
                           {visit.terapi_obat ? (
@@ -340,7 +416,12 @@ export function CashierPosPanel({
                           )}
                         </p>
                         <div className="text-[11px] font-mono mt-0.5">
-                          {isBpjs && visitTagihan === 0 ? (
+                          {visitPrior ? (
+                            <span className="text-slate-900 font-bold">
+                              Sisa {formatRupiah(visitPrior.outstanding)}
+                              <span className="text-slate-500 font-medium"> dari {formatRupiah(visitTagihan)}</span>
+                            </span>
+                          ) : isBpjs && visitTagihan === 0 ? (
                             <span className="text-emerald-700 font-bold">
                               Tercover BPJS (Rp 0)
                             </span>
@@ -425,6 +506,11 @@ export function CashierPosPanel({
                     {selectedVisit.dokter?.nama || 'Dokter Jaga'}
                   </span>
                 </div>
+                {selectedVisit.tanggal_periksa < queueDate && (
+                  <Badge variant="warning" className="font-mono">
+                    Tunggakan · Periksa {formatDateShort(selectedVisit.tanggal_periksa)}
+                  </Badge>
+                )}
 
                 {/* Diagnosis & Procedure Tags */}
                 {(selectedVisit.kode_icd10 || selectedVisit.tindakan) && (
@@ -563,8 +649,8 @@ export function CashierPosPanel({
                   </div>
                 )}
 
-                {/* 1. Opsi Bebas Biaya (Free 100%) Kasir */}
-                {selectedVisit.jenis_pasien === 'UMUM' && (
+                {/* Money already received cannot be waived, so a paid visit gets no free option. */}
+                {selectedVisit.jenis_pasien === 'UMUM' && !prior && (
                   <div className="p-3 bg-emerald-50/70 border border-emerald-200/90 rounded-xl space-y-2 text-xs shadow-2xs">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="font-bold text-emerald-950 flex items-center gap-1.5">
@@ -670,6 +756,31 @@ export function CashierPosPanel({
                         : formatRupiah(totalTagihan)}
                     </span>
                   </div>
+
+                  {prior && (
+                    <div className="pt-2 mt-1 border-t border-dashed border-slate-200 space-y-1.5">
+                      <div className="flex justify-between items-start gap-2 text-slate-600 font-medium">
+                        <span className="min-w-0">
+                          Sudah dibayar
+                          <span className="block text-[10px] text-slate-500 font-mono">
+                            {formatDateShort(prior.firstDate)}
+                            {prior.payoffDate && prior.payoffDate !== prior.firstDate
+                              ? ` dan ${formatDateShort(prior.payoffDate)}`
+                              : ''}
+                          </span>
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 shrink-0">{formatRupiah(prior.paid)}</span>
+                      </div>
+                      <div className="flex justify-between items-center gap-2 text-slate-600 font-medium">
+                        <span>Sisa piutang</span>
+                        <span className="font-mono font-bold text-slate-900">{formatRupiah(prior.outstanding)}</span>
+                      </div>
+                      <div className="flex justify-between items-center gap-2 text-xs font-bold text-slate-900">
+                        <span>Harus dibayar sekarang:</span>
+                        <span className="text-sm sm:text-base text-teal-700 font-mono font-bold">{formatRupiah(dueNow)}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 3. Metode Pembayaran Toggle */}
@@ -679,7 +790,7 @@ export function CashierPosPanel({
                       type="button"
                       onClick={() => setJenisPembayaran('Tunai')}
                       className={cn(
-                        'py-1.5 px-3 min-h-[36px] rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition tactile-btn',
+                        'py-1.5 px-3 min-h-[44px] rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition tactile-btn',
                         jenisPembayaran === 'Tunai'
                           ? 'bg-gradient-to-b from-teal-600 to-teal-700 text-white border-teal-700/80 shadow-btn-primary'
                           : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 shadow-btn-secondary'
@@ -692,7 +803,7 @@ export function CashierPosPanel({
                       type="button"
                       onClick={() => setJenisPembayaran('TF')}
                       className={cn(
-                        'py-1.5 px-3 min-h-[36px] rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition tactile-btn',
+                        'py-1.5 px-3 min-h-[44px] rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition tactile-btn',
                         jenisPembayaran === 'TF'
                           ? 'bg-gradient-to-b from-teal-600 to-teal-700 text-white border-teal-700/80 shadow-btn-primary'
                           : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 shadow-btn-secondary'
@@ -706,15 +817,24 @@ export function CashierPosPanel({
 
                 {/* 4. Status Pembayaran */}
                 {selectedVisit.jenis_pasien !== 'BPJS' && !isGratis && (
-                  <div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['Lunas', 'Piutang', 'Belum Bayar'] as const).map((state) => (
+                  <div className="space-y-1.5">
+                    <div
+                      className={cn(
+                        'grid gap-2',
+                        paymentStateOptions.length === 3
+                          ? 'grid-cols-3'
+                          : paymentStateOptions.length === 2
+                            ? 'grid-cols-2'
+                            : 'grid-cols-1'
+                      )}
+                    >
+                      {paymentStateOptions.map((state) => (
                         <button
                           key={state}
                           type="button"
                           onClick={() => setPaymentState(state)}
                           className={cn(
-                            'py-1.5 px-2 min-h-[36px] rounded-xl text-[11px] font-bold border flex items-center justify-center transition tactile-btn',
+                            'py-1.5 px-2 min-h-[44px] rounded-xl text-[11px] font-bold border flex items-center justify-center transition tactile-btn',
                             paymentState === state
                               ? 'bg-gradient-to-b from-teal-600 to-teal-700 text-white border-teal-700/80 shadow-btn-primary'
                               : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 shadow-btn-secondary'
@@ -724,28 +844,44 @@ export function CashierPosPanel({
                         </button>
                       ))}
                     </div>
+                    {prior && (
+                      <p className="text-[10px] text-slate-600 leading-relaxed">
+                        {fullPayoffOnly
+                          ? FULL_PAYOFF_MESSAGE
+                          : 'Kunjungan ini sudah tercatat di kasir, jadi status Belum Bayar tidak tersedia.'}
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {/* 5. Tender Section (Tunai) */}
-                {jenisPembayaran === 'Tunai' && (
-                  totalTagihan === 0 ? (
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-1">
-                      <div className="text-xs font-bold text-emerald-900 flex items-center justify-center gap-1.5">
-                        <CheckCircle className="w-4 h-4 text-emerald-600" weight="bold" />
-                        <span>Pasien Bebas Biaya (Total Tagihan Rp 0)</span>
-                      </div>
-                      <p className="text-[11px] text-emerald-700">
-                        {isGratis
-                          ? `Alasan: ${alasanGratis || 'Bebas Biaya Pelayanan'}`
-                          : 'Layanan tercover BPJS Kesehatan'}
-                      </p>
+                {/* 5. Tender section: cash, or a transfer instalment that needs the amount received */}
+                {jenisPembayaran === 'Tunai' && totalTagihan === 0 && !prior ? (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-1">
+                    <div className="text-xs font-bold text-emerald-900 flex items-center justify-center gap-1.5">
+                      <CheckCircle className="w-4 h-4 text-emerald-600" weight="bold" />
+                      <span>Pasien Bebas Biaya (Total Tagihan Rp 0)</span>
                     </div>
-                  ) : (
+                    <p className="text-[11px] text-emerald-700">
+                      {isGratis
+                        ? `Alasan: ${alasanGratis || 'Bebas Biaya Pelayanan'}`
+                        : 'Layanan tercover BPJS Kesehatan'}
+                    </p>
+                  </div>
+                ) : prior && dueNow === 0 ? (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-1">
+                    <div className="text-xs font-bold text-emerald-900 flex items-center justify-center gap-1.5">
+                      <CheckCircle className="w-4 h-4 text-emerald-600" weight="bold" />
+                      <span>Tidak ada sisa tagihan</span>
+                    </div>
+                    <p className="text-[11px] text-emerald-700">
+                      Uang yang sudah diterima tetap tercatat pada tanggal bayarnya.
+                    </p>
+                  </div>
+                ) : (
+                  showTender && (
                     <div className="space-y-2.5">
-                      {/* Quick Cash Buttons */}
-                      <div>
-                        <div className="grid grid-cols-2 gap-1.5">
+                      {jenisPembayaran === 'Tunai' && (
+                        <div className="grid grid-cols-2 gap-2">
                           {quickCashOptions.map((opt) => (
                             <button
                               key={opt.value}
@@ -755,7 +891,7 @@ export function CashierPosPanel({
                                 setUangDiterimaStr(formatRupiahInput(opt.value));
                               }}
                               className={cn(
-                                'px-2.5 py-1.5 bg-white hover:bg-slate-50 border rounded-xl text-xs font-bold font-mono shadow-btn-secondary tactile-btn text-left truncate min-h-[34px]',
+                                'px-2.5 py-1.5 bg-white hover:bg-slate-50 border rounded-xl text-xs font-bold font-mono shadow-btn-secondary tactile-btn text-left leading-tight min-h-[44px]',
                                 nominalDiterima === opt.value
                                   ? 'border-teal-600 text-teal-700 ring-2 ring-teal-500/10'
                                   : 'border-slate-300 text-slate-800'
@@ -765,19 +901,26 @@ export function CashierPosPanel({
                             </button>
                           ))}
                         </div>
-                      </div>
+                      )}
 
-                      {/* Uang Diterima & Kembalian */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                            Uang Diterima
+                          <label
+                            htmlFor="pos-uang-diterima"
+                            className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1"
+                          >
+                            {jenisPembayaran === 'TF'
+                              ? 'Transfer Diterima Sekarang'
+                              : prior
+                                ? 'Uang Diterima Sekarang'
+                                : 'Uang Diterima'}
                           </label>
                           <div className="relative flex items-center">
                             <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
                               <span className="text-xs font-mono font-bold text-teal-700">Rp</span>
                             </div>
                             <input
+                              id="pos-uang-diterima"
                               type="text"
                               inputMode="numeric"
                               value={uangDiterimaStr}
@@ -803,11 +946,7 @@ export function CashierPosPanel({
                             {isKurangBayar ? 'Kurang Bayar' : paymentState === 'Piutang' ? 'Sisa Piutang' : 'Kembalian Pasien'}
                           </div>
                           <div className="text-sm font-bold font-mono">
-                            {formatRupiah(
-                              isKurangBayar || paymentState === 'Piutang'
-                                ? Math.max(0, totalTagihan - nominalDiterima)
-                                : uangKembalian
-                            )}
+                            {formatRupiah(isKurangBayar || paymentState === 'Piutang' ? sisaSetelahBayar : uangKembalian)}
                           </div>
                         </div>
                       </div>
@@ -817,13 +956,22 @@ export function CashierPosPanel({
               </div>
 
               {/* Action Submit Button */}
-              <div className="pt-2">
+              <div className="pt-2 space-y-2">
+                {blockReason && (
+                  <div
+                    role="alert"
+                    className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-xs text-amber-900"
+                  >
+                    <WarningCircle className="w-4 h-4 shrink-0 mt-px text-amber-700" weight="bold" />
+                    <span>{blockReason}</span>
+                  </div>
+                )}
                 <button
                   type="submit"
-                  disabled={isSubmitting || isKurangBayar}
+                  disabled={isSubmitting || isKurangBayar || Boolean(blockReason)}
                   className={cn(
-                    'w-full px-4 py-2 min-h-[38px] sm:min-h-[40px] rounded-xl text-xs font-bold flex items-center justify-center gap-2 tactile-btn transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none',
-                    isSubmitting || isKurangBayar
+                    'w-full px-4 py-2 min-h-[44px] rounded-xl text-xs font-bold flex items-center justify-center gap-2 tactile-btn transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none',
+                    isSubmitting || isKurangBayar || blockReason
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
                       : 'bg-gradient-to-b from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white shadow-btn-primary border border-teal-700/80'
                   )}
@@ -837,11 +985,15 @@ export function CashierPosPanel({
                     <>
                       <Receipt className="w-4 h-4 text-white" weight="bold" />
                       <span>
-                        {totalTagihan === 0
-                          ? isGratis
-                            ? 'Konfirmasi Bebas Biaya & Cetak Kuitansi'
-                            : 'Konfirmasi Obat & Selesaikan'
-                          : 'Konfirmasi Bayar & Cetak Kuitansi'}
+                        {prior
+                          ? dueNow === 0
+                            ? 'Selesaikan & Cetak Kuitansi'
+                            : 'Konfirmasi Pembayaran & Cetak Kuitansi'
+                          : totalTagihan === 0
+                            ? isGratis
+                              ? 'Konfirmasi Bebas Biaya & Cetak Kuitansi'
+                              : 'Konfirmasi Obat & Selesaikan'
+                            : 'Konfirmasi Bayar & Cetak Kuitansi'}
                       </span>
                     </>
                   )}

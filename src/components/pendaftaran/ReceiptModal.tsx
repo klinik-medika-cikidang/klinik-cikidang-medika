@@ -7,6 +7,7 @@ import type { Visit } from '@/types/database';
 import { CLINIC_PROFILE } from '@/constants/clinic';
 import { Modal } from '@/components/ui';
 import { formatRupiah, normalizeRupiah } from '@/lib/utils';
+import { getReceiptPaymentDates } from '@/lib/cash-date';
 
 export interface ReceiptModalProps {
   isOpen: boolean;
@@ -32,6 +33,8 @@ export function ReceiptModal({ isOpen, onClose, visit }: ReceiptModalProps) {
     visit?.is_gratis ||
     (visit?.jenis_pasien === 'UMUM' && totalAmount === 0 && visit?.status_pembayaran === 'Lunas')
   );
+
+  const paymentDates = visit ? getReceiptPaymentDates(visit) : null;
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -80,6 +83,26 @@ export function ReceiptModal({ isOpen, onClose, visit }: ReceiptModalProps) {
               </span>
             </div>
           </div>
+
+          {/* REQ-021-02.4: a visit paid on another day shows both dates. */}
+          {paymentDates && (
+            <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-[11px] pb-1.5 border-b border-dashed border-slate-300">
+              <span className="text-slate-600">
+                Tanggal Periksa:{' '}
+                <span className="font-mono font-bold text-slate-900">{visit.tanggal_periksa}</span>
+              </span>
+              <span className="text-slate-600">
+                Tanggal Bayar:{' '}
+                <span className="font-mono font-bold text-slate-900">{paymentDates.tanggalBayar}</span>
+              </span>
+              {paymentDates.tanggalPelunasan && (
+                <span className="text-slate-600">
+                  Tanggal Pelunasan:{' '}
+                  <span className="font-mono font-bold text-slate-900">{paymentDates.tanggalPelunasan}</span>
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Patient & Doctor Data Card */}
           <div className="grid grid-cols-2 gap-2 text-xs p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200/80 print:bg-transparent print:p-1 print:border-slate-300">

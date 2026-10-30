@@ -1,4 +1,13 @@
 import * as XLSX from 'xlsx';
+import { MONTH_NAMES_ID } from '@/constants/clinic';
+import { formatLocalDateToYMD, groupExpensesByMonth, isTransferPayment } from './utils';
+import { getVisitCashEvents, type CashDateVisit } from './cash-date';
+
+// toISOString() is UTC, so a file downloaded before 07:00 WIB was named after the
+// previous day.
+function getFileNameDate(): string {
+  return formatLocalDateToYMD().replace(/-/g, '');
+}
 
 export interface VisitExportRow {
   no_rm: string;
@@ -6,6 +15,8 @@ export interface VisitExportRow {
   jenis_kelamin: string;
   desa: string;
   tanggal_periksa: string;
+  /** F-021: day the money was received, see describeCashDates. */
+  tanggal_bayar: string;
   nama_dokter: string;
   kode_icd10: string;
   diagnosa_deskripsi: string;
@@ -35,6 +46,130 @@ export interface MorbidityExportRow {
 interface DateRange {
   start?: string;
   end?: string;
+}
+
+/** One amount of money received from a visit, as listed in the Penerimaan Kasir sheet. */
+export interface CashReceiptExportRow {
+  tanggal_bayar: string;
+  tanggal_periksa: string;
+  no_rm: string;
+  nama_pasien: string;
+  jenis_pasien: string;
+  metode: 'Tunai' | 'TF';
+  nominal: number;
+}
+
+export interface CashReceiptSource extends CashDateVisit {
+  no_rm: string;
+  nama_pasien: string;
+}
+
+export const VISIT_SHEET_NAME = 'Rekap Kunjungan';
+export const CASH_RECEIPT_SHEET_NAME = 'Penerimaan Kasir';
+
+export const FULL_WORKBOOK_SHEET_NAMES = [
+  VISIT_SHEET_NAME,
+  CASH_RECEIPT_SHEET_NAME,
+  'Morbiditas ICD-10',
+  'Arus Kas Operasional',
+  'Rekap Pengeluaran',
+] as const;
+
+// The visit sheet holds bills by examination date while cash follows the day it was received
+// (F-021), so a late payment or an open Piutang makes the two totals differ on purpose.
+const VISIT_BILL_LABEL = 'Total Tagihan (tgl periksa)';
+
+/**
+ * Cash events received inside [start, end] (empty bounds mean unbounded). Built from the same
+ * getVisitCashEvents as the Laporan "Akumulasi Billing Kasir", so both totals match for the
+ * same visits.
+ */
+export function buildCashReceiptRows(
+  visits: CashReceiptSource[],
+  start?: string | null,
+  end?: string | null
+): CashReceiptExportRow[] {
+  const rows: CashReceiptExportRow[] = [];
+  for (const v of visits) {
+    for (const e of getVisitCashEvents(v)) {
+      if ((start && e.date < start) || (end && e.date > end)) continue;
+      rows.push({
+        tanggal_bayar: e.date,
+        tanggal_periksa: v.tanggal_periksa,
+        no_rm: v.no_rm,
+        nama_pasien: v.nama_pasien,
+        jenis_pasien: v.jenis_pasien || '-',
+        metode: isTransferPayment(e.method) ? 'TF' : 'Tunai',
+        nominal: e.amount,
+      });
+    }
+  }
+  return rows.sort(
+    (a, b) => a.tanggal_bayar.localeCompare(b.tanggal_bayar) || a.no_rm.localeCompare(b.no_rm)
+  );
+}
+
+export function cashReceiptSheetData(
+  rows: CashReceiptExportRow[],
+  dateRange?: DateRange
+): (string | number)[][] {
+  const total = rows.reduce((sum, r) => sum + r.nominal, 0);
+  return [
+    ...createMetadataHeader('PENERIMAAN KASIR MENURUT TANGGAL BAYAR', dateRange),
+    ['Totalnya sama dengan Akumulasi Billing Kasir di Laporan untuk filter yang sama.'],
+    [],
+    ['Tanggal Bayar', 'Tanggal Periksa', 'No RM', 'Nama Pasien', 'Jenis Pasien', 'Metode', 'Nominal (Rp)'],
+    ...rows.map((r) => [r.tanggal_bayar, r.tanggal_periksa, r.no_rm, r.nama_pasien, r.jenis_pasien, r.metode, r.nominal]),
+    ['Total Penerimaan', '', '', '', '', '', total],
+  ];
+}
+
+function visitSheetData(title: string, visits: VisitExportRow[], dateRange?: DateRange): (string | number)[][] {
+  const headers = [
+    'No RM',
+    'Nama Pasien',
+    'L/P',
+    'Desa / Wilayah',
+    'Tanggal Periksa',
+    'Tanggal Bayar',
+    'Dokter Pemeriksa',
+    'Kode ICD-10',
+    'Diagnosa Medis',
+    'Jenis Pasien',
+    'Biaya Periksa (Rp)',
+    'Pendapatan Lain (Rp)',
+    `${VISIT_BILL_LABEL} (Rp)`,
+    'Pembayaran',
+  ];
+  const rows = visits.map((v) => [
+    v.no_rm,
+    v.nama_pasien,
+    v.jenis_kelamin,
+    v.desa,
+    v.tanggal_periksa,
+    v.tanggal_bayar,
+    v.nama_dokter,
+    v.kode_icd10,
+    v.diagnosa_deskripsi,
+    v.jenis_pasien,
+    v.biaya_periksa,
+    v.pendapatan_lain,
+    v.total_biaya,
+    v.jenis_pembayaran,
+  ]);
+  const total = visits.reduce((sum, v) => sum + (v.total_biaya || 0), 0);
+  return [
+    ...createMetadataHeader(title, dateRange),
+    headers,
+    ...rows,
+    [VISIT_BILL_LABEL, '', '', '', '', '', '', '', '', '', '', '', total, ''],
+  ];
+}
+
+function appendSheet(wb: XLSX.WorkBook, data: (string | number)[][], name: string) {
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = calculateColumnWidths(data);
+  XLSX.utils.book_append_sheet(wb, ws, name);
 }
 
 function calculateColumnWidths(data: (string | number)[][]): { wch: number }[] {
@@ -69,53 +204,24 @@ function createMetadataHeader(title: string, dateRange?: DateRange): (string | n
   ];
 }
 
-export function exportVisitsToExcel(visits: VisitExportRow[], dateRange?: DateRange) {
+export function buildVisitsWorkbook(
+  visits: VisitExportRow[],
+  receipts: CashReceiptExportRow[],
+  dateRange?: DateRange
+): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
+  appendSheet(wb, visitSheetData('LAPORAN REKAPITULASI KUNJUNGAN PASIEN & BILLING', visits, dateRange), VISIT_SHEET_NAME);
+  appendSheet(wb, cashReceiptSheetData(receipts, dateRange), CASH_RECEIPT_SHEET_NAME);
+  return wb;
+}
 
-  const headers = [
-    'No RM',
-    'Nama Pasien',
-    'L/P',
-    'Desa / Wilayah',
-    'Tanggal Periksa',
-    'Dokter Pemeriksa',
-    'Kode ICD-10',
-    'Diagnosa Medis',
-    'Jenis Pasien',
-    'Biaya Periksa (Rp)',
-    'Pendapatan Lain (Rp)',
-    'Total Billing (Rp)',
-    'Pembayaran',
-  ];
-
-  const rows = visits.map((v) => [
-    v.no_rm,
-    v.nama_pasien,
-    v.jenis_kelamin,
-    v.desa,
-    v.tanggal_periksa,
-    v.nama_dokter,
-    v.kode_icd10,
-    v.diagnosa_deskripsi,
-    v.jenis_pasien,
-    v.biaya_periksa,
-    v.pendapatan_lain,
-    v.total_biaya,
-    v.jenis_pembayaran,
-  ]);
-
-  const sheetData = [
-    ...createMetadataHeader('LAPORAN REKAPITULASI KUNJUNGAN PASIEN & BILLING', dateRange),
-    headers,
-    ...rows,
-  ];
-
-  const ws = XLSX.utils.aoa_to_sheet(sheetData);
-  ws['!cols'] = calculateColumnWidths(sheetData);
-
-  XLSX.utils.book_append_sheet(wb, ws, 'Rekap Kunjungan');
-
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+export function exportVisitsToExcel(
+  visits: VisitExportRow[],
+  dateRange?: DateRange,
+  receipts: CashReceiptExportRow[] = []
+) {
+  const wb = buildVisitsWorkbook(visits, receipts, dateRange);
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Kunjungan_Cikidang_${fileNameDate}.xlsx`);
 }
 
@@ -149,7 +255,7 @@ export function exportCashFlowsToExcel(flows: CashFlowExportRow[], dateRange?: D
 
   XLSX.utils.book_append_sheet(wb, ws, 'Buku Kas');
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Buku_Kas_Cikidang_${fileNameDate}.xlsx`);
 }
 
@@ -183,59 +289,22 @@ export function exportMorbidityToExcel(morbidity: MorbidityExportRow[], dateRang
 
   XLSX.utils.book_append_sheet(wb, ws, 'Morbiditas ICD-10');
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Morbiditas_ICD10_Cikidang_${fileNameDate}.xlsx`);
 }
 
-export function exportFullClinicWorkbook(params: {
+export function buildFullClinicWorkbook(params: {
   visits: VisitExportRow[];
+  receipts: CashReceiptExportRow[];
   flows: CashFlowExportRow[];
   morbidity: MorbidityExportRow[];
   dateRange?: DateRange;
-}) {
+}): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
 
-  // 1. Sheet Kunjungan
-  const visitHeaders = [
-    'No RM',
-    'Nama Pasien',
-    'L/P',
-    'Desa / Wilayah',
-    'Tanggal Periksa',
-    'Dokter Pemeriksa',
-    'Kode ICD-10',
-    'Diagnosa Medis',
-    'Jenis Pasien',
-    'Biaya Periksa (Rp)',
-    'Pendapatan Lain (Rp)',
-    'Total Billing (Rp)',
-    'Pembayaran',
-  ];
-  const visitRows = params.visits.map((v) => [
-    v.no_rm,
-    v.nama_pasien,
-    v.jenis_kelamin,
-    v.desa,
-    v.tanggal_periksa,
-    v.nama_dokter,
-    v.kode_icd10,
-    v.diagnosa_deskripsi,
-    v.jenis_pasien,
-    v.biaya_periksa,
-    v.pendapatan_lain,
-    v.total_biaya,
-    v.jenis_pembayaran,
-  ]);
-  const visitSheetData = [
-    ...createMetadataHeader('REKAPITULASI KUNJUNGAN PASIEN', params.dateRange),
-    visitHeaders,
-    ...visitRows,
-  ];
-  const wsVisits = XLSX.utils.aoa_to_sheet(visitSheetData);
-  wsVisits['!cols'] = calculateColumnWidths(visitSheetData);
-  XLSX.utils.book_append_sheet(wb, wsVisits, 'Rekap Kunjungan');
+  appendSheet(wb, visitSheetData('REKAPITULASI KUNJUNGAN PASIEN', params.visits, params.dateRange), VISIT_SHEET_NAME);
+  appendSheet(wb, cashReceiptSheetData(params.receipts, params.dateRange), CASH_RECEIPT_SHEET_NAME);
 
-  // 2. Sheet Morbiditas ICD-10
   const morbHeaders = [
     'Peringkat',
     'Kode ICD-10',
@@ -259,7 +328,6 @@ export function exportFullClinicWorkbook(params: {
   wsMorb['!cols'] = calculateColumnWidths(morbSheetData);
   XLSX.utils.book_append_sheet(wb, wsMorb, 'Morbiditas ICD-10');
 
-  // 3. Sheet Buku Kas
   const flowHeaders = [
     'Tanggal Transaksi',
     'Jenis (Masuk/Keluar)',
@@ -283,7 +351,43 @@ export function exportFullClinicWorkbook(params: {
   wsFlows['!cols'] = calculateColumnWidths(flowSheetData);
   XLSX.utils.book_append_sheet(wb, wsFlows, 'Arus Kas Operasional');
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  // F-020: same columns as the PENGELUARAN TOTAL pivot in the clinic sheet.
+  const isIsoDate = (value?: string) => Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+  const recapRange =
+    isIsoDate(params.dateRange?.start) && isIsoDate(params.dateRange?.end) ? params.dateRange : undefined;
+  const recapRows = groupExpensesByMonth(params.flows, recapRange).map((r) => [
+    r.year,
+    MONTH_NAMES_ID[r.month - 1],
+    r.klinik,
+    r.nonKlinik,
+    r.total,
+  ]);
+  const recapTotals = recapRows.reduce<number[]>(
+    (acc, r) => [acc[0] + Number(r[2]), acc[1] + Number(r[3]), acc[2] + Number(r[4])],
+    [0, 0, 0]
+  );
+  const recapSheetData = [
+    ...createMetadataHeader('REKAP PENGELUARAN KLINIK DAN NON KLINIK', params.dateRange),
+    ['Tahun', 'Bulan', 'Klinik (Rp)', 'Non Klinik (Rp)', 'Total (Rp)'],
+    ...recapRows,
+    ['Total Periode', '', ...recapTotals],
+  ];
+  const wsRecap = XLSX.utils.aoa_to_sheet(recapSheetData);
+  wsRecap['!cols'] = calculateColumnWidths(recapSheetData);
+  XLSX.utils.book_append_sheet(wb, wsRecap, 'Rekap Pengeluaran');
+
+  return wb;
+}
+
+export function exportFullClinicWorkbook(params: {
+  visits: VisitExportRow[];
+  receipts?: CashReceiptExportRow[];
+  flows: CashFlowExportRow[];
+  morbidity: MorbidityExportRow[];
+  dateRange?: DateRange;
+}) {
+  const wb = buildFullClinicWorkbook({ ...params, receipts: params.receipts ?? [] });
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Lengkap_Klinik_Cikidang_${fileNameDate}.xlsx`);
 }
 
@@ -483,7 +587,7 @@ export function exportPublicHealthToExcel(
     XLSX.utils.book_append_sheet(wb, ws, 'Program Kesehatan');
   }
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Program_Kesehatan_Cikidang_${fileNameDate}.xlsx`);
 }
 
@@ -629,7 +733,7 @@ export function exportPuskesmasRegisterToExcel(
   recapSheet['!cols'] = calculateColumnWidths(recapData);
   XLSX.utils.book_append_sheet(wb, recapSheet, 'Rekap');
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Puskesmas_Cikidang_${fileNameDate}.xlsx`);
 }
 
@@ -686,7 +790,7 @@ export function exportReferralCommissionsToExcel(
   ws['!cols'] = calculateColumnWidths(sheetData);
   XLSX.utils.book_append_sheet(wb, ws, `Komisi ${year}`);
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Komisi_Rujukan_Cikidang_${year}_${fileNameDate}.xlsx`);
 }
 
@@ -795,6 +899,6 @@ export function exportBidanAnnualRecapToExcel(
     XLSX.utils.book_append_sheet(wb, ws2, 'Rincian Kunjungan Pasien');
   }
 
-  const fileNameDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Rekap_Bingkisan_Bidan_${year}_${fileNameDate}.xlsx`);
 }

@@ -13,6 +13,7 @@ import type { Patient } from '@/types/database';
 import { Modal } from '@/components/ui/Modal';
 import { PatientSearchAutocomplete } from '@/components/pendaftaran/PatientSearchAutocomplete';
 import { createClient } from '@/lib/supabase/client';
+import { formatLocalDateToYMD, getErrorMessage } from '@/lib/utils';
 
 interface NewPostCareModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ export function NewPostCareModal({ isOpen, onClose, onSuccess }: NewPostCareModa
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [hasShaken, setHasShaken] = useState(false);
   const [tglKontrol, setTglKontrol] = useState(
-    new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0]
+    formatLocalDateToYMD(new Date(Date.now() + 3 * 86400000))
   );
   const [kondisiTerakhir, setKondisiTerakhir] = useState('');
   const [keluhanLanjutan, setKeluhanLanjutan] = useState('');
@@ -59,8 +60,9 @@ export function NewPostCareModal({ isOpen, onClose, onSuccess }: NewPostCareModa
       onClose();
     } catch (err) {
       console.error('Error creating post care entry:', err);
-      setErrorMsg(err instanceof Error ? err.message : 'Gagal menjadwalkan observasi');
-      toast.error('Gagal menjadwalkan observasi');
+      const msg = getErrorMessage(err, 'Gagal menjadwalkan observasi.');
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }

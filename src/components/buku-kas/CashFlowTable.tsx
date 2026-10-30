@@ -25,6 +25,7 @@ import {
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
   isTransferPayment,
+  getErrorMessage,
   cn,
 } from '@/lib/utils';
 
@@ -85,7 +86,7 @@ export function CashFlowTable({
       setSelectedForDelete(null);
     } catch (err) {
       console.error('Failed to delete cash flow:', err);
-      toast.error('Gagal menghapus transaksi mutasi kas.');
+      toast.error(getErrorMessage(err, 'Gagal menghapus transaksi mutasi kas.'));
     } finally {
       setIsDeleting(false);
     }

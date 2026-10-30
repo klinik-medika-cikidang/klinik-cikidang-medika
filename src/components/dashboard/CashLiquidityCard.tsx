@@ -22,6 +22,20 @@ export interface CashLiquidityData {
   cashRatio: number; // percentage of cash payments
   transferRatio: number; // percentage of transfer payments
   recentMutations: CashFlow[];
+  /** True when laciCash starts from the month's Saldo Awal, as on "Bulan Ini". */
+  includesOpeningBalance?: boolean;
+}
+
+/** Explains how the drawer estimate was built, in the same terms as the Buku Kas card. */
+export function describeDrawerEstimate(laciCash: number, includesOpeningBalance: boolean): string {
+  if (laciCash < 0) {
+    return includesOpeningBalance
+      ? 'Setoran dan pengeluaran melampaui saldo awal ditambah kas masuk tunai'
+      : 'Setoran dan pengeluaran melampaui kas masuk tunai periode ini';
+  }
+  return includesOpeningBalance
+    ? 'Saldo awal + tunai pasien dikurangi pengeluaran & setoran'
+    : 'Tunai pasien dikurangi pengeluaran & setoran';
 }
 
 interface CashLiquidityCardProps {
@@ -104,9 +118,7 @@ export function CashLiquidityCard({ data, isLoading }: CashLiquidityCardProps) {
                 : formatRupiah(data.laciCash)}
             </div>
             <p className="text-[10px] text-slate-500">
-              {data.laciCash < 0
-                ? 'Setoran/pengeluaran melebihi kas masuk tunai periode ini'
-                : 'Tunai pasien dikurangi pengeluaran & setoran'}
+              {describeDrawerEstimate(data.laciCash, Boolean(data.includesOpeningBalance))}
             </p>
           </div>
 

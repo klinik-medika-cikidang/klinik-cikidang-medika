@@ -6,6 +6,7 @@ import {
 } from '@phosphor-icons/react';
 import { Lungs, BandageAdhesive } from 'healthicons-react';
 import { formatRupiah } from '@/lib/utils';
+import { SIRKUMSISI_ACTIVE_DAYS } from '@/constants/clinic';
 
 export interface ProgramKhususKpiData {
   // TBC stats
@@ -22,7 +23,8 @@ export interface ProgramKhususKpiData {
   // Post care stats
   postCareTodayCount: number;
   postCareOverdueCount: number;
-  postCareCompletedCount: number;
+  /** Agendas still waiting or missed (F-022 active definition). */
+  postCareActiveCount: number;
 }
 
 interface ProgramKhususKpisProps {
@@ -60,7 +62,7 @@ export function ProgramKhususKpis({ data, isLoading }: ProgramKhususKpisProps) {
   const tbcBarDetail =
     totalTbc > 0
       ? `${tbcCompliancePct}% Taat (${compliantTbc}/${totalTbc})`
-      : 'Belum ada pasien';
+      : 'Tidak ada pasien aktif';
   const tbcBarColor =
     mangkirTbc > 0
       ? tbcCompliancePct < 80
@@ -76,26 +78,26 @@ export function ProgramKhususKpis({ data, isLoading }: ProgramKhususKpisProps) {
   const circBarDetail =
     totalCirc > 0
       ? `${photoPct}% Lengkap (${completedPhotos}/${totalCirc})`
-      : 'Belum ada tindakan';
+      : 'Tidak ada tindakan aktif';
   const circBarColor = photoPct === 100 ? 'bg-teal-600' : 'bg-amber-500';
 
   // 3. Agenda Observasi calculations
-  const postCompleted = data.postCareCompletedCount || 0;
+  const postActive = data.postCareActiveCount || 0;
   const postOverdue = data.postCareOverdueCount || 0;
   const postToday = data.postCareTodayCount || 0;
-  const totalPostCare = postCompleted + postOverdue + postToday;
-  const postCompletionPct = totalPostCare > 0 ? Math.round((postCompleted / totalPostCare) * 100) : 100;
+  const postOnTrack = Math.max(0, postActive - postOverdue);
+  const postCompletionPct = postActive > 0 ? Math.round((postOnTrack / postActive) * 100) : 100;
   const postBarDetail =
-    totalPostCare > 0
-      ? `${postCompletionPct}% Selesai (${postCompleted}/${totalPostCare})`
-      : 'Belum ada agenda';
+    postActive > 0
+      ? `${postCompletionPct}% Tepat Waktu (${postOnTrack}/${postActive})`
+      : 'Tidak ada agenda aktif';
   const postBarColor = postOverdue > 0 ? 'bg-rose-500' : 'bg-teal-600';
 
   const cards = [
     {
       id: 'kpi-tbc',
-      title: 'Kohort TBC (DOTS)',
-      value: `${totalTbc} Pasien`,
+      title: 'Kohort TBC Aktif',
+      value: `${totalTbc} Pasien Aktif`,
       unit: '',
       subtitle: `${data.intensifTbc || 0} Intensif • ${data.lanjutanTbc || 0} Lanjutan`,
       barLabel: 'Kepatuhan Kontrol OAT',
@@ -115,10 +117,10 @@ export function ProgramKhususKpis({ data, isLoading }: ProgramKhususKpisProps) {
     },
     {
       id: 'kpi-sirkumsisi',
-      title: 'Sirkumsisi & Foto Medis',
+      title: `Sirkumsisi Aktif (${SIRKUMSISI_ACTIVE_DAYS} Hari)`,
       value: `${totalCirc} Tindakan`,
       unit: '',
-      subtitle: `Omzet ${formatRupiah(data.totalCircumcisionRevenue)}`,
+      subtitle: `Omzet ${SIRKUMSISI_ACTIVE_DAYS} hari ${formatRupiah(data.totalCircumcisionRevenue)}`,
       barLabel: 'Dokumentasi Foto Medis',
       barDetail: circBarDetail,
       barPct: photoPct,
@@ -136,11 +138,11 @@ export function ProgramKhususKpis({ data, isLoading }: ProgramKhususKpisProps) {
     },
     {
       id: 'kpi-posrawat',
-      title: 'Agenda Pasien Observasi',
-      value: `${postToday} Hari Ini`,
+      title: 'Observasi Aktif',
+      value: `${postActive} Pasien Aktif`,
       unit: '',
-      subtitle: `${postCompleted} Selesai • ${postOverdue} Lewat`,
-      barLabel: 'Tingkat Kunjungan Kontrol',
+      subtitle: `${postToday} Hari Ini • ${postOverdue} Lewat`,
+      barLabel: 'Kontrol Belum Terlambat',
       barDetail: postBarDetail,
       barPct: postCompletionPct,
       barColor: postBarColor,
@@ -169,8 +171,8 @@ export function ProgramKhususKpis({ data, isLoading }: ProgramKhususKpisProps) {
           >
             <div>
               {/* Header: Title & Icon Pill */}
-              <div className="flex items-center justify-between text-slate-500 mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate mr-1">
+              <div className="flex items-start justify-between gap-2 text-slate-500 mb-2">
+                <span className="min-w-0 pt-1 text-[11px] leading-snug font-bold uppercase tracking-wider text-slate-500">
                   {card.title}
                 </span>
                 <div className={`p-1.5 rounded-xl shrink-0 ${card.iconBg}`}>
@@ -190,9 +192,9 @@ export function ProgramKhususKpis({ data, isLoading }: ProgramKhususKpisProps) {
 
               {/* Real Clinical Proportional Progress Track (replaces distorted sparkline) */}
               <div className="my-3 space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 font-semibold">
-                  <span className="truncate">{card.barLabel}</span>
-                  <span className="shrink-0 text-slate-700">{card.barDetail}</span>
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] font-mono text-slate-500 font-semibold">
+                  <span className="min-w-0">{card.barLabel}</span>
+                  <span className="text-slate-700 tabular-nums">{card.barDetail}</span>
                 </div>
                 <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
                   <div
@@ -204,8 +206,8 @@ export function ProgramKhususKpis({ data, isLoading }: ProgramKhususKpisProps) {
             </div>
 
             {/* Footer: Subtitle & Real Clinical Status Badge */}
-            <div className="flex items-center justify-between gap-1 text-xs pt-2 border-t border-slate-100">
-              <span className="text-slate-600 text-[11px] font-medium leading-tight truncate">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs pt-2 border-t border-slate-100">
+              <span className="min-w-0 text-slate-600 text-[11px] font-medium leading-tight">
                 {card.subtitle}
               </span>
               <span

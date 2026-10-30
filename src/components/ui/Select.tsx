@@ -11,6 +11,8 @@ export interface SelectOption {
   badge?: string;
   badgeColor?: string;
   icon?: React.ReactNode;
+  /** Options sharing a group are listed under one heading, in the order given. */
+  group?: string;
 }
 
 export interface SelectProps {
@@ -125,6 +127,58 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
     const selectedOption = useMemo(() => {
       return parsedOptions.find((opt) => String(opt.value) === String(internalValue));
     }, [parsedOptions, internalValue]);
+
+    // Consecutive options with the same group form one ARIA group under a visible heading.
+    const optionRuns = useMemo(() => {
+      const runs: Array<{ group?: string; options: SelectOption[] }> = [];
+      for (const opt of filteredOptions) {
+        const last = runs[runs.length - 1];
+        if (last && last.group === opt.group) last.options.push(opt);
+        else runs.push({ group: opt.group, options: [opt] });
+      }
+      return runs;
+    }, [filteredOptions]);
+    const listboxId = React.useId();
+
+    const renderOption = (opt: SelectOption) => {
+      const isSelected = String(opt.value) === String(internalValue);
+      return (
+        <div
+          key={String(opt.value)}
+          role="option"
+          aria-selected={isSelected}
+          onClick={() => handleSelect(opt.value)}
+          className={cn(
+            'flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors group select-none text-xs',
+            isSelected
+              ? 'bg-teal-50/90 text-teal-950 font-bold border border-teal-200/80 shadow-2xs'
+              : 'hover:bg-teal-50/60 text-slate-700 hover:text-slate-900 font-medium'
+          )}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            {opt.badge && (
+              <span
+                className={cn(
+                  'px-1.5 py-0.5 text-[10px] font-bold font-mono rounded-md border shrink-0',
+                  opt.badgeColor || 'bg-teal-50 text-teal-800 border-teal-200'
+                )}
+              >
+                {opt.badge}
+              </span>
+            )}
+            {opt.icon && <span className="shrink-0">{opt.icon}</span>}
+            <div className="min-w-0">
+              <div className="truncate">{opt.label}</div>
+              {opt.subtitle && (
+                <div className="text-[10px] text-slate-500 font-normal truncate mt-0.5">{opt.subtitle}</div>
+              )}
+            </div>
+          </div>
+
+          {isSelected && <Check className="w-4 h-4 text-teal-600 shrink-0 ml-2" weight="bold" />}
+        </div>
+      );
+    };
 
     // Close on click outside
     useEffect(() => {
@@ -280,7 +334,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             className="absolute left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-[0_0_0_1px_rgba(15,23,42,0.08),0_16px_36px_-4px_rgba(15,23,42,0.16),0_6px_12px_-2px_rgba(15,23,42,0.06)] p-1.5 z-50 animate-popover max-h-72 overflow-y-auto"
           >
             {headerTitle && (
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1 select-none">
+              <div role="presentation" className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1 select-none">
                 {headerTitle}
               </div>
             )}
@@ -305,49 +359,27 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             {/* Options List */}
             <div className="space-y-0.5">
               {filteredOptions.length > 0 ? (
-                filteredOptions.map((opt) => {
-                  const isSelected = String(opt.value) === String(internalValue);
-                  return (
+                optionRuns.map((run, runIndex) =>
+                  run.group ? (
                     <div
-                      key={String(opt.value)}
-                      role="option"
-                      aria-selected={isSelected}
-                      onClick={() => handleSelect(opt.value)}
-                      className={cn(
-                        'flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors group select-none text-xs',
-                        isSelected
-                          ? 'bg-teal-50/90 text-teal-950 font-bold border border-teal-200/80 shadow-2xs'
-                          : 'hover:bg-teal-50/60 text-slate-700 hover:text-slate-900 font-medium'
-                      )}
+                      key={`group-${runIndex}`}
+                      role="group"
+                      aria-labelledby={`${listboxId}-group-${runIndex}`}
+                      className="space-y-0.5"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        {opt.badge && (
-                          <span
-                            className={cn(
-                              'px-1.5 py-0.5 text-[10px] font-bold font-mono rounded-md border shrink-0',
-                              opt.badgeColor || 'bg-teal-50 text-teal-800 border-teal-200'
-                            )}
-                          >
-                            {opt.badge}
-                          </span>
-                        )}
-                        {opt.icon && <span className="shrink-0">{opt.icon}</span>}
-                        <div className="min-w-0">
-                          <div className="truncate">{opt.label}</div>
-                          {opt.subtitle && (
-                            <div className="text-[10px] text-slate-500 font-normal truncate mt-0.5">
-                              {opt.subtitle}
-                            </div>
-                          )}
-                        </div>
+                      <div
+                        id={`${listboxId}-group-${runIndex}`}
+                        role="presentation"
+                        className="px-2.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500"
+                      >
+                        {run.group}
                       </div>
-
-                      {isSelected && (
-                        <Check className="w-4 h-4 text-teal-600 shrink-0 ml-2" weight="bold" />
-                      )}
+                      {run.options.map(renderOption)}
                     </div>
-                  );
-                })
+                  ) : (
+                    <React.Fragment key={`run-${runIndex}`}>{run.options.map(renderOption)}</React.Fragment>
+                  )
+                )
               ) : (
                 <div className="py-4 text-center text-xs text-slate-400 font-medium">
                   Tidak ada pilihan yang cocok.
