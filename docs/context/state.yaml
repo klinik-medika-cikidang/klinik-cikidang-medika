@@ -213,7 +213,9 @@ migration:
 
 deployment:
   platform: Vercel
-  production_url: https://klinik-cikidang-medika.vercel.app
+  production_url: https://dashboard.cikidangmedika.com
+  production_url_vercel: https://klinik-cikidang-medika.vercel.app
+  custom_domain_note: "Domain milik klinik (dibeli dan dibayar pihak dokter); dikelola di Vercel, tim devklinikmedika, project klinik-cikidang-medika, Settings > Domains. Kedua URL menyajikan deployment Production yang sama (dicek 2026-10-31)."
   repository: https://github.com/klinik-medika-cikidang/klinik-cikidang-medika
   visibility: public
   last_successful_commit: 995783a
