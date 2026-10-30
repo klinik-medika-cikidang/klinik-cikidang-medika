@@ -37,7 +37,13 @@ import {
 } from '@/lib/utils';
 
 const cashFlowSchema = z.object({
-  tanggal: z.string().trim().min(1, 'Tanggal transaksi wajib diisi.'),
+  // A row dated later than today would sit in this month's Buku Kas and Laporan before
+  // it happened, and the Dashboard covers the whole month too.
+  tanggal: z
+    .string()
+    .trim()
+    .min(1, 'Tanggal transaksi wajib diisi.')
+    .refine((value) => value <= formatLocalDateToYMD(), 'Tanggal tidak boleh setelah hari ini.'),
   jenis: z.enum(['Masuk', 'Keluar'], {
     message: 'Jenis transaksi wajib dipilih.',
   }),
@@ -259,6 +265,7 @@ export function AddCashFlowModal({
             label="Tanggal Transaksi"
             type="date"
             requiredIndicator
+            max={getTodayString()}
             value={tanggal}
             onChange={(e) => {
               setTanggal(e.target.value);

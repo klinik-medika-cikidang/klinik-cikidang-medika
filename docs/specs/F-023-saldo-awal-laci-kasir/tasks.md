@@ -45,3 +45,12 @@ Migration note: `20261030_f023_cash_drawer_openings.sql` was applied to the old 
 
 ## Follow-up (not part of F-023)
 - [ ] **Owner-only writes in RLS (R-023-1)**: the policy lets every authenticated user, including `dokter_admin`, insert, update, or delete openings through PostgREST, while the UI shows the control to the owner only. AGENTS.md §10 says UI hiding is not authorization. Closing it needs the role in `app_metadata` and is a project-wide change; it needs the user's approval before work starts.
+
+## Staging test and audit (2026-10-30)
+
+Tested end to end on the local build of the `staging` branch against the old staging database (`jpqmnbtowvfctxciuktj`), with an owner and a dokter_admin login and two fictitious test patients. An acceptance and cross-feature audit (5 spec checks plus integration, security/data and responsive/a11y lenses, every finding verified by two independent reviewers) ran three rounds; all confirmed findings were fixed or are listed below as accepted limitations.
+
+- [x] Opening Rp 4.000.000 recorded for October on staging: the drawer changed by exactly that amount on Buku Kas and on the Dashboard; November showed it carried ("Lanjutan"); net income did not change.
+- [x] dokter_admin does not see Saldo Awal, the reconciliation card or the add/edit control.
+- [x] Audit fixes: loading and failed states no longer read as "Belum diisi"; a duplicate-month insert shows an Indonesian message and reloads; created_by is written on insert only; the card shows an error state instead of mixing months when the cash-flow load fails; the Dashboard falls back to the old figure if the opening cannot load.
+- [ ] R-023-1 (owner-only writes in RLS) deferred by the user on 2026-10-30.

@@ -75,8 +75,9 @@ export function NewTbcModal({ isOpen, onClose, onSuccess, initialPatient }: NewT
       onClose();
     } catch (err) {
       console.error('Error creating TBC program:', err);
-      setErrorMsg(getErrorMessage(err, 'Gagal mendaftarkan pasien ke program TBC'));
-      toast.error('Gagal mendaftarkan pasien ke program TBC');
+      const msg = getErrorMessage(err, 'Gagal mendaftarkan pasien ke program TBC.');
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }

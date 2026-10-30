@@ -45,7 +45,16 @@ import { ApplyPackageModal } from '@/components/paket-terapi/ApplyPackageModal';
 import { NewTbcModal } from '@/components/program-khusus/NewTbcModal';
 import { NewCircumcisionModal } from '@/components/program-khusus/NewCircumcisionModal';
 import { KategoriProgramPanel } from '@/components/program-khusus/KategoriProgramPanel';
-import { cn, normalizeRupiah, isLikelyShorthandRupiah, getErrorMessage } from '@/lib/utils';
+import {
+  cn,
+  normalizeRupiah,
+  isLikelyShorthandRupiah,
+  getErrorMessage,
+  computeVisitRevenue,
+  formatRupiah,
+  isSettledVisit,
+} from '@/lib/utils';
+import { getPriorPayment, type PriorPaymentVisit } from '@/lib/cash-date';
 
 export interface ExaminationFormProps {
   visit: Visit;
@@ -362,7 +371,83 @@ export function ExaminationForm({
 
     try {
       const supabase = createClient();
-      const targetStatus = isCompleteHandover ? 'Menunggu Kasir' : visit.status_pembayaran;
+      const finalBiaya =
+        visit.jenis_pasien === 'BPJS' || isGratis ? 0 : normalizeRupiah(Number(biayaPeriksa || 0));
+      const finalLain = isGratis ? 0 : normalizeRupiah(Number(pendapatanLain || 0));
+
+      const { data: paymentRow, error: paymentError } = await supabase
+        .from('visits')
+        .select(
+          'status_pembayaran, payment_state, tanggal_periksa, tanggal_bayar, tanggal_pelunasan, nominal_pelunasan, piutang_nominal, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, is_gratis'
+        )
+        .eq('id', visit.id)
+        .single();
+      if (paymentError) throw paymentError;
+      const currentPayment = paymentRow as unknown as PriorPaymentVisit;
+
+      // The cashier may have changed the bill (a package, a payment) after this form opened.
+      // Saving the form's older charges would silently drop that change, so ask for a reload.
+      const chargesChanged =
+        (Number(currentPayment.biaya_periksa) || 0) !== (Number(visit.biaya_periksa) || 0) ||
+        (Number(currentPayment.pendapatan_lain) || 0) !== (Number(visit.pendapatan_lain) || 0) ||
+        Boolean(currentPayment.is_gratis) !== Boolean(visit.is_gratis);
+      if (chargesChanged) {
+        const msg = 'Tagihan kunjungan ini sudah diubah di kasir setelah form dibuka. Muat ulang antrean lalu simpan kembali.';
+        setErrorMessage(msg);
+        toast.error(msg);
+        return;
+      }
+
+      // A visit that already took money must keep it on its payment day (F-021). Sending it
+      // back to Menunggu Kasir would drop that money from every report until it is settled
+      // again, so new charges become an open balance instead and the paid part stays put.
+      const prior = getPriorPayment(currentPayment);
+      const newTotal = computeVisitRevenue({
+        jenis_pasien: visit.jenis_pasien,
+        biaya_periksa: finalBiaya,
+        pendapatan_lain: finalLain,
+        status_pembayaran: 'Lunas',
+      });
+      let owedAfterEdit: number | null = null;
+      let reopenedForCashier = false;
+      let statusColumns: Record<string, unknown> = {
+        status_pembayaran: isCompleteHandover ? 'Menunggu Kasir' : currentPayment.status_pembayaran,
+      };
+      if (!prior && (isCompleteHandover || (isSettledVisit(currentPayment) && newTotal > 0))) {
+        // Nothing was received yet (Ditanggung BPJS, a free visit, or never settled). A stale
+        // tanggal_bayar would make the cashier read the new charges as already paid on that
+        // day, so the visit goes back as unpaid and its payment dates start over.
+        reopenedForCashier = !isCompleteHandover;
+        statusColumns = {
+          status_pembayaran: 'Menunggu Kasir',
+          payment_state: 'Menunggu Pembayaran',
+          tanggal_bayar: null,
+          tanggal_pelunasan: null,
+          nominal_pelunasan: null,
+          metode_pelunasan: null,
+          piutang_nominal: 0,
+          piutang_note: null,
+        };
+      }
+      if (prior) {
+        const owed = newTotal - prior.paid;
+        if (owed < 0) {
+          const msg = `Total biaya baru lebih kecil dari uang yang sudah diterima kasir (${formatRupiah(prior.paid)}). Pengembalian uang belum bisa dicatat.`;
+          setErrorMessage(msg);
+          toast.error(msg);
+          return;
+        }
+        owedAfterEdit = owed;
+        statusColumns =
+          owed > 0
+            ? {
+                status_pembayaran: 'Piutang',
+                payment_state: 'Piutang',
+                piutang_nominal: owed,
+                piutang_note: `Sisa piutang ${formatRupiah(owed)}`,
+              }
+            : { status_pembayaran: 'Lunas', payment_state: 'Lunas', piutang_nominal: 0, piutang_note: null };
+      }
 
       const { data, error } = await supabase
         .from('visits')
@@ -376,18 +461,25 @@ export function ExaminationForm({
           bidan_rujukan: normalizeBidanName(bidanRujukan),
           lab: lab.trim() || null,
           lab_hasil: labHasil.trim() || null,
-          biaya_periksa: visit.jenis_pasien === 'BPJS' || isGratis ? 0 : normalizeRupiah(Number(biayaPeriksa || 0)),
-          pendapatan_lain: isGratis ? 0 : normalizeRupiah(Number(pendapatanLain || 0)),
+          biaya_periksa: finalBiaya,
+          pendapatan_lain: finalLain,
           keterangan_pendapatan: keteranganPendapatan.trim() || null,
           is_gratis: isGratis,
           alasan_gratis: isGratis ? (alasanGratis.trim() || 'Bebas Biaya') : null,
-          status_pembayaran: targetStatus,
+          ...statusColumns,
         })
         .eq('id', visit.id)
+        .eq('status_pembayaran', currentPayment.status_pembayaran ?? '')
         .select(`*, pasien:patients(*), dokter:doctors(*)`)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) {
+        const msg = 'Status pembayaran kunjungan ini berubah saat disimpan. Muat ulang antrean lalu simpan kembali.';
+        setErrorMessage(msg);
+        toast.error(msg);
+        return;
+      }
 
       // F-012 Persist audit snapshot for applied therapy packages
       if (pendingPackages.length > 0) {
@@ -410,9 +502,15 @@ export function ExaminationForm({
       }
 
       toast.success(
-        isCompleteHandover
-          ? 'Pemeriksaan selesai. Data pasien berhasil dikirim ke antrean kasir & apotek.'
-          : 'Draft rekam medis berhasil disimpan.'
+        owedAfterEdit !== null
+          ? owedAfterEdit > 0
+            ? `Rekam medis tersimpan. Sisa tagihan ${formatRupiah(owedAfterEdit)} menunggu di kasir sebagai piutang.`
+            : 'Rekam medis tersimpan. Kunjungan ini sudah lunas, jadi tidak dikirim ulang ke kasir.'
+          : isCompleteHandover
+            ? 'Pemeriksaan selesai. Data pasien berhasil dikirim ke antrean kasir & apotek.'
+            : reopenedForCashier
+              ? `Rekam medis tersimpan. Biaya ${formatRupiah(newTotal)} menunggu pembayaran di kasir.`
+              : 'Draft rekam medis berhasil disimpan.'
       );
 
       if (onSaveSuccess && data) {

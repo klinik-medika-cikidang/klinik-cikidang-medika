@@ -155,7 +155,7 @@ export function DashboardKpiCards({ data, isLoading }: DashboardKpiCardsProps) {
             <div>
               {/* Header: Title & Icon Pill */}
               <div className="flex items-center justify-between text-slate-500 mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate mr-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 leading-tight min-w-0 mr-1">
                   {card.title}
                 </span>
                 <div className={`p-1.5 rounded-xl shrink-0 ${card.iconBg}`}>
@@ -205,7 +205,7 @@ export function DashboardKpiCards({ data, isLoading }: DashboardKpiCardsProps) {
               {/* Real Metric Proportional Track (replaces fake distorted sparkline) */}
               <div className="my-3 space-y-1.5">
                 <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 font-semibold">
-                  <span className="truncate">{card.barLabel}</span>
+                  <span className="min-w-0 leading-tight">{card.barLabel}</span>
                   <span className="shrink-0 text-slate-700">{card.barDetail}</span>
                 </div>
                 <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">

@@ -50,7 +50,7 @@ Audit findings that this spec resolves:
 *As the owner, I want the revenue figure on the Dashboard to match Laporan and the Excel export for the same period, so that I can trust every screen.*
 
 - **REQ-019-03.1**: Cashier revenue for a visit SHALL be computed by one shared function: `0` IF the visit is not settled (`isSettledVisit`), ELSE `biaya_periksa` (0 for BPJS) plus `pendapatan_lain`.
-- **REQ-019-03.2**: For the same date range, the Dashboard revenue card SHALL equal the Laporan "Total Billing" KPI AND the sum of `total_biaya` in the Excel visit sheet.
+- **REQ-019-03.2**: For the same date range, the Dashboard revenue card SHALL equal the Laporan "Total Billing" KPI AND the total of the Excel "Penerimaan Kasir" sheet. (Amended 2026-10-30 after F-021: money is reported by the day it was received, so the visit sheet keeps bills by examination date in a column labelled "Total Tagihan (tgl periksa)".)
 - **REQ-019-03.3**: The Dashboard card label SHALL state what it contains ("Pendapatan Kasir", covering UMUM fees and extra charges from BPJS patients). The Kapitasi BPJS card SHALL stay separate.
 - **REQ-019-03.4**: Buku Kas "Tunai Masuk Laci" SHALL keep its cash-only definition and SHALL carry a caption stating that transfer payments are excluded, so that the difference with the Dashboard is explained on screen.
 
@@ -68,7 +68,7 @@ Audit findings that this spec resolves:
 - **REQ-019-05.2**: A carried-over visit SHALL show a visible "Tunggakan" badge with its examination date.
 - **REQ-019-05.3**: WHEN a carried-over visit is settled, THEN the payment SHALL be saved on that visit row exactly as same-day payments are, and the visit SHALL leave the queue.
 - **REQ-019-05.4**: Today's queue KPIs (total visits today, waiting for doctor) SHALL count only today's visits. The "menunggu bayar" count SHALL include carried-over visits.
-- **REQ-019-05.5**: Revenue of a carried-over visit SHALL CONTINUE TO be reported on its `tanggal_periksa`. Booking revenue on the payment date is F-021.
+- **REQ-019-05.5**: Superseded by REQ-021-02.1 (2026-10-30): revenue of a carried-over visit is reported on the day it is received, and the Loket "Penerimaan Kasir" card counts money received today, including arrears paid today.
 
 ### User Story 6: Buku Kas Cocok dengan DATA (Owner)
 - **REQ-019-06.1**: A read-only audit script SHALL compare, per month from the first CSV month up to 2026-10-09, the database totals against the REKAMMEDIS CSV for: visit count, cashier revenue (`Pendapatan` + `Pendpatan lain`), clinic expenses, non-clinic expenses, and cash deposits (`SETOR TUNAI`).

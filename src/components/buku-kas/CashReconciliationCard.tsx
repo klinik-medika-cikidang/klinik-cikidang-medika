@@ -38,6 +38,61 @@ export interface DrawerOpeningView {
   catatan?: string | null;
 }
 
+export type OpeningTileStatus = 'loading' | 'error' | 'missing' | 'recorded' | 'carried';
+export type DrawerBalanceState = 'unknown' | 'balanced' | 'deficit' | 'remaining' | 'empty';
+
+export interface ReconciliationView {
+  openingStatus: OpeningTileStatus;
+  /** null while the figure is not known yet, so the card never shows a made-up Rp 0. */
+  saldoAwal: number | null;
+  remaining: number | null;
+  balance: DrawerBalanceState;
+}
+
+/**
+ * Decides what the card may claim. An opening that is loading or failed to load is not the
+ * same as a month nobody filled, and movements still loading must not be mixed with it.
+ */
+export function resolveReconciliationView(params: {
+  opening: DrawerOpeningView | null;
+  openingError?: string | null;
+  isLoading?: boolean;
+  /** Set when the month's movements failed to load; the drawer then cannot be computed. */
+  movementsError?: string | null;
+  scope: 'monthly' | 'daily';
+  active: DrawerReconciliationMetrics;
+}): ReconciliationView {
+  const { opening, openingError, scope, active } = params;
+  const isLoading = params.isLoading || Boolean(params.movementsError);
+  const openingStatus: OpeningTileStatus = !opening
+    ? openingError
+      ? 'error'
+      : 'loading'
+    : opening.source;
+
+  // The daily opening is built from the month's movements, so it waits for them too.
+  const saldoAwal =
+    opening && (scope === 'monthly' || !isLoading)
+      ? scope === 'monthly'
+        ? opening.monthly
+        : opening.daily
+      : null;
+  if (saldoAwal === null || isLoading) {
+    return { openingStatus, saldoAwal, remaining: null, balance: 'unknown' };
+  }
+
+  const remaining =
+    saldoAwal + active.cashVisitsTotal - active.cashExpensesTotal - active.cashDepositsTotal;
+  const hasActivity =
+    saldoAwal !== 0 ||
+    active.cashVisitsTotal > 0 ||
+    active.cashExpensesTotal > 0 ||
+    active.cashDepositsTotal > 0;
+  const balance: DrawerBalanceState =
+    remaining < 0 ? 'deficit' : remaining > 0 ? 'remaining' : hasActivity ? 'balanced' : 'empty';
+  return { openingStatus, saldoAwal, remaining, balance };
+}
+
 export interface CashReconciliationCardProps {
   monthLabel: string;
   selectedYear?: number;
@@ -47,12 +102,17 @@ export interface CashReconciliationCardProps {
   selectedDate: string;
   onSelectedDateChange: (date: string) => void;
   onOpenSetorTunai?: () => void;
-  /** null while it could not be loaded; the drawer then starts from Rp 0. */
+  /** null while loading or after a failed load; the remaining cash is then not computed. */
   opening: DrawerOpeningView | null;
   openingError?: string | null;
+  /** True while a known opening is being refetched; its value stays on screen meanwhile. */
+  isOpeningRefreshing?: boolean;
   /** Passed only for the owner (REQ-023-01.2). */
   onEditOpening?: () => void;
+  /** True while the month's cash movements are loading. */
   isLoading?: boolean;
+  /** Set when the month's cash movements failed to load. */
+  movementsError?: string | null;
   className?: string;
 }
 
@@ -67,24 +127,25 @@ export function CashReconciliationCard({
   onOpenSetorTunai,
   opening,
   openingError,
+  isOpeningRefreshing = false,
   onEditOpening,
+  isLoading = false,
+  movementsError = null,
   className,
 }: CashReconciliationCardProps) {
   const [scope, setScope] = useState<'monthly' | 'daily'>('monthly');
 
   const active = scope === 'monthly' ? monthlyMetrics : dailyMetrics;
-  const saldoAwal = opening ? (scope === 'monthly' ? opening.monthly : opening.daily) : 0;
-  const rawRemaining =
-    saldoAwal + active.cashVisitsTotal - active.cashExpensesTotal - active.cashDepositsTotal;
-
-  const hasActivity =
-    saldoAwal !== 0 ||
-    active.cashVisitsTotal > 0 ||
-    active.cashExpensesTotal > 0 ||
-    active.cashDepositsTotal > 0;
-  const isBalanced = hasActivity && rawRemaining === 0;
-  const hasRemainingCash = rawRemaining > 0;
-  const isDeficit = rawRemaining < 0;
+  const view = resolveReconciliationView({ opening, openingError, isLoading, movementsError, scope, active });
+  // A failed load shows a dash, never the previous month's figures or a pulsing placeholder.
+  const movementsUnavailable = isLoading || Boolean(movementsError);
+  const { openingStatus, saldoAwal } = view;
+  const rawRemaining = view.remaining ?? 0;
+  const isUnknown = view.balance === 'unknown';
+  const isBalanced = view.balance === 'balanced';
+  const hasRemainingCash = view.balance === 'remaining';
+  const isDeficit = view.balance === 'deficit';
+  const isWaiting = isLoading || openingStatus === 'loading';
 
   const yearStr = selectedYear ? String(selectedYear) : selectedDate.slice(0, 4);
   const monthStr = selectedMonth
@@ -101,11 +162,13 @@ export function CashReconciliationCard({
     const [y, m] = periode.split('-').map(Number);
     return `${MONTH_NAMES_ID[m - 1]} ${y}`;
   };
-  const openingMissing = !opening || opening.source === 'missing';
+  const openingMissing = openingStatus === 'missing';
   const openingHint = !opening
     ? openingError
-      ? 'Saldo awal gagal dimuat, sisa laci dihitung dari Rp 0.'
+      ? 'Saldo awal gagal dimuat, jadi sisa laci belum dihitung.'
       : 'Memuat saldo awal laci...'
+    : isOpeningRefreshing
+      ? 'Memperbarui saldo awal laci...'
     : opening.source === 'missing'
       ? scope === 'daily'
         ? 'Saldo awal bulan belum diisi. Angka ini hanya mutasi laci sejak tanggal 1 bulan ini.'
@@ -122,8 +185,28 @@ export function CashReconciliationCard({
         ? 'Catat Hasil Hitung'
         : 'Isi Saldo Awal';
 
+  // While a figure is unknown the tile shows a placeholder, never a computed Rp 0.
+  const renderAmount = (text: string | null, colorClass: string, pending: boolean) => (
+    <div className={cn('text-lg font-extrabold font-mono tabular-nums min-h-[28px]', colorClass)}>
+      {text !== null ? (
+        text
+      ) : pending ? (
+        <>
+          <span
+            aria-hidden="true"
+            className="inline-block h-5 w-28 max-w-full rounded-md bg-slate-200 animate-pulse align-middle"
+          />
+          <span className="sr-only">Memuat</span>
+        </>
+      ) : (
+        <span className="text-slate-500">-</span>
+      )}
+    </div>
+  );
+
   return (
     <div
+      aria-busy={isWaiting || isOpeningRefreshing}
       className={cn(
         'p-4 sm:p-5 rounded-2xl border border-slate-200/90 bg-white shadow-card-double space-y-4',
         className
@@ -139,7 +222,11 @@ export function CashReconciliationCard({
               <span>
                 Rekonsiliasi Fisik Laci Kasir ({scope === 'monthly' ? `Akumulasi ${monthLabel}` : formatDateIndo(selectedDate)})
               </span>
-              {isBalanced ? (
+              {isUnknown ? (
+                <Badge variant="default" size="sm">
+                  {isWaiting ? 'Memuat' : 'Belum Bisa Dihitung'}
+                </Badge>
+              ) : isBalanced ? (
                 <Badge variant="success" size="sm">
                   Laci Seimbang (Rp 0)
                 </Badge>
@@ -236,17 +323,23 @@ export function CashReconciliationCard({
               <Vault weight="bold" className="w-3.5 h-3.5 text-teal-600" />
               <span>Saldo Awal</span>
             </span>
-            {opening?.source === 'recorded' && scope === 'monthly' ? (
-              <Badge variant="success" size="sm">Dicatat</Badge>
-            ) : opening && opening.source !== 'missing' ? (
-              <Badge variant="default" size="sm">Lanjutan</Badge>
-            ) : (
+            {openingStatus === 'loading' ? (
+              <Badge variant="default" size="sm">Memuat</Badge>
+            ) : openingStatus === 'error' ? (
+              <Badge variant="danger" size="sm">Gagal dimuat</Badge>
+            ) : openingStatus === 'missing' ? (
               <Badge variant="warning" size="sm">Belum diisi</Badge>
+            ) : openingStatus === 'recorded' && scope === 'monthly' ? (
+              <Badge variant="success" size="sm">Dicatat</Badge>
+            ) : (
+              <Badge variant="default" size="sm">Lanjutan</Badge>
             )}
           </div>
-          <div className="text-lg font-extrabold font-mono text-slate-900 tabular-nums">
-            {formatSigned(saldoAwal)}
-          </div>
+          {renderAmount(
+            saldoAwal === null ? null : formatSigned(saldoAwal),
+            'text-slate-900',
+            saldoAwal === null && isWaiting
+          )}
           <p className={cn('text-[10px] leading-snug', openingMissing ? 'text-amber-900' : 'text-slate-500')}>
             {openingHint}
           </p>
@@ -282,12 +375,14 @@ export function CashReconciliationCard({
               <span>Tunai Masuk Laci</span>
             </span>
             <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[10px]">
-              {active.cashVisitsCount} Pasien
+              {movementsUnavailable ? '-' : active.cashVisitsCount} Pasien
             </span>
           </div>
-          <div className="text-lg font-extrabold font-mono text-slate-900 tabular-nums">
-            + {formatRupiah(active.cashVisitsTotal)}
-          </div>
+          {renderAmount(
+            movementsUnavailable ? null : `+ ${formatRupiah(active.cashVisitsTotal)}`,
+            'text-slate-900',
+            isLoading
+          )}
           <p className="text-[10px] text-slate-500 leading-snug">
             Penerimaan tunai fisik dari pembayaran pasien di loket, tidak termasuk transfer.
             Karena itu bisa lebih kecil dari Pendapatan Kasir di Dashboard.
@@ -302,14 +397,16 @@ export function CashReconciliationCard({
               <span>Pengeluaran Tunai Laci</span>
             </span>
             <span className="font-mono font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 text-[10px]">
-              {active.cashExpensesCount} Transaksi
+              {movementsUnavailable ? '-' : active.cashExpensesCount} Transaksi
             </span>
           </div>
-          <div className="text-lg font-extrabold font-mono text-rose-700 tabular-nums">
-            &minus; {formatRupiah(active.cashExpensesTotal)}
-          </div>
+          {renderAmount(
+            movementsUnavailable ? null : `− ${formatRupiah(active.cashExpensesTotal)}`,
+            'text-rose-700',
+            isLoading
+          )}
           <p className="text-[10px] text-slate-500 leading-snug">
-            Belanja obat, listrik, konsumsi &amp; biaya operasional dari laci
+            Pengeluaran klinik dan non klinik yang dibayar tunai dari laci
           </p>
         </div>
 
@@ -321,12 +418,14 @@ export function CashReconciliationCard({
               <span>Disetor ke Pemilik / Bank</span>
             </span>
             <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 text-[10px]">
-              {active.cashDepositsCount} Setoran
+              {movementsUnavailable ? '-' : active.cashDepositsCount} Setoran
             </span>
           </div>
-          <div className="text-lg font-extrabold font-mono text-indigo-700 tabular-nums">
-            &minus; {formatRupiah(active.cashDepositsTotal)}
-          </div>
+          {renderAmount(
+            movementsUnavailable ? null : `− ${formatRupiah(active.cashDepositsTotal)}`,
+            'text-indigo-700',
+            isLoading
+          )}
           <p className="text-[10px] text-slate-500 leading-snug">
             Akumulasi Setor Tunai &amp; Setor ke Rekening Pemilik
           </p>
@@ -370,25 +469,24 @@ export function CashReconciliationCard({
             )}
           </div>
 
-          <div
-            className={cn(
-              'text-lg font-extrabold font-mono tabular-nums',
-              isBalanced
-                ? 'text-emerald-700'
-                : isDeficit
-                  ? 'text-rose-700'
-                  : hasRemainingCash
-                    ? 'text-amber-800'
-                    : 'text-slate-700'
-            )}
-          >
-            {isDeficit
-              ? `- ${formatRupiah(Math.abs(rawRemaining))}`
-              : formatRupiah(rawRemaining)}
-          </div>
+          {renderAmount(
+            isUnknown ? null : formatSigned(rawRemaining),
+            isBalanced
+              ? 'text-emerald-700'
+              : isDeficit
+                ? 'text-rose-700'
+                : hasRemainingCash
+                  ? 'text-amber-800'
+                  : 'text-slate-700',
+            isUnknown && isWaiting
+          )}
 
           <p className="text-[10px] text-slate-600 leading-snug">
-            {isDeficit
+            {isUnknown
+              ? isWaiting
+                ? 'Menunggu data laci selesai dimuat.'
+                : 'Sisa laci belum bisa dihitung karena saldo awal gagal dimuat. Tekan tombol muat ulang di atas.'
+              : isDeficit
               ? `Setoran dan pengeluaran melampaui saldo awal ditambah kas masuk tunai (${formatRupiah(Math.abs(rawRemaining))})${openingMissing ? '. Periksa apakah saldo awal laci sudah diisi.' : ''}`
               : isBalanced
                 ? 'Seluruh uang tunai laci telah terpakai operasional atau disetor'

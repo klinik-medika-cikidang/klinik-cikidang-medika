@@ -10,6 +10,8 @@ import {
   Scissors,
 } from '@phosphor-icons/react';
 import { Lungs, BandageAdhesive } from 'healthicons-react';
+import type { PostCare } from '@/types/database';
+import { isDueTodayPostCare, isOverduePostCare } from '@/lib/program-status';
 
 export interface ClinicalAlertCounts {
   mangkirTbc: number;
@@ -21,9 +23,25 @@ export interface ClinicalAlertCounts {
 interface ClinicalAlertWidgetProps {
   alerts: ClinicalAlertCounts;
   isLoading?: boolean;
+  /** True when at least one alert query failed, so zero counts cannot be trusted. */
+  loadFailed?: boolean;
 }
 
-export function ClinicalAlertWidget({ alerts, isLoading }: ClinicalAlertWidgetProps) {
+/** Counts active post-care agendas the same way Program Khusus does, each in one group only. */
+export function countPostCareAlerts(
+  rows: Pick<PostCare, 'status_kontrol' | 'tanggal_kontrol_berikutnya'>[],
+  today: string
+): Pick<ClinicalAlertCounts, 'todayPostCare' | 'overduePostCare'> {
+  let todayPostCare = 0;
+  let overduePostCare = 0;
+  rows.forEach((p) => {
+    if (isOverduePostCare(p, today)) overduePostCare++;
+    else if (isDueTodayPostCare(p, today)) todayPostCare++;
+  });
+  return { todayPostCare, overduePostCare };
+}
+
+export function ClinicalAlertWidget({ alerts, isLoading, loadFailed }: ClinicalAlertWidgetProps) {
   if (isLoading) {
     return (
       <div className="h-12 bg-slate-100/80 rounded-2xl border border-slate-200/80 animate-pulse"></div>
@@ -33,6 +51,31 @@ export function ClinicalAlertWidget({ alerts, isLoading }: ClinicalAlertWidgetPr
   const hasUrgentAlert = alerts.mangkirTbc > 0 || alerts.overduePostCare > 0;
   const hasDailyAttention = alerts.todayPostCare > 0 || alerts.recentCircumcision > 0;
   const totalAlerts = alerts.mangkirTbc + alerts.overduePostCare + alerts.todayPostCare + alerts.recentCircumcision;
+
+  if (loadFailed && !hasUrgentAlert && !hasDailyAttention) {
+    return (
+      <div
+        role="alert"
+        className="bg-amber-50/80 border border-amber-200 rounded-2xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 text-xs shadow-2xs"
+      >
+        <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+          <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+            <Warning className="w-4 h-4" weight="bold" />
+          </div>
+          <span className="font-semibold text-amber-950">
+            Data surveilans pasien gagal dimuat. Periksa langsung di Program Khusus.
+          </span>
+        </div>
+        <Link
+          href="/program-khusus"
+          className="text-amber-900 hover:text-amber-950 font-bold text-xs inline-flex items-center gap-1 shrink-0 min-h-[44px] px-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+        >
+          <span>Buka Program Khusus</span>
+          <CaretRight className="w-3.5 h-3.5" weight="bold" />
+        </Link>
+      </div>
+    );
+  }
 
   if (!hasUrgentAlert && !hasDailyAttention) {
     return (
@@ -105,6 +148,13 @@ export function ClinicalAlertWidget({ alerts, isLoading }: ClinicalAlertWidgetPr
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-white text-teal-800 border border-teal-200 shadow-2xs">
             <BandageAdhesive className="w-3.5 h-3.5 text-teal-600 shrink-0" />
             <span>{alerts.recentCircumcision} Sirkumsisi Aktif</span>
+          </span>
+        )}
+
+        {loadFailed && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-white text-amber-800 border border-amber-300 shadow-2xs">
+            <Warning className="w-3.5 h-3.5 text-amber-600 shrink-0" weight="bold" />
+            <span>Sebagian data gagal dimuat</span>
           </span>
         )}
       </div>

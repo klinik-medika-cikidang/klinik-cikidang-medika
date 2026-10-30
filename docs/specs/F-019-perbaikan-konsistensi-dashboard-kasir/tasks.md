@@ -89,3 +89,14 @@ Status: code and audit tasks done on branch `claude/f-019-perbaikan-konsistensi-
   - Save every category on production. Compare Dashboard, Laporan, and Excel revenue for October 2026. Settle a carried-over visit on staging.
   - Check Dashboard, Loket & Kasir, and Program Khusus at 360px, 768px, and 1024px. (Changed Dashboard and Loket & Kasir components done with mock data, see Task 2.5. Full pages with real data and Program Khusus still pending.)
   - _Requirements: REQ-019-01.2, REQ-019-03.2, REQ-019-04.4, REQ-019-05.3, INV-019-1 to INV-019-5_
+
+## Staging test and audit (2026-10-30)
+
+Tested end to end on the local build of the `staging` branch against the old staging database (`jpqmnbtowvfctxciuktj`), with an owner and a dokter_admin login and two fictitious test patients. An acceptance and cross-feature audit (5 spec checks plus integration, security/data and responsive/a11y lenses, every finding verified by two independent reviewers) ran three rounds; all confirmed findings were fixed or are listed below as accepted limitations.
+
+- [x] Dashboard, Laporan and Buku Kas for October 2026 equal an independent read-only recomputation from the database (visits 160, cashier revenue Rp 15.745.320, drawer Rp 776.320 with a recorded opening, bank Rp 14.315.000).
+- [x] ANC category saved on staging (toast and database value checked). Production still needs Task 1.1.
+- [x] Carry-over queue, Tunggakan badge, and today's KPIs checked on screen.
+- [x] Fixes from the audit: Excel "Penerimaan Kasir" sheet whose total equals the KPI; Loket "Penerimaan Kasir" by received date; Kas Masuk/Kas Keluar dates cannot be after today (keeps Dashboard, Buku Kas and Laporan on the same rows); dashboard alert strip warns instead of showing an all-clear when a load fails; KPI labels, tile captions and quick-cash buttons no longer truncate; "null thn" age display fixed.
+- [x] Responsive check with a headless browser on Dashboard, Loket & Kasir, Pemeriksaan Dokter, Program Khusus, Buku Kas and Laporan at 360, 768 and 1024px: no page-level horizontal scroll on any of the 18 combinations. Remaining ellipsis only on long free-text names inside lists (diagnosis and drug names), unchanged behavior.
+- [ ] Open decision (from the client, 2026-10-30): the clinic sheet's "TOTAL PENDAPATAN" (the purple line on the DASHBOARD tab) equals tarif + Pendapatan lain of ALL visits, BPJS included, and matches the sheet in all 38 months from 2023-08 to 2026-09. The app's "Pendapatan Kasir" follows REQ-019-03.1 and counts the tarif of BPJS visits as 0. Changing the definition needs the owner's approval.

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Coins, FloppyDisk, WarningCircle } from '@phosphor-icons/react';
@@ -10,14 +10,32 @@ import { Input } from '@/components/ui/Input';
 import { RupiahShorthandHint } from '@/components/ui/RupiahShorthandHint';
 import { createClient } from '@/lib/supabase/client';
 import type { CashDrawerOpening } from '@/types/database';
-import { formatRupiah, getErrorMessage } from '@/lib/utils';
+import { cn, formatRupiah, getErrorMessage } from '@/lib/utils';
 
-const openingSchema = z.object({
+// NUMERIC(15,2) holds at most 13 digits before the decimal point.
+export const MAX_OPENING_NOMINAL = 9_999_999_999_999;
+
+export const openingSchema = z.object({
   nominal: z
     .number({ message: 'Nominal saldo awal wajib diisi. Isi 0 bila laci kosong.' })
-    .min(0, 'Nominal saldo awal tidak boleh negatif.'),
+    .min(0, 'Nominal saldo awal tidak boleh negatif.')
+    .max(MAX_OPENING_NOMINAL, 'Nominal saldo awal terlalu besar. Periksa kembali angkanya.'),
   catatan: z.string().trim().optional(),
 });
+
+/** True when Postgres rejected the insert because the month already has an opening. */
+export function isDuplicatePeriodeError(err: unknown): boolean {
+  return Boolean(err && typeof err === 'object' && (err as { code?: unknown }).code === '23505');
+}
+
+/**
+ * Keeps at most 15 typed digits so parseInt stays exact (below Number.MAX_SAFE_INTEGER);
+ * anything past 13 digits is then rejected by the schema with a readable message.
+ */
+export function parseNominalDigits(raw: string): number | null {
+  const digits = raw.replace(/\D/g, '').slice(0, 15);
+  return digits ? parseInt(digits, 10) : null;
+}
 
 export interface DrawerOpeningModalProps {
   isOpen: boolean;
@@ -31,6 +49,8 @@ export interface DrawerOpeningModalProps {
   carriedSaldo?: number | null;
   userId?: string | null;
   onSaved: (row: CashDrawerOpening) => void;
+  /** Called when the month turned out to be recorded already, so the page reloads it. */
+  onRecordedElsewhere?: () => void;
 }
 
 export function DrawerOpeningModal({
@@ -42,6 +62,7 @@ export function DrawerOpeningModal({
   carriedSaldo,
   userId,
   onSaved,
+  onRecordedElsewhere,
 }: DrawerOpeningModalProps) {
   // null keeps "not filled" apart from a counted Rp 0.
   const [nominal, setNominal] = useState<number | null>(null);
@@ -49,19 +70,44 @@ export function DrawerOpeningModal({
   const [isSaving, setIsSaving] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Set when an insert hit a row saved from another device after this page loaded.
+  const [savedElsewhere, setSavedElsewhere] = useState(false);
+  const wasOpenRef = useRef(false);
 
+  // The form is filled only when the modal opens, so a reload of `recorded` while it is
+  // open (after a duplicate insert) does not wipe what the owner typed or the warning.
   useEffect(() => {
-    if (!isOpen) return;
+    const justOpened = isOpen && !wasOpenRef.current;
+    wasOpenRef.current = isOpen;
+    if (!justOpened) return;
     setNominal(recorded ? Number(recorded.nominal) || 0 : null);
     setCatatan(recorded?.catatan ?? '');
     setFieldError(null);
     setErrorMessage(null);
+    setSavedElsewhere(false);
   }, [isOpen, recorded]);
 
+  const isEditing = Boolean(recorded) || savedElsewhere;
+
   const handleNominalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const digits = e.target.value.replace(/\D/g, '');
-    setNominal(digits ? parseInt(digits, 10) : null);
+    setNominal(parseNominalDigits(e.target.value));
     setFieldError(null);
+  };
+
+  const handleDuplicatePeriode = async (supabase: ReturnType<typeof createClient>) => {
+    setSavedElsewhere(true);
+    onRecordedElsewhere?.();
+    const { data } = await supabase
+      .from('cash_drawer_openings')
+      .select('nominal')
+      .eq('periode', periode)
+      .maybeSingle();
+    const existing = data ? Number((data as { nominal: unknown }).nominal) : NaN;
+    const msg = Number.isFinite(existing)
+      ? `Saldo awal ${monthLabel} sudah dicatat dari perangkat lain sebesar ${formatRupiah(existing)}. Periksa angkanya, lalu simpan ulang bila ingin menggantinya.`
+      : `Saldo awal ${monthLabel} sudah dicatat dari perangkat lain. Periksa angkanya, lalu simpan ulang bila ingin menggantinya.`;
+    setErrorMessage(msg);
+    toast.error(msg);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,13 +128,17 @@ export function DrawerOpeningModal({
         updated_at: new Date().toISOString(),
       };
       // created_by records who counted the drawer first, so an edit leaves it untouched.
-      const { data, error } = recorded
+      const { data, error } = isEditing
         ? await supabase.from('cash_drawer_openings').update(values).eq('periode', periode).select().single()
         : await supabase
             .from('cash_drawer_openings')
             .insert({ periode, ...values, ...(userId ? { created_by: userId } : {}) })
             .select()
             .single();
+      if (error && !isEditing && isDuplicatePeriodeError(error)) {
+        await handleDuplicatePeriode(supabase);
+        return;
+      }
       if (error) throw error;
 
       toast.success(`Saldo awal ${monthLabel} sebesar ${formatRupiah(parsed.data.nominal)} tersimpan.`);
@@ -107,7 +157,7 @@ export function DrawerOpeningModal({
     <Modal
       isOpen={isOpen}
       onClose={isSaving ? () => undefined : onClose}
-      title={recorded ? 'Ubah Saldo Awal Laci' : 'Isi Saldo Awal Laci'}
+      title={isEditing ? 'Ubah Saldo Awal Laci' : 'Isi Saldo Awal Laci'}
       description={monthLabel}
       icon={
         <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 border border-teal-200 flex items-center justify-center">
@@ -133,7 +183,7 @@ export function DrawerOpeningModal({
             transaksi pertama bulan itu. Sisa laci bulan ini dihitung mulai dari angka ini.
           </p>
 
-          {typeof carriedSaldo === 'number' && !recorded && (
+          {typeof carriedSaldo === 'number' && !isEditing && (
             <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
               Lanjutan dari bulan sebelumnya menurut sistem:{' '}
               <span className="font-mono font-bold tabular-nums text-slate-900">
@@ -153,11 +203,24 @@ export function DrawerOpeningModal({
               value={nominal === null ? '' : new Intl.NumberFormat('id-ID').format(nominal)}
               onChange={handleNominalChange}
               disabled={isSaving}
-              error={fieldError ?? undefined}
               aria-invalid={Boolean(fieldError)}
+              aria-describedby={fieldError ? 'saldo-awal-nominal-error' : undefined}
               leftElement={<span className="text-xs font-bold text-slate-500">Rp</span>}
-              className="font-mono font-bold tabular-nums bg-white"
+              className={cn(
+                'font-mono font-bold tabular-nums bg-white',
+                fieldError && 'border-rose-500 focus:ring-rose-500/15 focus:border-rose-600'
+              )}
             />
+            {/* Rendered here instead of through Input's error prop so it can be linked and announced. */}
+            {fieldError && (
+              <p
+                id="saldo-awal-nominal-error"
+                role="alert"
+                className="text-[11px] text-rose-700 font-medium mt-1"
+              >
+                {fieldError}
+              </p>
+            )}
             {nominal !== null && !fieldError && (
               <p className="text-[11px] font-mono text-slate-500 pl-1 mt-1">
                 Terbaca: <span className="font-semibold text-slate-800">{formatRupiah(nominal)}</span>
@@ -168,12 +231,11 @@ export function DrawerOpeningModal({
 
           <Input
             id="saldo-awal-catatan"
-            label="Catatan"
+            label="Catatan (opsional)"
             placeholder="Contoh: dihitung pagi sebelum loket buka"
             value={catatan}
             onChange={(e) => setCatatan(e.target.value)}
             disabled={isSaving}
-            helperText="Opsional."
           />
         </div>
 

@@ -30,7 +30,12 @@ export function ExpenseRecapTable({ rows, isLoading }: ExpenseRecapTableProps) {
       ) : rows.length === 0 ? (
         <p className="text-xs text-slate-500 py-4 text-center">Tidak ada pengeluaran pada periode ini.</p>
       ) : (
-        <div className="overflow-x-auto -mx-1 px-1">
+        <div
+          className="overflow-x-auto -mx-1 px-1 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+          tabIndex={0}
+          role="region"
+          aria-label="Rekap pengeluaran bulanan"
+        >
           <table className="w-full min-w-[480px] text-xs border-collapse">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">

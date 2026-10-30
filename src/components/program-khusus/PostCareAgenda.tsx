@@ -16,7 +16,8 @@ import { toast } from 'sonner';
 import type { PostCare } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
 import { Modal } from '@/components/ui/Modal';
-import { formatLocalDateToYMD } from '@/lib/utils';
+import { formatLocalDateToYMD, getErrorMessage } from '@/lib/utils';
+import { isActivePostCare, isDueTodayPostCare, isOverduePostCare } from '@/lib/program-status';
 
 interface PostCareAgendaProps {
   records: PostCare[];
@@ -37,14 +38,11 @@ export function PostCareAgenda({ records, onRefresh, isLoading, completedHiddenM
 
   const todayStr = formatLocalDateToYMD();
 
-  const todayList = records.filter(
-    (r) => r.tanggal_kontrol_berikutnya === todayStr && r.status_kontrol !== 'Sudah Kontrol'
-  );
-  const overdueList = records.filter(
-    (r) => r.tanggal_kontrol_berikutnya < todayStr && r.status_kontrol !== 'Sudah Kontrol'
-  );
+  // Same groups as the Program Khusus KPI and the Dashboard: a Mangkir agenda is listed as late only.
+  const todayList = records.filter((r) => isDueTodayPostCare(r, todayStr));
+  const overdueList = records.filter((r) => isOverduePostCare(r, todayStr));
   const upcomingList = records.filter(
-    (r) => r.tanggal_kontrol_berikutnya > todayStr && r.status_kontrol !== 'Sudah Kontrol'
+    (r) => isActivePostCare(r) && !isOverduePostCare(r, todayStr) && r.tanggal_kontrol_berikutnya > todayStr
   );
   const completedList = records.filter((r) => r.status_kontrol === 'Sudah Kontrol');
 
@@ -62,7 +60,7 @@ export function PostCareAgenda({ records, onRefresh, isLoading, completedHiddenM
       onRefresh();
     } catch (err) {
       console.error('Error updating post-care status:', err);
-      toast.error('Gagal memperbarui status kontrol');
+      toast.error(getErrorMessage(err, 'Gagal memperbarui status kontrol.'));
     } finally {
       setUpdatingId(null);
     }
@@ -96,7 +94,7 @@ export function PostCareAgenda({ records, onRefresh, isLoading, completedHiddenM
       onRefresh();
     } catch (err) {
       console.error('Error rescheduling post-care:', err);
-      toast.error('Gagal menjadwalkan ulang kontrol');
+      toast.error(getErrorMessage(err, 'Gagal menjadwalkan ulang kontrol.'));
     } finally {
       setIsRescheduling(false);
     }

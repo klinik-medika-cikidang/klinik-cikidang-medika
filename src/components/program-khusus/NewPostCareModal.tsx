@@ -60,8 +60,9 @@ export function NewPostCareModal({ isOpen, onClose, onSuccess }: NewPostCareModa
       onClose();
     } catch (err) {
       console.error('Error creating post care entry:', err);
-      setErrorMsg(getErrorMessage(err, 'Gagal menjadwalkan observasi'));
-      toast.error('Gagal menjadwalkan observasi');
+      const msg = getErrorMessage(err, 'Gagal menjadwalkan observasi.');
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }

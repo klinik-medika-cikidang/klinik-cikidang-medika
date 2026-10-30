@@ -27,3 +27,15 @@ export function isActiveCircumcision(
 export function isActivePostCare(p: Pick<PostCare, 'status_kontrol'>): boolean {
   return p.status_kontrol === 'Menunggu' || p.status_kontrol === 'Mangkir';
 }
+
+type PostCareSchedule = Pick<PostCare, 'status_kontrol' | 'tanggal_kontrol_berikutnya'>;
+
+/** A Mangkir agenda is late whatever its date, so it never also counts as due today. */
+export function isOverduePostCare(p: PostCareSchedule, today: string): boolean {
+  if (!isActivePostCare(p)) return false;
+  return p.status_kontrol === 'Mangkir' || p.tanggal_kontrol_berikutnya < today;
+}
+
+export function isDueTodayPostCare(p: PostCareSchedule, today: string): boolean {
+  return isActivePostCare(p) && !isOverduePostCare(p, today) && p.tanggal_kontrol_berikutnya === today;
+}

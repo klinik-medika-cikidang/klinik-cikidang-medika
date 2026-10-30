@@ -48,3 +48,11 @@ Migration note: `20261030_f021_visit_payment_date.sql` and `20261030_f021b_visit
   - `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`.
   - Staging scenario from design §4, September 2026 regression comparison, responsive check.
   - _Requirements: INV-021-1 to INV-021-4_
+
+## Staging test and audit (2026-10-30)
+
+Tested end to end on the local build of the `staging` branch against the old staging database (`jpqmnbtowvfctxciuktj`), with an owner and a dokter_admin login and two fictitious test patients. An acceptance and cross-feature audit (5 spec checks plus integration, security/data and responsive/a11y lenses, every finding verified by two independent reviewers) ran three rounds; all confirmed findings were fixed or are listed below as accepted limitations.
+
+- [x] Scenario on staging with a fictitious patient: examined 28 Oct, Rp 80.000 cash first, Rp 120.000 transfer payoff on 30 Oct. Database, receipt (Tanggal Periksa, Tanggal Bayar, Tanggal Pelunasan), Buku Kas per date (28 Oct drawer +Rp 80.000; 30 Oct drawer unchanged, bank +Rp 120.000) and Dashboard all agree.
+- [x] Audit fixes recorded in design.md "Audit amendments": DEC-021-4, cashier panel, doctor send-back, legacy rows, concurrency guards. Migration `20261030_f021b_visit_payoff_method.sql` adds `metode_pelunasan`.
+- [ ] Before production release: run the legacy sent-back query read-only on the old production database.

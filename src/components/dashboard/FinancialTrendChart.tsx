@@ -98,8 +98,8 @@ export function FinancialTrendChart({
             <h3 className="text-sm font-bold text-slate-900 tracking-tight truncate">
               Tren Finansial &amp; Arus Kas
             </h3>
-            <p className="text-[11px] text-slate-600 font-medium truncate">
-              Kas masuk vs pengeluaran operasional
+            <p className="text-[11px] text-slate-600 font-medium">
+              Kas masuk vs pengeluaran
             </p>
           </div>
         </div>
@@ -148,7 +148,9 @@ export function FinancialTrendChart({
           <span className="text-base font-extrabold text-emerald-700 font-mono tracking-tight">
             {formatRupiah(totalIn)}
           </span>
-          <span className="text-[10px] text-slate-400 mt-0.5">omzet &amp; kapitasi</span>
+          <span className="text-[10px] text-slate-500 mt-0.5">
+            Pendapatan Kasir + Kapitasi BPJS + pemasukan lain
+          </span>
         </div>
 
         <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-well flex flex-col justify-between">
@@ -164,7 +166,7 @@ export function FinancialTrendChart({
           <span className="text-base font-extrabold text-rose-700 font-mono tracking-tight">
             {formatRupiah(totalOut)}
           </span>
-          <span className="text-[10px] text-slate-400 mt-0.5">operasional &amp; obat</span>
+          <span className="text-[10px] text-slate-500 mt-0.5">Klinik + Non Klinik</span>
         </div>
 
         <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-well flex flex-col justify-between">
@@ -184,7 +186,7 @@ export function FinancialTrendChart({
           >
             {formatRupiah(netTotal)}
           </span>
-          <span className="text-[10px] text-slate-400 mt-0.5">saldo kas riil</span>
+          <span className="text-[10px] text-slate-500 mt-0.5">saldo kas riil</span>
         </div>
       </div>
 
@@ -230,8 +232,8 @@ export function FinancialTrendChart({
                   iconType="circle"
                   wrapperStyle={{ paddingBottom: '12px', fontSize: '11px' }}
                   formatter={(value) => {
-                    if (value === 'cashIn') return 'Kas Masuk (Omzet & Kapitasi)';
-                    if (value === 'cashOut') return 'Pengeluaran (Operasional & Obat)';
+                    if (value === 'cashIn') return 'Kas Masuk (Kasir, Kapitasi & Lainnya)';
+                    if (value === 'cashOut') return 'Pengeluaran (Klinik + Non Klinik)';
                     return value;
                   }}
                 />

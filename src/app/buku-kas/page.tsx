@@ -70,35 +70,43 @@ export default function BukuKasPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'Masuk' | 'Keluar'>('Masuk');
 
-  // F-023: Saldo Awal of the selected month; null when it could not be loaded.
-  const [drawerOpening, setDrawerOpening] = useState<DrawerOpeningState | null>(null);
+  // F-023: Saldo Awal tagged with its month, so a refetch keeps showing the current value
+  // while another month's value is never shown; null when it could not be loaded.
+  const [loadedOpening, setLoadedOpening] = useState<{
+    periode: string;
+    state: DrawerOpeningState;
+  } | null>(null);
   const [openingError, setOpeningError] = useState<string | null>(null);
+  const [isOpeningRefreshing, setIsOpeningRefreshing] = useState(false);
   const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false);
   const openingRequestRef = useRef(0);
+  const cashFlowsRequestRef = useRef(0);
 
   const selectedPeriode = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+  const drawerOpening =
+    loadedOpening && loadedOpening.periode === selectedPeriode ? loadedOpening.state : null;
 
   const fetchDrawerOpening = useCallback(async () => {
     // Saldo Awal only feeds the owner-only reconciliation card.
     if (isDokterAdmin) return;
     // Switching months quickly must not let an older, slower answer win.
     const requestId = ++openingRequestRef.current;
-    // Cleared first so the card and the edit button never show the previous month's opening
-    // while this month's answer is still on its way.
-    setDrawerOpening(null);
     setOpeningError(null);
+    setIsOpeningRefreshing(true);
     try {
       const state = await loadDrawerOpening(createClient(), selectedPeriode);
       if (requestId !== openingRequestRef.current) return;
-      setDrawerOpening(state);
+      setLoadedOpening({ periode: selectedPeriode, state });
       setOpeningError(null);
     } catch (err) {
       if (requestId !== openingRequestRef.current) return;
       console.error('Error fetching drawer opening:', err);
       const msg = `Gagal memuat saldo awal laci kasir: ${getErrorMessage(err, 'kesalahan tidak dikenal.')}`;
-      setDrawerOpening(null);
+      setLoadedOpening(null);
       setOpeningError(msg);
       toast.error(msg);
+    } finally {
+      if (requestId === openingRequestRef.current) setIsOpeningRefreshing(false);
     }
   }, [isDokterAdmin, selectedPeriode]);
 
@@ -107,6 +115,8 @@ export default function BukuKasPage() {
   }, [fetchDrawerOpening]);
 
   const fetchCashFlows = useCallback(async () => {
+    // Same guard as the opening: an older month's answer must not land after a newer one.
+    const requestId = ++cashFlowsRequestRef.current;
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -161,6 +171,7 @@ export default function BukuKasPage() {
         visitsQuery,
       ]);
 
+      if (requestId !== cashFlowsRequestRef.current) return;
       if (flowsRes.error) throw flowsRes.error;
       if (visitsRes.error) throw visitsRes.error;
 
@@ -170,13 +181,17 @@ export default function BukuKasPage() {
       setCashFlows(loadedFlows);
       setMonthCashEntries(drawerCashEntries(loadedVisits, startOfMonth, lastDayOfMonth));
     } catch (err) {
+      if (requestId !== cashFlowsRequestRef.current) return;
       console.error('Error fetching cash flows:', err);
       const msg =
         getErrorMessage(err, 'Gagal memuat mutasi buku kas dari database.');
+      // Drop the previous month's movements so they never sit next to this month's Saldo Awal.
+      setCashFlows([]);
+      setMonthCashEntries([]);
       setErrorMessage(msg);
       toast.error(msg);
     } finally {
-      setIsLoading(false);
+      if (requestId === cashFlowsRequestRef.current) setIsLoading(false);
     }
   }, [selectedMonth, selectedYear, isDokterAdmin, todayStr]);
 
@@ -281,7 +296,14 @@ export default function BukuKasPage() {
     : null;
 
   const handleOpeningSaved = (row: CashDrawerOpening) => {
-    if (row.periode === selectedPeriode) fetchDrawerOpening();
+    if (row.periode !== selectedPeriode) return;
+    // A recorded month starts from its own count, so the saved row is already the answer;
+    // the refetch only confirms it.
+    setLoadedOpening({
+      periode: row.periode,
+      state: { saldoAwal: Number(row.nominal) || 0, source: 'recorded', fromPeriode: row.periode, recorded: row },
+    });
+    fetchDrawerOpening();
   };
 
   const handleOpenModal = (type: 'Masuk' | 'Keluar') => {
@@ -310,20 +332,12 @@ export default function BukuKasPage() {
     }
   };
 
+  // Throws on failure so CashFlowTable shows one error toast and never the success toast.
   const handleDeleteCashFlow = async (id: string) => {
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.from('cash_flows').delete().eq('id', id);
-
-      if (error) {
-        toast.error(`Gagal menghapus transaksi: ${error.message}`);
-        return;
-      }
-
-      setCashFlows((prev) => prev.filter((cf) => cf.id !== id));
-    } catch {
-      toast.error('Terjadi kesalahan saat menghapus transaksi kas.');
-    }
+    const supabase = createClient();
+    const { error } = await supabase.from('cash_flows').delete().eq('id', id);
+    if (error) throw error;
+    setCashFlows((prev) => prev.filter((cf) => cf.id !== id));
   };
 
   const handleManualRefresh = () => {
@@ -462,7 +476,7 @@ export default function BukuKasPage() {
         </div>
       )}
 
-      {!isDokterAdmin && (
+      {!isDokterAdmin && !errorMessage && (
         <CashFlowSummaryCards
           totalMasuk={totalMasuk}
           totalKeluar={totalKeluar}
@@ -487,16 +501,21 @@ export default function BukuKasPage() {
           onOpenSetorTunai={() => handleOpenModal('Masuk')}
           opening={openingView}
           openingError={openingError}
+          isOpeningRefreshing={isOpeningRefreshing && drawerOpening !== null}
           onEditOpening={isOwner ? () => setIsOpeningModalOpen(true) : undefined}
+          isLoading={isLoading}
+          movementsError={errorMessage}
         />
       )}
 
-      <CashFlowTable
-        cashFlows={cashFlows}
-        isLoading={isLoading}
-        periodLabel={isDokterAdmin ? 'hari ini' : undefined}
-        onDelete={handleDeleteCashFlow}
-      />
+      {!errorMessage && (
+        <CashFlowTable
+          cashFlows={cashFlows}
+          isLoading={isLoading}
+          periodLabel={isDokterAdmin ? 'hari ini' : undefined}
+          onDelete={handleDeleteCashFlow}
+        />
+      )}
 
       <AddCashFlowModal
         isOpen={isModalOpen}
@@ -515,6 +534,7 @@ export default function BukuKasPage() {
           carriedSaldo={drawerOpening?.source === 'carried' ? drawerOpening.saldoAwal : null}
           userId={user?.id ?? null}
           onSaved={handleOpeningSaved}
+          onRecordedElsewhere={fetchDrawerOpening}
         />
       )}
     </div>
