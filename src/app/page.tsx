@@ -64,6 +64,7 @@ import {
   type CashLiquidityData,
 } from '@/components/dashboard/CashLiquidityCard';
 import type { CashFlow } from '@/types/database';
+import { circumcisionActiveSince, isActivePostCare } from '@/lib/program-status';
 
 export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<DashboardPeriod>('this_month');
@@ -234,10 +235,8 @@ export default function DashboardPage() {
       const { count: recentCircCount } = await supabase
         .from('circumcisions')
         .select('id', { count: 'exact', head: true })
-        .gte(
-          'tanggal_tindakan',
-          formatLocalDateToYMD(new Date(Date.now() - 7 * 86400000))
-        );
+        // Same active window as Program Khusus (F-022), so both screens show one number.
+        .gte('tanggal_tindakan', circumcisionActiveSince(todayStr));
 
       let mangkirTbc = 0;
       if (tbcData) {
@@ -261,7 +260,7 @@ export default function DashboardPage() {
       let overduePostCare = 0;
       if (postCareData) {
         postCareData.forEach((p) => {
-          if (p.status_kontrol !== 'Sudah Kontrol') {
+          if (isActivePostCare(p)) {
             if (p.tanggal_kontrol_berikutnya === todayStr) {
               todayPostCare++;
             } else if (p.tanggal_kontrol_berikutnya < todayStr) {

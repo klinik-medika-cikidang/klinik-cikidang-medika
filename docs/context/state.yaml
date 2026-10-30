@@ -114,7 +114,7 @@ features:
     track: engineering
     status: draft
     spec_path: docs/specs/F-022-program-khusus-tampilan-aktif
-    active_phase: awaiting-client-approval
+    active_phase: code-done-awaiting-staging-test
   - id: F-023
     name: Saldo Awal Laci Kasir
     track: engineering

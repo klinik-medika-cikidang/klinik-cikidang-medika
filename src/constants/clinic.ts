@@ -231,3 +231,6 @@ export const KASIR_CARRY_OVER_STATUSES = [
   'Menunggu Pembayaran',
   'Piutang',
 ] as const;
+
+// F-022: a circumcision stays on the active list for this many days, covering the H+7 control.
+export const SIRKUMSISI_ACTIVE_DAYS = 14;
