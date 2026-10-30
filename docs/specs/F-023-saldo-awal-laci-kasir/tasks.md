@@ -53,4 +53,5 @@ Tested end to end on the local build of the `staging` branch against the old sta
 - [x] Opening Rp 4.000.000 recorded for October on staging: the drawer changed by exactly that amount on Buku Kas and on the Dashboard; November showed it carried ("Lanjutan"); net income did not change.
 - [x] dokter_admin does not see Saldo Awal, the reconciliation card or the add/edit control.
 - [x] Audit fixes: loading and failed states no longer read as "Belum diisi"; a duplicate-month insert shows an Indonesian message and reloads; created_by is written on insert only; the card shows an error state instead of mixing months when the cash-flow load fails; the Dashboard falls back to the old figure if the opening cannot load.
+- [x] Migration `20261030_f023_cash_drawer_openings.sql` applied to old production on 2026-10-30 (table empty; the owner records the first opening after the code release).
 - [ ] R-023-1 (owner-only writes in RLS) deferred by the user on 2026-10-30.
