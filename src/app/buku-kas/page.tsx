@@ -30,19 +30,17 @@ import {
   isDrawerCashExpense,
   isOperationalExpense,
   summarizeExpensesByScope,
-  isSettledCashVisit,
   getErrorMessage,
 } from '@/lib/utils';
+import {
+  cashDateOrFilter,
+  drawerCashEntries,
+  type CashDateVisit,
+  type DrawerCashEntry,
+} from '@/lib/cash-date';
 import { useAuth } from '@/lib/auth/AuthContext';
 
-interface CashVisitRow {
-  tanggal_periksa: string;
-  jenis_pasien: string;
-  biaya_periksa: number;
-  pendapatan_lain: number;
-  jenis_pembayaran?: string | null;
-  status_pembayaran?: string | null;
-}
+type CashVisitRow = CashDateVisit & { id: string; jenis_pembayaran?: string | null };
 
 export default function BukuKasPage() {
   const { role } = useAuth();
@@ -59,7 +57,8 @@ export default function BukuKasPage() {
   const [selectedReconciliationDate, setSelectedReconciliationDate] = useState<string>(todayStr);
 
   const [cashFlows, setCashFlows] = useState<CashFlow[]>([]);
-  const [monthCashVisits, setMonthCashVisits] = useState<CashVisitRow[]>([]);
+  // F-021: drawer cash per day received, not per examination day.
+  const [monthCashEntries, setMonthCashEntries] = useState<DrawerCashEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -77,6 +76,7 @@ export default function BukuKasPage() {
       const nextMonth = selectedMonth === 12 ? 1 : selectedMonth + 1;
       const nextYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear;
       const endOfMonth = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+      const lastDayOfMonth = formatLocalDateToYMD(new Date(selectedYear, selectedMonth, 0));
 
       // Client request (Okt 2026): Dokter/Admin only needs today's mutations, so the
       // query itself is narrowed instead of fetching the month and hiding rows.
@@ -89,15 +89,29 @@ export default function BukuKasPage() {
             .lt('tanggal', endOfMonth);
 
       // Visit cash only feeds the owner-only summary and reconciliation cards.
-      const visitsQuery = isDokterAdmin
-        ? Promise.resolve({ data: [] as CashVisitRow[], error: null })
-        : supabase
+      // Paged so a busy month is never cut at the PostgREST row limit; the unique
+      // (tanggal_periksa, id) order keeps page boundaries stable.
+      const fetchCashVisits = async () => {
+        const rows: CashVisitRow[] = [];
+        const pageSize = 1000;
+        for (let page = 0; ; page++) {
+          const { data, error } = await supabase
             .from('visits')
             .select(
-              'tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran'
+              'id, tanggal_periksa, tanggal_bayar, tanggal_pelunasan, nominal_pelunasan, metode_pelunasan, piutang_nominal, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran'
             )
-            .gte('tanggal_periksa', startOfMonth)
-            .lt('tanggal_periksa', endOfMonth);
+            .or(cashDateOrFilter(startOfMonth, lastDayOfMonth))
+            .order('tanggal_periksa', { ascending: true })
+            .order('id', { ascending: true })
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+          if (error) return { data: null, error };
+          rows.push(...((data as unknown as CashVisitRow[]) || []));
+          if (!data || data.length < pageSize) return { data: rows, error: null };
+        }
+      };
+      const visitsQuery = isDokterAdmin
+        ? Promise.resolve({ data: [] as CashVisitRow[], error: null })
+        : fetchCashVisits();
 
       const [flowsRes, visitsRes] = await Promise.all([
         flowsQuery
@@ -110,15 +124,10 @@ export default function BukuKasPage() {
       if (visitsRes.error) throw visitsRes.error;
 
       const loadedFlows = (flowsRes.data as unknown as CashFlow[]) || [];
-      const loadedVisits = ((visitsRes.data as unknown as CashVisitRow[]) || []).filter((v) => {
-        if (!isSettledCashVisit(v)) return false;
-        const biaya = v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa) || 0;
-        const lain = Number(v.pendapatan_lain) || 0;
-        return biaya + lain > 0;
-      });
+      const loadedVisits = (visitsRes.data as unknown as CashVisitRow[]) || [];
 
       setCashFlows(loadedFlows);
-      setMonthCashVisits(loadedVisits);
+      setMonthCashEntries(drawerCashEntries(loadedVisits, startOfMonth, lastDayOfMonth));
     } catch (err) {
       console.error('Error fetching cash flows:', err);
       const msg =
@@ -146,16 +155,7 @@ export default function BukuKasPage() {
     }
   }, [selectedMonth, selectedYear, selectedReconciliationDate, todayStr]);
 
-  const computeVisitCashAmount = (v: CashVisitRow) => {
-    const biaya = v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa) || 0;
-    const lain = Number(v.pendapatan_lain) || 0;
-    return biaya + lain;
-  };
-
-  const monthCashVisitsTotal = monthCashVisits.reduce(
-    (acc, v) => acc + computeVisitCashAmount(v),
-    0
-  );
+  const monthCashVisitsTotal = monthCashEntries.reduce((acc, e) => acc + e.amount, 0);
 
   const otherMasukFlows = cashFlows.filter(
     (cf) => cf.jenis === 'Masuk' && !isCashHandoverToOwnerOrBank(cf)
@@ -190,15 +190,16 @@ export default function BukuKasPage() {
 
   const monthlyMetrics: DrawerReconciliationMetrics = {
     cashVisitsTotal: monthCashVisitsTotal,
-    cashVisitsCount: monthCashVisits.length,
+    // A Piutang paid off within the month brings two entries but is still one patient.
+    cashVisitsCount: new Set(monthCashEntries.map((e) => e.visitId)).size,
     cashExpensesTotal: drawerExpenseFlows.reduce((acc, cf) => acc + (Number(cf.nominal) || 0), 0),
     cashExpensesCount: drawerExpenseFlows.length,
     cashDepositsTotal: totalSetorTunai,
     cashDepositsCount: depositFlows.length,
   };
 
-  const dailyCashVisits = monthCashVisits.filter(
-    (v) => v.tanggal_periksa === selectedReconciliationDate
+  const dailyCashEntries = monthCashEntries.filter(
+    (e) => e.date === selectedReconciliationDate
   );
   const dailyExpenseFlows = drawerExpenseFlows.filter(
     (cf) => cf.tanggal === selectedReconciliationDate
@@ -208,8 +209,8 @@ export default function BukuKasPage() {
   );
 
   const dailyMetrics: DrawerReconciliationMetrics = {
-    cashVisitsTotal: dailyCashVisits.reduce((acc, v) => acc + computeVisitCashAmount(v), 0),
-    cashVisitsCount: dailyCashVisits.length,
+    cashVisitsTotal: dailyCashEntries.reduce((acc, e) => acc + e.amount, 0),
+    cashVisitsCount: dailyCashEntries.length,
     cashExpensesTotal: dailyExpenseFlows.reduce(
       (acc, cf) => acc + (Number(cf.nominal) || 0),
       0

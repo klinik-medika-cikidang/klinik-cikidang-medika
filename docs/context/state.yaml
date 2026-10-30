@@ -108,7 +108,7 @@ features:
     track: engineering
     status: draft
     spec_path: docs/specs/F-021-pencatatan-tanggal-bayar
-    active_phase: awaiting-client-approval
+    active_phase: code-done-awaiting-staging-test
   - id: F-022
     name: Tampilan Pasien Aktif pada Program Khusus
     track: engineering

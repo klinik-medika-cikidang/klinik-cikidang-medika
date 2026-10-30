@@ -69,6 +69,12 @@ export type Visit = {
   piutang_nominal?: number;
   piutang_note?: string;
   piutang_approved_by_owner_at?: string;
+  /** F-021: WIB date of the first payment; null on rows settled before F-021. */
+  tanggal_bayar?: string | null;
+  /** F-021: WIB date a Piutang balance was paid off. */
+  tanggal_pelunasan?: string | null;
+  nominal_pelunasan?: number | null;
+  metode_pelunasan?: 'Tunai' | 'TF' | null;
   pasien?: Patient;
   dokter?: Doctor;
   created_at: string;

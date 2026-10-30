@@ -40,6 +40,18 @@ import { ExpenseRecapTable } from '@/components/laporan/ExpenseRecapTable';
 import { ReferralCommissionPanel } from '@/components/laporan/ReferralCommissionPanel';
 import { BidanReferralPanel } from '@/components/laporan/BidanReferralPanel';
 import { PuskesmasReportPanel } from '@/components/laporan/PuskesmasReportPanel';
+import { Card } from '@/components/ui/Card';
+import {
+  cashDateOrFilter,
+  describeCashDates,
+  isPaidOnAnotherDay,
+  visitCashInRange,
+} from '@/lib/cash-date';
+
+// Stand-ins for a missing end of the range, so a one-sided period still loads visits
+// paid inside it (PostgreSQL accepts both as DATE values).
+const OPEN_RANGE_START = '0001-01-01';
+const OPEN_RANGE_END = '9999-12-31';
 
 export default function LaporanPage() {
   const currentDate = new Date();
@@ -74,6 +86,9 @@ export default function LaporanPage() {
   const isSelfContainedTab = activeTab === 'bidan' || activeTab === 'puskesmas';
 
   const [visitsData, setVisitsData] = useState<VisitExportRow[]>([]);
+  const [latePaymentVisits, setLatePaymentVisits] = useState<VisitExportRow[]>([]);
+  const [onlyLatePayments, setOnlyLatePayments] = useState(false);
+  const [cashBilling, setCashBilling] = useState(0);
   const [morbidityData, setMorbidityData] = useState<MorbidityExportRow[]>([]);
   const [cashFlowData, setCashFlowData] = useState<CashFlowExportRow[]>([]);
 
@@ -108,14 +123,17 @@ export default function LaporanPage() {
         let query = supabase
           .from('visits')
           .select(
-            'id, tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran, kode_icd10, diagnosa_deskripsi, dokter_id, doctors(nama), patients(nama, no_rm, jenis_kelamin, desa)'
+            'id, tanggal_periksa, tanggal_bayar, tanggal_pelunasan, nominal_pelunasan, metode_pelunasan, piutang_nominal, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran, kode_icd10, diagnosa_deskripsi, dokter_id, doctors(nama), patients(nama, no_rm, jenis_kelamin, desa)'
           )
           .order('tanggal_periksa', { ascending: false })
           .order('id', { ascending: true })
           .range(visitPage * pageSize, (visitPage + 1) * pageSize - 1);
 
-        if (startDate) query = query.gte('tanggal_periksa', startDate);
-        if (endDate) query = query.lte('tanggal_periksa', endDate);
+        // F-021: visits examined earlier but paid inside the period are loaded for the
+        // cash figures; the visit table below keeps only those examined in the period.
+        if (startDate || endDate) {
+          query = query.or(cashDateOrFilter(startDate || OPEN_RANGE_START, endDate || OPEN_RANGE_END));
+        }
         if (jenisPasien !== 'Semua') query = query.eq('jenis_pasien', jenisPasien);
         if (kategoriProgram !== 'Semua') query = query.eq('kategori_program', kategoriProgram);
         if (dokterId !== 'Semua') query = query.eq('dokter_id', dokterId);
@@ -153,29 +171,40 @@ export default function LaporanPage() {
         }
       }
 
-      const formattedVisits: VisitExportRow[] = allVisits
-        .filter((v) => v.status_pembayaran !== 'Batal')
-        .map((v) => {
-          const isSettled = isSettledVisit(v);
-          const biaya = isSettled ? (v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa) || 0) : 0;
-          const lain = isSettled ? (Number(v.pendapatan_lain) || 0) : 0;
+      const isExaminedInRange = (v: { tanggal_periksa: string }) =>
+        (!startDate || v.tanggal_periksa >= startDate) && (!endDate || v.tanggal_periksa <= endDate);
+      const activeVisits = allVisits.filter((v) => v.status_pembayaran !== 'Batal');
+      const examinedVisits = activeVisits.filter(isExaminedInRange);
 
-          return {
-            no_rm: v.patients?.no_rm || '-',
-            nama_pasien: v.patients?.nama || 'Pasien',
-            jenis_kelamin: v.patients?.jenis_kelamin || '-',
-            desa: v.patients?.desa || 'Luar Daerah',
-            tanggal_periksa: v.tanggal_periksa,
-            nama_dokter: v.doctors?.nama || 'dr. Ovan',
-            kode_icd10: v.kode_icd10 || '-',
-            diagnosa_deskripsi: v.diagnosa_deskripsi || '-',
-            jenis_pasien: v.jenis_pasien,
-            biaya_periksa: biaya,
-            pendapatan_lain: lain,
-            total_biaya: computeVisitRevenue(v),
-            jenis_pembayaran: v.jenis_pembayaran || 'Tunai',
-          };
-        });
+      const toExportRow = (v: any): VisitExportRow => {
+        const isSettled = isSettledVisit(v);
+        const biaya = isSettled ? (v.jenis_pasien === 'BPJS' ? 0 : Number(v.biaya_periksa) || 0) : 0;
+        const lain = isSettled ? (Number(v.pendapatan_lain) || 0) : 0;
+
+        return {
+          no_rm: v.patients?.no_rm || '-',
+          nama_pasien: v.patients?.nama || 'Pasien',
+          jenis_kelamin: v.patients?.jenis_kelamin || '-',
+          desa: v.patients?.desa || 'Luar Daerah',
+          tanggal_periksa: v.tanggal_periksa,
+          tanggal_bayar: describeCashDates(v),
+          nama_dokter: v.doctors?.nama || 'dr. Ovan',
+          kode_icd10: v.kode_icd10 || '-',
+          diagnosa_deskripsi: v.diagnosa_deskripsi || '-',
+          jenis_pasien: v.jenis_pasien,
+          biaya_periksa: biaya,
+          pendapatan_lain: lain,
+          total_biaya: computeVisitRevenue(v),
+          jenis_pembayaran: v.jenis_pembayaran || 'Tunai',
+        };
+      };
+      const formattedVisits: VisitExportRow[] = examinedVisits.map(toExportRow);
+      // REQ-021-03.2: examined or paid in the period, with money received on another day.
+      const formattedLateVisits: VisitExportRow[] = activeVisits.filter(isPaidOnAnotherDay).map(toExportRow);
+      const cashBillingTotal = activeVisits.reduce(
+        (sum, v) => sum + visitCashInRange(v, startDate || null, endDate || null),
+        0
+      );
 
       const formattedFlows: CashFlowExportRow[] = allFlows.map((f) => ({
         tanggal: f.tanggal,
@@ -188,8 +217,7 @@ export default function LaporanPage() {
       const morbMap: Record<string, { code: string; name: string; count: number }> = {};
       let validDiagCount = 0;
 
-      allVisits.forEach((v) => {
-        if (v.status_pembayaran === 'Batal') return;
+      examinedVisits.forEach((v) => {
         if (v.kode_icd10) {
           validDiagCount++;
           const code = v.kode_icd10.trim().toUpperCase();
@@ -213,6 +241,8 @@ export default function LaporanPage() {
         }));
 
       setVisitsData(formattedVisits);
+      setLatePaymentVisits(formattedLateVisits);
+      setCashBilling(cashBillingTotal);
       setCashFlowData(formattedFlows);
       setMorbidityData(formattedMorbidity);
     } catch (err) {
@@ -270,13 +300,15 @@ export default function LaporanPage() {
     toast.info('Filter laporan telah direset ke bulan ini.');
   };
 
+  const shownVisits = onlyLatePayments ? latePaymentVisits : visitsData;
+
   const handleExportActiveTab = () => {
     try {
       const dateRange = { start: startDate || 'Awal', end: endDate || 'Akhir' };
 
       if (activeTab === 'kunjungan') {
-        exportVisitsToExcel(visitsData, dateRange);
-        toast.success(`Laporan kunjungan (${visitsData.length} baris) berhasil diunduh.`);
+        exportVisitsToExcel(shownVisits, dateRange);
+        toast.success(`Laporan kunjungan (${shownVisits.length} baris) berhasil diunduh.`);
       } else if (activeTab === 'morbiditas') {
         exportMorbidityToExcel(morbidityData, dateRange);
         toast.success(`Laporan morbiditas ICD-10 (${morbidityData.length} baris) berhasil diunduh.`);
@@ -309,7 +341,8 @@ export default function LaporanPage() {
     const totalVisits = visitsData.length;
     const umumCount = visitsData.filter((v) => v.jenis_pasien !== 'BPJS').length;
     const bpjsCount = visitsData.filter((v) => v.jenis_pasien === 'BPJS').length;
-    const totalBilling = visitsData.reduce((sum, v) => sum + (v.total_biaya || 0), 0);
+    // F-021: money received in the period, by payment date, not by examination date.
+    const totalBilling = cashBilling;
 
     const otherKasMasuk = cashFlowData
       .filter((c) => c.jenis === 'Masuk' && !isCashHandoverToOwnerOrBank(c))
@@ -333,7 +366,7 @@ export default function LaporanPage() {
       kasKeluarNonKlinik,
       netIncome,
     };
-  }, [visitsData, cashFlowData]);
+  }, [visitsData, cashFlowData, cashBilling]);
 
   const expenseRecapRows = useMemo(
     () => groupExpensesByMonth(cashFlowData, { start: startDate, end: endDate }),
@@ -377,7 +410,7 @@ export default function LaporanPage() {
             type="button"
             onClick={handleExportActiveTab}
             disabled={
-              isLoading || isSelfContainedTab || (activeTab === 'kunjungan' && visitsData.length === 0)
+              isLoading || isSelfContainedTab || (activeTab === 'kunjungan' && shownVisits.length === 0)
             }
             className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-gradient-to-b from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white px-3.5 py-2 min-h-[40px] sm:min-h-[38px] rounded-xl text-xs font-bold shadow-btn-primary border border-teal-700/80 tactile-btn transition disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
           >
@@ -461,13 +494,36 @@ export default function LaporanPage() {
       ) : activeTab === 'puskesmas' ? (
         <PuskesmasReportPanel startDate={startDate} endDate={endDate} isLoading={isLoading} />
       ) : (
-        <ReportPreviewTable
-          activeTab={activeTab}
-          visitsData={visitsData}
-          morbidityData={morbidityData}
-          cashFlowData={cashFlowData}
-          isLoading={isLoading}
-        />
+        <>
+          {activeTab === 'kunjungan' && (
+            <Card className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <label className="flex items-center gap-2.5 min-h-[44px] cursor-pointer select-none text-xs font-semibold text-slate-800">
+                <input
+                  type="checkbox"
+                  checked={onlyLatePayments}
+                  onChange={(e) => setOnlyLatePayments(e.target.checked)}
+                  disabled={isLoading}
+                  className="w-5 h-5 rounded border-slate-300 text-teal-600 focus:ring-2 focus:ring-teal-500 focus-visible:outline-none"
+                />
+                <span>
+                  Hanya pembayaran beda hari{' '}
+                  <span className="font-mono tabular-nums text-slate-500">({latePaymentVisits.length})</span>
+                </span>
+              </label>
+              <p className="text-[11px] text-slate-600 leading-snug sm:max-w-md sm:text-right">
+                Kunjungan yang diperiksa atau dibayar dalam periode ini, tetapi uangnya diterima pada hari
+                lain dari tanggal periksa.
+              </p>
+            </Card>
+          )}
+          <ReportPreviewTable
+            activeTab={activeTab}
+            visitsData={shownVisits}
+            morbidityData={morbidityData}
+            cashFlowData={cashFlowData}
+            isLoading={isLoading}
+          />
+        </>
       )}
     </div>
   );

@@ -15,7 +15,6 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import {
   buildDailyTrendRange,
-  computeVisitRevenue,
   describeDailyTrendRange,
   formatLocalDateToYMD,
   isCashHandoverToOwnerOrBank,
@@ -66,6 +65,7 @@ import {
 } from '@/components/dashboard/CashLiquidityCard';
 import type { CashFlow } from '@/types/database';
 import { circumcisionActiveSince, isActivePostCare } from '@/lib/program-status';
+import { cashDateOrFilter, getVisitCashEvents } from '@/lib/cash-date';
 
 export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<DashboardPeriod>('this_month');
@@ -182,14 +182,16 @@ export default function DashboardPage() {
       while (true) {
         let query = supabase
           .from('visits')
-          .select('id, tanggal_periksa, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran, kode_icd10, diagnosa_deskripsi, patients(desa)')
+          .select('id, tanggal_periksa, tanggal_bayar, tanggal_pelunasan, nominal_pelunasan, metode_pelunasan, piutang_nominal, jenis_pasien, biaya_periksa, pendapatan_lain, jenis_pembayaran, status_pembayaran, kode_icd10, diagnosa_deskripsi, patients(desa)')
           // A unique tiebreaker keeps page boundaries stable, so no row is read twice or skipped.
           .order('tanggal_periksa', { ascending: false })
           .order('id', { ascending: true })
           .range(visitPage * pageSize, (visitPage + 1) * pageSize - 1);
 
+        // F-021: also load visits examined earlier but paid inside the period, so cash
+        // follows the day it was received.
         if (startDate && endDate) {
-          query = query.gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate);
+          query = query.or(cashDateOrFilter(startDate, endDate));
         }
 
         const { data, error } = await query;
@@ -299,11 +301,39 @@ export default function DashboardPage() {
       const dailyFinanceMap: Record<string, { cashIn: number; cashOut: number }> = {};
       const monthlyFinanceMap: Record<string, { cashIn: number; cashOut: number }> = {};
       let diagnosisTotalCount = 0;
+      // Same rule as the queries above: a period counts as bounded only with both ends.
+      const periodBounds = startDate && endDate ? { start: startDate, end: endDate } : null;
+      const isInPeriod = (date: string | null | undefined) =>
+        !periodBounds || Boolean(date && date >= periodBounds.start && date <= periodBounds.end);
       // Cancelled queue entries never became a visit, so the Dashboard counts match Laporan.
-      const activeVisitCount = allVisits.filter((v) => v.status_pembayaran !== 'Batal').length;
+      const activeVisitCount = allVisits.filter(
+        (v) => v.status_pembayaran !== 'Batal' && isInPeriod(v.tanggal_periksa)
+      ).length;
 
       allVisits.forEach((v) => {
         if (v.status_pembayaran === 'Batal') return;
+
+        // Cash follows the day it was received and the method it was paid with (F-021).
+        getVisitCashEvents(v).forEach((event) => {
+          const isTransfer = isTransferPayment(event.method);
+          if (!isInPeriod(event.date)) return;
+          const cashMonthKey = event.date.substring(0, 7);
+          if (!dailyFinanceMap[event.date]) {
+            dailyFinanceMap[event.date] = { cashIn: 0, cashOut: 0 };
+          }
+          if (!monthlyFinanceMap[cashMonthKey]) {
+            monthlyFinanceMap[cashMonthKey] = { cashIn: 0, cashOut: 0 };
+          }
+          kasirRev += event.amount;
+          dailyFinanceMap[event.date].cashIn += event.amount;
+          monthlyFinanceMap[cashMonthKey].cashIn += event.amount;
+          if (isTransfer) tfRev += event.amount;
+          else tunaiRev += event.amount;
+          if (v.jenis_pasien !== 'BPJS') umumRev += event.amount;
+        });
+
+        // Visit counts, morbidity, and villages stay on the examination date.
+        if (!isInPeriod(v.tanggal_periksa)) return;
 
         const tgl = v.tanggal_periksa;
         const monthKey = tgl ? tgl.substring(0, 7) : '';
@@ -315,48 +345,18 @@ export default function DashboardPage() {
           monthlyMap[monthKey] = { bpjs: 0, umum: 0 };
         }
 
-        if (!dailyFinanceMap[tgl]) {
-          dailyFinanceMap[tgl] = { cashIn: 0, cashOut: 0 };
-        }
-        if (monthKey && !monthlyFinanceMap[monthKey]) {
-          monthlyFinanceMap[monthKey] = { cashIn: 0, cashOut: 0 };
-        }
-
-        const isSettled = isSettledVisit(v);
-        const lain = Number(v.pendapatan_lain) || 0;
-        const totalRev = computeVisitRevenue(v);
-        kasirRev += totalRev;
-
-        dailyFinanceMap[tgl].cashIn += totalRev;
-        if (monthKey) {
-          monthlyFinanceMap[monthKey].cashIn += totalRev;
-        }
-
         if (v.jenis_pasien === 'BPJS') {
           bpjsVisits++;
           dailyMap[tgl].bpjs++;
           if (monthKey) monthlyMap[monthKey].bpjs++;
-          if (isSettled && lain > 0) {
-            if (v.jenis_pembayaran === 'TF' || v.jenis_pembayaran === 'Transfer') {
-              tfRev += lain;
-            } else {
-              tunaiRev += lain;
-            }
-          }
         } else {
           umumVisits++;
           dailyMap[tgl].umum++;
           if (monthKey) monthlyMap[monthKey].umum++;
-          umumRev += totalRev;
 
-          if (isSettled) {
-            if (v.jenis_pembayaran === 'TF' || v.jenis_pembayaran === 'Transfer') {
-              tfRev += totalRev;
-              tfVisits++;
-            } else {
-              tunaiRev += totalRev;
-              tunaiVisits++;
-            }
+          if (isSettledVisit(v)) {
+            if (isTransferPayment(v.jenis_pembayaran)) tfVisits++;
+            else tunaiVisits++;
           }
         }
 

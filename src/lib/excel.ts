@@ -14,6 +14,8 @@ export interface VisitExportRow {
   jenis_kelamin: string;
   desa: string;
   tanggal_periksa: string;
+  /** F-021: day the money was received, see describeCashDates. */
+  tanggal_bayar: string;
   nama_dokter: string;
   kode_icd10: string;
   diagnosa_deskripsi: string;
@@ -86,13 +88,14 @@ export function exportVisitsToExcel(visits: VisitExportRow[], dateRange?: DateRa
     'L/P',
     'Desa / Wilayah',
     'Tanggal Periksa',
+    'Tanggal Bayar',
     'Dokter Pemeriksa',
     'Kode ICD-10',
     'Diagnosa Medis',
     'Jenis Pasien',
     'Biaya Periksa (Rp)',
     'Pendapatan Lain (Rp)',
-    'Total Billing (Rp)',
+    'Total Tagihan (Rp)',
     'Pembayaran',
   ];
 
@@ -102,6 +105,7 @@ export function exportVisitsToExcel(visits: VisitExportRow[], dateRange?: DateRa
     v.jenis_kelamin,
     v.desa,
     v.tanggal_periksa,
+    v.tanggal_bayar,
     v.nama_dokter,
     v.kode_icd10,
     v.diagnosa_deskripsi,
@@ -210,13 +214,14 @@ export function exportFullClinicWorkbook(params: {
     'L/P',
     'Desa / Wilayah',
     'Tanggal Periksa',
+    'Tanggal Bayar',
     'Dokter Pemeriksa',
     'Kode ICD-10',
     'Diagnosa Medis',
     'Jenis Pasien',
     'Biaya Periksa (Rp)',
     'Pendapatan Lain (Rp)',
-    'Total Billing (Rp)',
+    'Total Tagihan (Rp)',
     'Pembayaran',
   ];
   const visitRows = params.visits.map((v) => [
@@ -225,6 +230,7 @@ export function exportFullClinicWorkbook(params: {
     v.jenis_kelamin,
     v.desa,
     v.tanggal_periksa,
+    v.tanggal_bayar,
     v.nama_dokter,
     v.kode_icd10,
     v.diagnosa_deskripsi,
