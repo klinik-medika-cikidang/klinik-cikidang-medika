@@ -132,6 +132,94 @@ export function isOperationalExpense(flow: {
   return flow.jenis === 'Keluar' && !isCashHandoverToOwnerOrBank(flow);
 }
 
+export type ExpenseScope = 'klinik' | 'non_klinik';
+
+type ExpenseFlowLike = {
+  tanggal?: string | null;
+  jenis?: string | null;
+  kategori?: string | null;
+  nominal?: number | string | null;
+};
+
+// F-020: the clinic sheet splits spending into "Klinik" and "Non Klinik". Only
+// "Pengeluaran Non Klinik" is non-clinic; every other operational expense is clinic
+// spending, and cash handovers are neither.
+export function getExpenseScope(flow: { jenis?: string | null; kategori?: string | null }): ExpenseScope | null {
+  if (!isOperationalExpense(flow)) return null;
+  return (flow.kategori || '').trim() === 'Pengeluaran Non Klinik' ? 'non_klinik' : 'klinik';
+}
+
+export function summarizeExpensesByScope(flows: ExpenseFlowLike[]) {
+  let klinik = 0;
+  let nonKlinik = 0;
+  for (const flow of flows) {
+    const scope = getExpenseScope(flow);
+    const nominal = Number(flow.nominal) || 0;
+    if (scope === 'klinik') klinik += nominal;
+    else if (scope === 'non_klinik') nonKlinik += nominal;
+  }
+  return { klinik, nonKlinik, total: klinik + nonKlinik };
+}
+
+const MAX_RECAP_MONTHS = 240;
+
+export interface MonthlyExpenseRecap {
+  year: number;
+  month: number;
+  klinik: number;
+  nonKlinik: number;
+  total: number;
+}
+
+/**
+ * One row per calendar month, like the ANALISA pivot of the clinic sheet. Months
+ * without expenses inside the range are kept as zero rows. Without a full range the
+ * months span the first to the last month that has data.
+ */
+export function groupExpensesByMonth(
+  flows: ExpenseFlowLike[],
+  range?: { start?: string | null; end?: string | null }
+): MonthlyExpenseRecap[] {
+  const totals = new Map<string, { klinik: number; nonKlinik: number }>();
+  for (const flow of flows) {
+    const scope = getExpenseScope(flow);
+    if (!scope || !flow.tanggal) continue;
+    const key = flow.tanggal.slice(0, 7);
+    const bucket = totals.get(key) || { klinik: 0, nonKlinik: 0 };
+    const nominal = Number(flow.nominal) || 0;
+    if (scope === 'klinik') bucket.klinik += nominal;
+    else bucket.nonKlinik += nominal;
+    totals.set(key, bucket);
+  }
+
+  const dataMonths = [...totals.keys()].sort();
+  // A half-typed date ("0002-10-01") must not expand into thousands of empty months.
+  const isUsableDate = (value?: string | null) => Boolean(value && /^(19|20)\d{2}-\d{2}/.test(value));
+  const useRange = isUsableDate(range?.start) && isUsableDate(range?.end);
+  let first = useRange ? range!.start!.slice(0, 7) : dataMonths[0];
+  const last = useRange ? range!.end!.slice(0, 7) : dataMonths[dataMonths.length - 1];
+  if (!first || !last || first > last) return [];
+  const [ly, lm] = last.split('-').map(Number);
+  const earliest = new Date(ly, lm - MAX_RECAP_MONTHS, 1);
+  const earliestKey = `${earliest.getFullYear()}-${String(earliest.getMonth() + 1).padStart(2, '0')}`;
+  if (first < earliestKey) first = earliestKey;
+
+  const rows: MonthlyExpenseRecap[] = [];
+  let [year, month] = first.split('-').map(Number);
+  const [lastYear, lastMonth] = last.split('-').map(Number);
+  while (year < lastYear || (year === lastYear && month <= lastMonth)) {
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    const bucket = totals.get(key) || { klinik: 0, nonKlinik: 0 };
+    rows.push({ year, month, ...bucket, total: bucket.klinik + bucket.nonKlinik });
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return rows;
+}
+
 // An expense paid by transfer is still a clinic cost, but it does not take money
 // out of the cashier drawer.
 export function isDrawerCashExpense(flow: {

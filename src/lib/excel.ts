@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
-import { formatLocalDateToYMD } from './utils';
+import { MONTH_NAMES_ID } from '@/constants/clinic';
+import { formatLocalDateToYMD, groupExpensesByMonth } from './utils';
 
 // toISOString() is UTC, so a file downloaded before 07:00 WIB was named after the
 // previous day.
@@ -289,6 +290,31 @@ export function exportFullClinicWorkbook(params: {
   const wsFlows = XLSX.utils.aoa_to_sheet(flowSheetData);
   wsFlows['!cols'] = calculateColumnWidths(flowSheetData);
   XLSX.utils.book_append_sheet(wb, wsFlows, 'Arus Kas Operasional');
+
+  // F-020: same columns as the PENGELUARAN TOTAL pivot in the clinic sheet.
+  const isIsoDate = (value?: string) => Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+  const recapRange =
+    isIsoDate(params.dateRange?.start) && isIsoDate(params.dateRange?.end) ? params.dateRange : undefined;
+  const recapRows = groupExpensesByMonth(params.flows, recapRange).map((r) => [
+    r.year,
+    MONTH_NAMES_ID[r.month - 1],
+    r.klinik,
+    r.nonKlinik,
+    r.total,
+  ]);
+  const recapTotals = recapRows.reduce<number[]>(
+    (acc, r) => [acc[0] + Number(r[2]), acc[1] + Number(r[3]), acc[2] + Number(r[4])],
+    [0, 0, 0]
+  );
+  const recapSheetData = [
+    ...createMetadataHeader('REKAP PENGELUARAN KLINIK DAN NON KLINIK', params.dateRange),
+    ['Tahun', 'Bulan', 'Klinik (Rp)', 'Non Klinik (Rp)', 'Total (Rp)'],
+    ...recapRows,
+    ['Total Periode', '', ...recapTotals],
+  ];
+  const wsRecap = XLSX.utils.aoa_to_sheet(recapSheetData);
+  wsRecap['!cols'] = calculateColumnWidths(recapSheetData);
+  XLSX.utils.book_append_sheet(wb, wsRecap, 'Rekap Pengeluaran');
 
   const fileNameDate = getFileNameDate();
   XLSX.writeFile(wb, `Laporan_Lengkap_Klinik_Cikidang_${fileNameDate}.xlsx`);

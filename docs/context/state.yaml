@@ -102,7 +102,7 @@ features:
     track: engineering
     status: draft
     spec_path: docs/specs/F-020-rekap-pengeluaran-klinik-non-klinik
-    active_phase: awaiting-client-approval
+    active_phase: code-done-awaiting-staging-test
   - id: F-021
     name: Pencatatan Tanggal Bayar Pasien
     track: engineering

@@ -29,6 +29,7 @@ import {
   isCashHandoverToOwnerOrBank,
   isDrawerCashExpense,
   isOperationalExpense,
+  summarizeExpensesByScope,
   isSettledCashVisit,
   getErrorMessage,
 } from '@/lib/utils';
@@ -176,6 +177,9 @@ export default function BukuKasPage() {
     (acc, cf) => acc + (Number(cf.nominal) || 0),
     0
   );
+
+  const { klinik: keluarKlinik, nonKlinik: keluarNonKlinik } =
+    summarizeExpensesByScope(operationalExpenseFlows);
 
   const saldoBersih = totalMasuk - totalKeluar;
 
@@ -396,6 +400,8 @@ export default function BukuKasPage() {
         <CashFlowSummaryCards
           totalMasuk={totalMasuk}
           totalKeluar={totalKeluar}
+          keluarKlinik={keluarKlinik}
+          keluarNonKlinik={keluarNonKlinik}
           saldoBersih={saldoBersih}
           totalSetorTunai={totalSetorTunai}
           monthName={`${selectedMonthName} ${selectedYear}`}

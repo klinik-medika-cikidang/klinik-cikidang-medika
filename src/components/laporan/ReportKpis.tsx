@@ -10,6 +10,7 @@ import {
   Scales,
 } from '@phosphor-icons/react';
 import { formatRupiah } from '@/lib/utils';
+import { ExpenseScopeBreakdown } from '@/components/finance/ExpenseScopeBreakdown';
 
 export interface ReportKpiData {
   totalVisits: number;
@@ -18,6 +19,9 @@ export interface ReportKpiData {
   totalBilling: number;
   totalKasMasuk: number;
   totalKasKeluar: number;
+  /** F-020 split of totalKasKeluar. */
+  kasKeluarKlinik: number;
+  kasKeluarNonKlinik: number;
   netIncome: number;
 }
 
@@ -226,6 +230,11 @@ export function ReportKpis({ data, isLoading }: ReportKpisProps) {
                 title={`Pengeluaran: ${formatRupiah(data.totalKasKeluar)} (${keluarPct}%)`}
               />
             </div>
+          </div>
+
+          <div className="mb-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Rincian Pengeluaran</p>
+            <ExpenseScopeBreakdown klinik={data.kasKeluarKlinik} nonKlinik={data.kasKeluarNonKlinik} />
           </div>
         </div>
 

@@ -14,6 +14,8 @@ import {
   formatLocalDateToYMD,
   isCashHandoverToOwnerOrBank,
   isOperationalExpense,
+  summarizeExpensesByScope,
+  groupExpensesByMonth,
   isSettledVisit,
   computeVisitRevenue,
   getErrorMessage,
@@ -34,6 +36,7 @@ import {
 import { ReportFilterBar } from '@/components/laporan/ReportFilterBar';
 import { ReportPreviewTable } from '@/components/laporan/ReportPreviewTable';
 import { ReportKpis } from '@/components/laporan/ReportKpis';
+import { ExpenseRecapTable } from '@/components/laporan/ExpenseRecapTable';
 import { ReferralCommissionPanel } from '@/components/laporan/ReferralCommissionPanel';
 import { BidanReferralPanel } from '@/components/laporan/BidanReferralPanel';
 import { PuskesmasReportPanel } from '@/components/laporan/PuskesmasReportPanel';
@@ -315,6 +318,8 @@ export default function LaporanPage() {
     const totalKasKeluar = cashFlowData
       .filter((c) => isOperationalExpense(c))
       .reduce((sum, c) => sum + (c.nominal || 0), 0);
+    const { klinik: kasKeluarKlinik, nonKlinik: kasKeluarNonKlinik } =
+      summarizeExpensesByScope(cashFlowData);
     const netIncome = totalKasMasuk - totalKasKeluar;
 
     return {
@@ -324,9 +329,16 @@ export default function LaporanPage() {
       totalBilling,
       totalKasMasuk,
       totalKasKeluar,
+      kasKeluarKlinik,
+      kasKeluarNonKlinik,
       netIncome,
     };
   }, [visitsData, cashFlowData]);
+
+  const expenseRecapRows = useMemo(
+    () => groupExpensesByMonth(cashFlowData, { start: startDate, end: endDate }),
+    [cashFlowData, startDate, endDate]
+  );
 
   return (
     <div className="space-y-6 min-w-0 w-full pb-10">
@@ -438,6 +450,10 @@ export default function LaporanPage() {
       />
 
       {/* 5. Consolidated Preview Table, Referral Commission, Bidan, or Puskesmas View */}
+      {!isDokterAdmin && activeTab === 'buku_kas' && (
+        <ExpenseRecapTable rows={expenseRecapRows} isLoading={isLoading} />
+      )}
+
       {activeTab === 'komisi' ? (
         <ReferralCommissionPanel isLoading={isLoading} />
       ) : activeTab === 'bidan' ? (

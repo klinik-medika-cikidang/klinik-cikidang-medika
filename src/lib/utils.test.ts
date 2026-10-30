@@ -18,7 +18,11 @@ import {
   getErrorMessage,
   buildDailyTrendRange,
   describeDailyTrendRange,
+  getExpenseScope,
+  summarizeExpensesByScope,
+  groupExpensesByMonth,
 } from './utils';
+import { CASH_FLOW_CATEGORIES, CASH_FLOW_KELUAR_GROUPS } from '@/constants/clinic';
 
 describe('isLikelyShorthandRupiah', () => {
   it('flags positive amounts below Rp 1.000 typed in the old thousands habit', () => {
@@ -396,5 +400,93 @@ describe('describeDailyTrendRange', () => {
 
   it('falls back to a plain label for an empty range', () => {
     expect(describeDailyTrendRange([])).toBe('Harian');
+  });
+});
+
+describe('getExpenseScope', () => {
+  it('marks only Pengeluaran Non Klinik as non-clinic', () => {
+    expect(getExpenseScope({ jenis: 'Keluar', kategori: 'Pengeluaran Non Klinik' })).toBe('non_klinik');
+  });
+
+  it('marks every other operational expense category as clinic', () => {
+    for (const kategori of [
+      'Pengeluaran Obat / Operasional',
+      'Operasional & Listrik/Air',
+      'Honor & Transport',
+      'Perlengkapan Medis',
+    ]) {
+      expect(getExpenseScope({ jenis: 'Keluar', kategori })).toBe('klinik');
+    }
+  });
+
+  it('ignores cash handovers and income', () => {
+    expect(getExpenseScope({ jenis: 'Keluar', kategori: 'Setor ke Rekening Pemilik' })).toBeNull();
+    expect(getExpenseScope({ jenis: 'Masuk', kategori: 'Setor Tunai' })).toBeNull();
+    expect(getExpenseScope({ jenis: 'Masuk', kategori: 'Kapitasi BPJS' })).toBeNull();
+  });
+});
+
+describe('summarizeExpensesByScope', () => {
+  it('splits expenses and keeps the total equal to all operational expenses', () => {
+    const flows = [
+      { jenis: 'Keluar', kategori: 'Pengeluaran Obat / Operasional', nominal: 200000 },
+      { jenis: 'Keluar', kategori: 'Honor & Transport', nominal: '50000' },
+      { jenis: 'Keluar', kategori: 'Pengeluaran Non Klinik', nominal: 75000 },
+      { jenis: 'Keluar', kategori: 'Setor ke Rekening Pemilik', nominal: 1000000 },
+      { jenis: 'Masuk', kategori: 'Kapitasi BPJS', nominal: 3000000 },
+    ];
+    const operational = flows
+      .filter((f) => isOperationalExpense(f))
+      .reduce((sum, f) => sum + Number(f.nominal), 0);
+    const result = summarizeExpensesByScope(flows);
+    expect(result).toEqual({ klinik: 250000, nonKlinik: 75000, total: 325000 });
+    expect(result.total).toBe(operational);
+  });
+});
+
+describe('groupExpensesByMonth', () => {
+  const flows = [
+    { tanggal: '2025-12-30', jenis: 'Keluar', kategori: 'Pengeluaran Obat / Operasional', nominal: 100000 },
+    { tanggal: '2026-02-03', jenis: 'Keluar', kategori: 'Pengeluaran Non Klinik', nominal: 40000 },
+    { tanggal: '2026-02-10', jenis: 'Keluar', kategori: 'Perlengkapan Medis', nominal: 60000 },
+    { tanggal: '2026-02-11', jenis: 'Masuk', kategori: 'Setor Tunai', nominal: 999000 },
+  ];
+
+  it('crosses a year boundary and keeps empty months as zero rows', () => {
+    expect(groupExpensesByMonth(flows)).toEqual([
+      { year: 2025, month: 12, klinik: 100000, nonKlinik: 0, total: 100000 },
+      { year: 2026, month: 1, klinik: 0, nonKlinik: 0, total: 0 },
+      { year: 2026, month: 2, klinik: 60000, nonKlinik: 40000, total: 100000 },
+    ]);
+  });
+
+  it('follows the requested range', () => {
+    const rows = groupExpensesByMonth(flows, { start: '2026-01-01', end: '2026-03-31' });
+    expect(rows.map((r) => `${r.year}-${r.month}`)).toEqual(['2026-1', '2026-2', '2026-3']);
+    expect(rows[2].total).toBe(0);
+  });
+
+  it('returns no rows when there is neither data nor a range', () => {
+    expect(groupExpensesByMonth([])).toEqual([]);
+  });
+});
+
+describe('CASH_FLOW_KELUAR_GROUPS', () => {
+  it('lists every Kas Keluar category exactly once', () => {
+    const grouped = CASH_FLOW_KELUAR_GROUPS.flatMap((g) => [...g.categories]).sort();
+    expect(grouped).toEqual([...CASH_FLOW_CATEGORIES.keluar].sort());
+  });
+});
+
+describe('groupExpensesByMonth range guard', () => {
+  it('ignores a half-typed year and falls back to the data months', () => {
+    const flows = [{ tanggal: '2026-10-05', jenis: 'Keluar', kategori: 'Honor & Transport', nominal: 1000 }];
+    expect(groupExpensesByMonth(flows, { start: '0002-10-01', end: '2026-10-31' })).toHaveLength(1);
+  });
+
+  it('caps a very long range at 240 months ending at the range end', () => {
+    const rows = groupExpensesByMonth([], { start: '1990-01-01', end: '2026-12-31' });
+    expect(rows).toHaveLength(240);
+    expect(rows[rows.length - 1]).toMatchObject({ year: 2026, month: 12 });
   });
 });

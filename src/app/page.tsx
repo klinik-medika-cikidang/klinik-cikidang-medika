@@ -24,6 +24,7 @@ import {
   summarizeCashPosition,
   isTransferPayment,
   getErrorMessage,
+  getExpenseScope,
 } from '@/lib/utils';
 import {
   DashboardKpiCards,
@@ -79,6 +80,8 @@ export default function DashboardPage() {
     kasirRevenue: 0,
     bpjsRevenue: 0,
     totalExpenses: 0,
+    expenseKlinik: 0,
+    expenseNonKlinik: 0,
     netIncome: 0,
   });
 
@@ -379,6 +382,7 @@ export default function DashboardPage() {
       let bpjsCapitation = 0;
       let otherCashIn = 0;
       let expenses = 0;
+      let expensesNonKlinik = 0;
       let transferExpenses = 0;
       let bankSetoran = 0;
 
@@ -409,6 +413,7 @@ export default function DashboardPage() {
           if (monthKeyFlow) monthlyFinanceMap[monthKeyFlow].cashIn += nom;
         } else if (isOperationalExpense(f)) {
           expenses += nom;
+          if (getExpenseScope(f) === 'non_klinik') expensesNonKlinik += nom;
           if (isTransferPayment(f.jenis_pembayaran)) transferExpenses += nom;
           dailyFinanceMap[tglFlow].cashOut += nom;
           if (monthKeyFlow) monthlyFinanceMap[monthKeyFlow].cashOut += nom;
@@ -541,6 +546,8 @@ export default function DashboardPage() {
         kasirRevenue: kasirRev,
         bpjsRevenue: bpjsCapitation,
         totalExpenses: expenses,
+        expenseKlinik: expenses - expensesNonKlinik,
+        expenseNonKlinik: expensesNonKlinik,
         netIncome: netCash,
       });
 
