@@ -8,10 +8,10 @@ last_updated: 2026-10-28
 
 # Implementation Tasks — F-019
 
-Status: code tasks done on branch `claude/f-019-perbaikan-konsistensi-44a314` (2026-10-28). Tasks 1.1, 5.1, 5.2, and the production part of 6.2 are blocked: menunggu akses Supabase.
+Status: code and audit tasks done on branch `claude/f-019-perbaikan-konsistensi-44a314` (2026-10-30). Task 1.1 and the production part of 6.2 wait for the user: migrations go to the old staging project first, and to the old production project only after the user approves the staging test.
 
 ## Phase 1: Kategori Kunjungan
-- [ ] **Task 1.1: Verify and promote the F-011 migration to production** (blocked: menunggu akses Supabase)
+- [ ] **Task 1.1: Verify and promote the F-011 migration to production** (menunggu izin user: production lama masih live; staging lama dulu, production lama setelah di-acc)
   - Run the column check from design §2.A. Apply `20261009_f011_visit_category.sql` only if the column is missing and only after explicit approval.
   - Update the production `migrations_applied` list in `docs/context/state.yaml`.
   - _Requirements: REQ-019-01.1, REQ-019-01.5_
@@ -68,12 +68,16 @@ Status: code tasks done on branch `claude/f-019-perbaikan-konsistensi-44a314` (2
   - _Requirements: REQ-019-08.1_
 
 ## Phase 5: Audit Buku Kas vs DATA
-- [ ] **Task 5.1: Write the read-only audit script** (blocked: menunggu akses Supabase; the script cannot be verified without database data)
+- [x] **Task 5.1: Write the read-only audit script**
   - Target: `scripts/audit-bukukas-vs-csv.mjs`
+  - Compares per month and per day. Also counts CSV money cells that `parseRupiah` cannot read faithfully, since the audit and the ETL share that parser.
   - _Requirements: REQ-019-06.1, REQ-019-06.2_
 
-- [ ] **Task 5.2: Run the audit on production and log differences** (blocked: menunggu akses Supabase)
+- [x] **Task 5.2: Run the audit on production and log differences**
   - Record each differing month as a follow-up task in this file.
+  - Run 2026-10-30, read-only, against the new production copy `bxjvishfluxorccrquls` (a column-verified copy of the live production data as of the 2026-10-29 backup). Range 2023-08-01 to 2026-10-09: 39 of 39 months and 1,117 of 1,117 dates match for visits, cashier revenue, clinic expenses, non-clinic expenses, and cash deposits. No follow-up defect.
+  - Not compared (no CSV column): `Honor & Transport` expenses and `Kapitasi BPJS` income.
+  - CSV cells read as 0 that a human should confirm: `tarif` "-" (4) and "free" (1), `Pendpatan lain` "beli obat" (1). The database also holds 0 for them. Cells written as "IDR Rp 9.999" (420) are read correctly.
   - _Requirements: REQ-019-06.3_
 
 ## Phase 6: Verification Gate
@@ -81,7 +85,7 @@ Status: code tasks done on branch `claude/f-019-perbaikan-konsistensi-44a314` (2
   - `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`
   - _Requirements: all_
 
-- [ ] **Task 6.2: Runtime verification** (production part blocked: menunggu akses Supabase)
+- [ ] **Task 6.2: Runtime verification** (production part waits for user approval; logged-in checks wait for the user to seed test accounts)
   - Save every category on production. Compare Dashboard, Laporan, and Excel revenue for October 2026. Settle a carried-over visit on staging.
   - Check Dashboard, Loket & Kasir, and Program Khusus at 360px, 768px, and 1024px. (Changed Dashboard and Loket & Kasir components done with mock data, see Task 2.5. Full pages with real data and Program Khusus still pending.)
   - _Requirements: REQ-019-01.2, REQ-019-03.2, REQ-019-04.4, REQ-019-05.3, INV-019-1 to INV-019-5_
