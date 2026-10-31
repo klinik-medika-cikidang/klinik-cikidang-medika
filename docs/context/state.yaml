@@ -126,7 +126,7 @@ features:
     track: engineering
     status: draft
     spec_path: docs/specs/F-024-isian-uk-tp-anc
-    active_phase: code-done-staging-tested
+    active_phase: released-production
 
 active:
   feature_id: "F-017"
@@ -224,7 +224,8 @@ deployment:
   custom_domain_note: "Domain milik klinik (dibeli dan dibayar pihak dokter); dikelola di Vercel, tim devklinikmedika, project klinik-cikidang-medika, Settings > Domains. Kedua URL menyajikan deployment Production yang sama (dicek 2026-10-31)."
   repository: https://github.com/klinik-medika-cikidang/klinik-cikidang-medika
   visibility: public
-  last_successful_commit: 995783a
+  last_successful_commit: e59cef7
+  last_release_f024: "2026-11-01: F-024 (isian UK dan TP) di-merge ke main (e59cef7); Vercel Production sukses; uji asap baca-saja di dashboard.cikidangmedika.com lolos. Tanpa migrasi."
   last_release: "2026-10-31 subuh: F-019..F-023 di-merge ke main (995783a) dan staging (1ca1da6); Vercel Production sukses. Uji asap baca-saja owner dan dokter_admin di 6 halaman tanpa error. Angka Oktober 2026 di Dashboard, Laporan, dan Buku Kas sama dengan hitung ulang langsung dari database: 385 kunjungan, Pendapatan Kasir Rp 37.355.000, laba bersih Rp 43.629.904, sisa laci tanpa Saldo Awal minus Rp 3.442.000."
   note: "Deployment produksi gagal dari 27 Sep sampai 1 Okt pagi (domain masih menyajikan kode era F-004) dan kembali berhasil setelah repo dipindahkan ke organisasi klinik-medika-cikidang."
   verified_routes: ["/", "/login", "/pendaftaran", "/rekam-medis", "/program-khusus", "/buku-kas", "/laporan"]
