@@ -406,6 +406,8 @@ export interface PublicHealthExportRow {
   lab: string;
   terapi: string;
   gpa?: string;
+  uk?: string;
+  tp?: string;
   hbsag: string;
   hiv?: string;
   syphilis?: string;
@@ -448,6 +450,8 @@ const PUBLIC_HEALTH_SHEET_CONFIG: Record<
       'No NIK',
       'Diagnosa',
       'GPA',
+      'UK',
+      'TP',
       'Terapi',
       'HbSAg',
     ],
@@ -481,6 +485,8 @@ const PUBLIC_HEALTH_SHEET_CONFIG: Record<
       'No NIK',
       'Diagnosa',
       'GPA',
+      'UK',
+      'TP',
       'Terapi',
       'HbSAg',
       'HIV',
@@ -519,6 +525,8 @@ function buildPublicHealthRow(row: PublicHealthExportRow, program: string): (str
       row.no_nik,
       row.diagnosa || '-',
       row.gpa || '-',
+      row.uk || '-',
+      row.tp || '-',
       row.terapi || '-',
       row.hbsag || '-',
     ];
@@ -535,6 +543,8 @@ function buildPublicHealthRow(row: PublicHealthExportRow, program: string): (str
       row.no_nik,
       row.diagnosa || '-',
       row.gpa || '-',
+      row.uk || '-',
+      row.tp || '-',
       row.terapi || '-',
       row.hbsag || '-',
       row.hiv || '-',
