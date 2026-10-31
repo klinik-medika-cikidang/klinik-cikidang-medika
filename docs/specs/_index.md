@@ -37,6 +37,7 @@ Mutable execution status, active task, blockers, and commits belong in `docs/con
 | `F-021` | Pencatatan Tanggal Bayar Pasien (berbayar) | `docs/specs/F-021-pencatatan-tanggal-bayar/` | P1 | draft | Change Request |
 | `F-022` | Tampilan Pasien Aktif pada Program Khusus (berbayar) | `docs/specs/F-022-program-khusus-tampilan-aktif/` | P2 | draft | Change Request |
 | `F-023` | Saldo Awal Laci Kasir (berbayar) | `docs/specs/F-023-saldo-awal-laci-kasir/` | P2 | draft | Change Request |
+| `F-024` | Isian UK dan TP pada Register ANC | `docs/specs/F-024-isian-uk-tp-anc/` | P2 | draft | Change Request |
 
 ## Lifecycle gate meaning
 

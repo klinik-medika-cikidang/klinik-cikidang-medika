@@ -121,6 +121,12 @@ features:
     status: draft
     spec_path: docs/specs/F-023-saldo-awal-laci-kasir
     active_phase: released-production
+  - id: F-024
+    name: Isian UK dan TP pada Register ANC
+    track: engineering
+    status: draft
+    spec_path: docs/specs/F-024-isian-uk-tp-anc
+    active_phase: code-done-staging-tested
 
 active:
   feature_id: "F-017"

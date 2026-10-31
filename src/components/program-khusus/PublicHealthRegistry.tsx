@@ -156,6 +156,8 @@ export function PublicHealthRegistry({ records, isLoading }: PublicHealthRegistr
         diagnosa: r.diagnosa || '-',
         kategori_ptm: classifyPtm(r),
         gpa: r.gpa || '-',
+        uk: r.uk || '-',
+        tp: r.tp || '-',
         lab: r.lab || '-',
         terapi: r.terapi || '-',
         hbsag: r.hbsag || '-',
@@ -329,6 +331,9 @@ export function PublicHealthRegistry({ records, isLoading }: PublicHealthRegistr
                   const rmDisplay = row.no_rm || row.pasien?.no_rm || '-';
                   const desaDisplay = row.desa || row.pasien?.desa || '-';
                   const ptmCategory = classifyPtm(row);
+                  const pregnancyLine = [row.uk && `UK ${row.uk}`, row.tp && `TP ${row.tp}`]
+                    .filter(Boolean)
+                    .join(' • ');
 
                   return (
                     <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
@@ -379,12 +384,15 @@ export function PublicHealthRegistry({ records, isLoading }: PublicHealthRegistr
                                 GPA: {row.gpa}
                               </span>
                             )}
+                            {pregnancyLine && (
+                              <span className="font-mono text-[10px] text-slate-600">{pregnancyLine}</span>
+                            )}
                             {row.terapi && (
                               <span className="text-[10px] text-slate-500 truncate max-w-[180px]">
                                 {row.terapi}
                               </span>
                             )}
-                            {!row.gpa && !row.terapi && <span>-</span>}
+                            {!row.gpa && !pregnancyLine && !row.terapi && <span>-</span>}
                           </div>
                         ) : row.program_type === 'PTM' ? (
                           <span
@@ -410,10 +418,17 @@ export function PublicHealthRegistry({ records, isLoading }: PublicHealthRegistr
                             )}
                           </div>
                         ) : (
-                          row.gpa ? (
-                            <span className="font-mono font-bold text-teal-800 text-[11px]">
-                              GPA: {row.gpa}
-                            </span>
+                          row.gpa || pregnancyLine ? (
+                            <div className="flex flex-col gap-0.5">
+                              {row.gpa && (
+                                <span className="font-mono font-bold text-teal-800 text-[11px]">
+                                  GPA: {row.gpa}
+                                </span>
+                              )}
+                              {pregnancyLine && (
+                                <span className="font-mono text-[10px] text-slate-600">{pregnancyLine}</span>
+                              )}
+                            </div>
                           ) : (
                             '-'
                           )
