@@ -18,6 +18,7 @@ import { PatientSearchAutocomplete } from '@/components/pendaftaran/PatientSearc
 import { createClient } from '@/lib/supabase/client';
 import { TRIPLE_ELIMINASI_LABS, DESA_OPTIONS } from '@/constants/clinic';
 import { classifyPtm, type PtmCategory } from '@/lib/clinical';
+import { estimateDueDate, formatDueDate, formatGestationalAge, isPlausibleDueDate } from '@/lib/pregnancy';
 import { cn, formatLocalDateToYMD, getErrorMessage } from '@/lib/utils';
 
 interface NewPublicHealthModalProps {
@@ -96,6 +97,11 @@ export function NewPublicHealthModal({
   const [diagnosa, setDiagnosa] = useState('');
   const [kategoriPtm, setKategoriPtm] = useState<PtmCategory>('Hipertensi');
   const [gpa, setGpa] = useState('');
+  const [ukWeeks, setUkWeeks] = useState('');
+  const [ukDays, setUkDays] = useState('');
+  // TP follows UK until the user types a date, e.g. the EDD from the ultrasound.
+  const [tpManual, setTpManual] = useState('');
+  const [tpEdited, setTpEdited] = useState(false);
   const [lab, setLab] = useState('');
   const [terapi, setTerapi] = useState('');
   const [hbsag, setHbsag] = useState('');
@@ -105,6 +111,27 @@ export function NewPublicHealthModal({
   const [tanggalKembali, setTanggalKembali] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isPregnancyProgram = programType === 'ANC' || programType === 'ELIMINASI_3';
+  const computedTp = ukWeeks
+    ? estimateDueDate(tanggalPeriksa, Number(ukWeeks), Number(ukDays || 0)) ?? ''
+    : '';
+  const tpValue = tpEdited ? tpManual : computedTp;
+
+  const validatePregnancy = (): { field: string; message: string } | null => {
+    if (ukDays && !ukWeeks) return { field: 'uk', message: 'Isi minggu UK sebelum hari.' };
+    if (ukWeeks) {
+      const weeks = Number(ukWeeks);
+      const days = Number(ukDays || 0);
+      if (weeks < 1 || weeks > 42 || days > 6) {
+        return { field: 'uk', message: 'UK harus 1 sampai 42 minggu, dengan hari 0 sampai 6.' };
+      }
+    }
+    if (tpValue && !isPlausibleDueDate(tanggalPeriksa, tpValue)) {
+      return { field: 'tp', message: 'Tanggal TP tidak wajar untuk tanggal periksa ini. Periksa kembali tahun dan bulannya.' };
+    }
+    return null;
+  };
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -141,6 +168,10 @@ export function NewPublicHealthModal({
     setDiagnosa(initDiag);
     setKategoriPtm(classifyPtm({ diagnosa: initDiag }));
     setGpa('');
+    setUkWeeks('');
+    setUkDays('');
+    setTpManual('');
+    setTpEdited(false);
     setLab(initialVisit?.lab || '');
     setTerapi(initialVisit?.terapi_obat || '');
     setHbsag('');
@@ -221,6 +252,13 @@ export function NewPublicHealthModal({
       return;
     }
 
+    const pregnancyError = isPregnancyProgram ? validatePregnancy() : null;
+    if (pregnancyError) {
+      setFieldErrors({ [pregnancyError.field]: pregnancyError.message });
+      setErrorMsg(pregnancyError.message);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -249,6 +287,8 @@ export function NewPublicHealthModal({
         syphilis: valid.syphilis,
         jenis_kb: valid.jenisKb,
         tanggal_kembali: valid.tanggalKembali || null,
+        uk: isPregnancyProgram && ukWeeks ? formatGestationalAge(Number(ukWeeks), Number(ukDays || 0)) : null,
+        tp: isPregnancyProgram && tpValue ? formatDueDate(tpValue) : null,
       });
 
       if (error) throw error;
@@ -548,6 +588,86 @@ export function NewPublicHealthModal({
                 <p className="text-[10px] text-slate-500 mt-1">
                   Format manual: G = Jumlah Hamil, P = Partus (Melahirkan), A = Abortus (Keguguran). Contoh pasien hamil ke-3, melahirkan 2 kali, belum pernah keguguran: <strong>G3P2A0</strong>.
                 </p>
+              </div>
+            )}
+
+            {isPregnancyProgram && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <fieldset>
+                  <legend className="block font-bold text-slate-700 mb-1">Usia Kehamilan (UK)</legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex items-center gap-2 px-3 bg-white border border-slate-300 rounded-lg min-h-[44px] focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:border-teal-600">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={ukWeeks}
+                        onChange={(e) => setUkWeeks(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                        placeholder="33"
+                        aria-label="UK dalam minggu"
+                        aria-invalid={Boolean(fieldErrors.uk)}
+                        aria-describedby={fieldErrors.uk ? 'uk-error' : undefined}
+                        className="w-full min-w-0 bg-transparent font-mono font-bold focus:outline-none"
+                      />
+                      <span className="text-slate-500 shrink-0">minggu</span>
+                    </label>
+                    <label className="flex items-center gap-2 px-3 bg-white border border-slate-300 rounded-lg min-h-[44px] focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:border-teal-600">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={ukDays}
+                        onChange={(e) => setUkDays(e.target.value.replace(/\D/g, '').slice(0, 1))}
+                        placeholder="0"
+                        aria-label="UK tambahan hari"
+                        aria-invalid={Boolean(fieldErrors.uk)}
+                        aria-describedby={fieldErrors.uk ? 'uk-error' : undefined}
+                        className="w-full min-w-0 bg-transparent font-mono font-bold focus:outline-none"
+                      />
+                      <span className="text-slate-500 shrink-0">hari</span>
+                    </label>
+                  </div>
+                  {fieldErrors.uk && (
+                    <p id="uk-error" className="text-[10px] text-rose-600 font-semibold mt-1">{fieldErrors.uk}</p>
+                  )}
+                </fieldset>
+
+                <div>
+                  <label htmlFor="tp-date" className="block font-bold text-slate-700 mb-1">
+                    Taksiran Persalinan (TP)
+                  </label>
+                  <input
+                    id="tp-date"
+                    type="date"
+                    aria-invalid={Boolean(fieldErrors.tp)}
+                    aria-describedby={fieldErrors.tp ? 'tp-error' : undefined}
+                    value={tpValue}
+                    onChange={(e) => {
+                      setTpManual(e.target.value);
+                      setTpEdited(true);
+                    }}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg min-h-[44px] font-mono focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 focus:outline-none"
+                  />
+                  {fieldErrors.tp && (
+                    <p id="tp-error" className="text-[10px] text-rose-600 font-semibold mt-1">{fieldErrors.tp}</p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <p className="text-[10px] text-slate-500 flex-1 min-w-[160px]">
+                      {tpEdited
+                        ? 'Diisi manual, tidak berubah saat UK diubah.'
+                        : computedTp
+                        ? 'Terhitung otomatis dari UK dan tanggal periksa (40 minggu). Ubah bila memakai tanggal dari USG.'
+                        : 'Isi UK agar TP terhitung otomatis, atau pilih tanggal langsung.'}
+                    </p>
+                    {tpEdited && computedTp && (
+                      <button
+                        type="button"
+                        onClick={() => setTpEdited(false)}
+                        className="text-[11px] font-bold text-teal-700 bg-white hover:bg-teal-50 border border-teal-300 px-3 rounded-lg min-h-[44px] transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                      >
+                        Hitung dari UK
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
