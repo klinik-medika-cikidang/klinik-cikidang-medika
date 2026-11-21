@@ -179,6 +179,12 @@ The table is restructured to present the Universal Baseline upfront:
      - Value chips: `Non-Reaktif` (default), `Reaktif`, `Belum Diperiksa`, or custom text.
 3. **PTM Category**:
    - Radio / Chip options: `Hipertensi (Kardiovaskular)`, `Diabetes Melitus (DM)`, `Lainnya`.
+4. **Jenis KB (custom values, 2026-11-20)**:
+   - Suggested list lives in `KB_METHOD_OPTIONS` (`src/constants/clinic.ts`): Suntik 1 Bulan, Suntik 2 Bulan, Suntik 3 Bulan, Pil KB, IUD / Spiral, Implan, Kondom, MOW / MOP.
+   - The field uses `Select` with the opt-in `creatable` prop. When the search text has no exact match, the list shows `Tambah "<teks>"`, which selects the typed text (also on Enter in the search box).
+   - On open, the modal reads `jenis_kb` from `public_health_records` where `program_type = 'KB'` (latest 1000 rows) and appends distinct values after the defaults, deduplicated ignoring case and spacing. If the read fails, an Indonesian warning is shown and the defaults stay usable.
+   - Before saving, the value is trimmed, inner whitespace is collapsed, and it is capped at 100 characters (`jenis_kb VARCHAR(100)`). A value that matches an existing option ignoring case is saved with that option's spelling. Helpers: `src/lib/kb-methods.ts`.
+   - No schema change. The register, Puskesmas report, and Excel export show `jenis_kb` as plain text, so new values appear there unchanged.
 
 ---
 

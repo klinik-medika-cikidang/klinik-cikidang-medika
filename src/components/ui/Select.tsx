@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { CaretDown, Check, MagnifyingGlass } from '@phosphor-icons/react';
+import { CaretDown, Check, MagnifyingGlass, Plus } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 
 export interface SelectOption {
@@ -34,8 +34,15 @@ export interface SelectProps {
   className?: string;
   headerTitle?: string;
   searchable?: boolean;
+  /**
+   * Lets the user pick the typed search text when no option matches it exactly.
+   * Implies `searchable`. The caller owns normalising the new value.
+   */
+  creatable?: boolean;
   size?: 'sm' | 'md';
 }
+
+const normalizeSearch = (text: string) => text.replace(/\s+/g, ' ').trim();
 
 export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
   (
@@ -58,6 +65,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
       disabled = false,
       headerTitle,
       searchable,
+      creatable = false,
       size = 'md',
     },
     forwardedRef
@@ -109,7 +117,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
     }, [options, children]);
 
     // Auto-searchable if more than 7 options
-    const isSearchActive = searchable !== undefined ? searchable : parsedOptions.length > 7;
+    const isSearchActive = creatable || (searchable !== undefined ? searchable : parsedOptions.length > 7);
 
     // Filter options based on search query
     const filteredOptions = useMemo(() => {
@@ -123,10 +131,28 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
       );
     }, [parsedOptions, searchQuery]);
 
+    const createCandidate = useMemo(() => {
+      if (!creatable) return '';
+      const typed = normalizeSearch(searchQuery);
+      if (!typed) return '';
+      const key = typed.toLowerCase();
+      const exists = parsedOptions.some(
+        (opt) =>
+          normalizeSearch(opt.label).toLowerCase() === key ||
+          normalizeSearch(String(opt.value)).toLowerCase() === key
+      );
+      return exists ? '' : typed;
+    }, [creatable, searchQuery, parsedOptions]);
+
     // Current selected option object
     const selectedOption = useMemo(() => {
-      return parsedOptions.find((opt) => String(opt.value) === String(internalValue));
-    }, [parsedOptions, internalValue]);
+      const found = parsedOptions.find((opt) => String(opt.value) === String(internalValue));
+      // A created value may not be in the caller's options yet; still show it on the trigger.
+      if (!found && creatable && String(internalValue) !== '') {
+        return { value: internalValue, label: String(internalValue) } as SelectOption;
+      }
+      return found;
+    }, [parsedOptions, internalValue, creatable]);
 
     // Consecutive options with the same group form one ARIA group under a visible heading.
     const optionRuns = useMemo(() => {
@@ -349,7 +375,26 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cari pilihan..."
+                    onKeyDown={
+                      creatable
+                        ? (e) => {
+                            // Enter picks the typed text instead of submitting the surrounding form.
+                            if (e.key !== 'Enter') return;
+                            e.preventDefault();
+                            if (createCandidate) {
+                              handleSelect(createCandidate);
+                              return;
+                            }
+                            const key = normalizeSearch(searchQuery).toLowerCase();
+                            const exact = parsedOptions.find(
+                              (opt) => normalizeSearch(opt.label).toLowerCase() === key
+                            );
+                            if (key && exact) handleSelect(exact.value);
+                          }
+                        : undefined
+                    }
+                    aria-label={creatable ? 'Cari atau tambah pilihan' : undefined}
+                    placeholder={creatable ? 'Cari atau ketik pilihan baru...' : 'Cari pilihan...'}
                     className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 font-medium placeholder:text-slate-400"
                   />
                 </div>
@@ -380,12 +425,25 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
                     <React.Fragment key={`run-${runIndex}`}>{run.options.map(renderOption)}</React.Fragment>
                   )
                 )
-              ) : (
+              ) : createCandidate ? null : (
                 <div className="py-4 text-center text-xs text-slate-400 font-medium">
                   Tidak ada pilihan yang cocok.
                 </div>
               )}
             </div>
+
+            {createCandidate && (
+              <div className={cn(filteredOptions.length > 0 && 'mt-1 pt-1 border-t border-slate-100')}>
+                <button
+                  type="button"
+                  onClick={() => handleSelect(createCandidate)}
+                  className="w-full flex items-center gap-2.5 px-2.5 min-h-[44px] rounded-xl text-left text-xs font-semibold text-teal-800 hover:bg-teal-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:bg-teal-50/80 transition-colors"
+                >
+                  <Plus className="w-4 h-4 shrink-0 text-teal-600" weight="bold" />
+                  <span className="min-w-0 truncate">Tambah &quot;{createCandidate}&quot;</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 

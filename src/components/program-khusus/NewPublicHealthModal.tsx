@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { z } from 'zod';
 import {
   WarningCircle,
@@ -16,7 +16,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { PatientSearchAutocomplete } from '@/components/pendaftaran/PatientSearchAutocomplete';
 import { createClient } from '@/lib/supabase/client';
-import { TRIPLE_ELIMINASI_LABS, DESA_OPTIONS } from '@/constants/clinic';
+import { TRIPLE_ELIMINASI_LABS, DESA_OPTIONS, KB_METHOD_OPTIONS } from '@/constants/clinic';
+import { mergeKbMethods, resolveKbMethod } from '@/lib/kb-methods';
 import { classifyPtm, type PtmCategory } from '@/lib/clinical';
 import { estimateDueDate, formatDueDate, formatGestationalAge, isPlausibleDueDate } from '@/lib/pregnancy';
 import { cn, formatLocalDateToYMD, getErrorMessage } from '@/lib/utils';
@@ -108,6 +109,8 @@ export function NewPublicHealthModal({
   const [hiv, setHiv] = useState('');
   const [syphilis, setSyphilis] = useState('');
   const [jenisKb, setJenisKb] = useState('');
+  const [storedKbMethods, setStoredKbMethods] = useState<string[]>([]);
+  const [kbMethodsLoadError, setKbMethodsLoadError] = useState<string | null>(null);
   const [tanggalKembali, setTanggalKembali] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -183,6 +186,45 @@ export function NewPublicHealthModal({
     setFieldErrors({});
   }, [isOpen, defaultProgram, initialVisit, initialPatient, todayStr]);
 
+  // Methods typed in earlier KB records join the suggested list, so a custom entry is
+  // offered again next time instead of being retyped with a different spelling.
+  useEffect(() => {
+    if (!isOpen || programType !== 'KB') return;
+    let cancelled = false;
+    setKbMethodsLoadError(null);
+
+    const loadStoredKbMethods = async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('public_health_records')
+        .select('jenis_kb')
+        .eq('program_type', 'KB')
+        .not('jenis_kb', 'is', null)
+        .order('tanggal_periksa', { ascending: false })
+        .limit(1000);
+
+      if (cancelled) return;
+      if (error) {
+        console.error('Error loading stored KB methods:', error);
+        setKbMethodsLoadError('Gagal memuat jenis KB yang pernah dicatat. Pilihan bawaan tetap bisa dipakai.');
+        return;
+      }
+      setStoredKbMethods(
+        ((data ?? []) as Array<{ jenis_kb: string | null }>).map((row) => row.jenis_kb ?? '')
+      );
+    };
+
+    void loadStoredKbMethods();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, programType]);
+
+  const kbMethodOptions = useMemo(
+    () => mergeKbMethods(KB_METHOD_OPTIONS, [...storedKbMethods, jenisKb]),
+    [storedKbMethods, jenisKb]
+  );
+
   const handleSelectPatient = (patient: Patient) => {
     setSelectedPatient(patient);
     setNoRm(patient.no_rm || '');
@@ -232,7 +274,7 @@ export function NewPublicHealthModal({
       hbsag: hbsag || null,
       hiv: hiv || null,
       syphilis: syphilis || null,
-      jenisKb: jenisKb || null,
+      jenisKb: programType === 'KB' ? resolveKbMethod(jenisKb, kbMethodOptions) || null : jenisKb || null,
       tanggalKembali: tanggalKembali || null,
     });
 
@@ -763,20 +805,18 @@ export function NewPublicHealthModal({
                   </label>
                   <Select
                     value={jenisKb}
-                    onChange={(e) => setJenisKb(e.target.value)}
+                    onValueChange={(val) => setJenisKb(resolveKbMethod(val, kbMethodOptions))}
                     placeholder="Pilih jenis KB"
-                    searchable
+                    creatable
                     headerTitle="Jenis KB"
-                    options={[
-                      'Suntik 1 Bulan',
-                      'Suntik 3 Bulan',
-                      'Pil KB',
-                      'IUD / Spiral',
-                      'Implan',
-                      'Kondom',
-                      'MOW / MOP',
-                    ].map((kb) => ({ value: kb, label: kb }))}
+                    helperText="Jenis belum ada? Ketik namanya lalu pilih Tambah."
+                    options={kbMethodOptions.map((kb) => ({ value: kb, label: kb }))}
                   />
+                  {kbMethodsLoadError && (
+                    <p role="alert" className="text-[11px] text-amber-700 font-medium mt-1 pl-1">
+                      {kbMethodsLoadError}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
