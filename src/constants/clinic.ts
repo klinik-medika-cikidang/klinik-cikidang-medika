@@ -230,6 +230,21 @@ export const TRIPLE_ELIMINASI_LABS = [
   { key: 'syphilis', label: 'Sipilis' },
 ] as const;
 
+// F-015: suggested contraception methods. Staff can add other methods in the form;
+// those are stored as free text in public_health_records.jenis_kb (VARCHAR(100)).
+export const KB_METHOD_OPTIONS = [
+  'Suntik 1 Bulan',
+  'Suntik 2 Bulan',
+  'Suntik 3 Bulan',
+  'Pil KB',
+  'IUD / Spiral',
+  'Implan',
+  'Kondom',
+  'MOW / MOP',
+] as const;
+
+export const KB_METHOD_MAX_LENGTH = 100;
+
 // F-016: Options for 100% free / discounted visit reasons
 export const ALASAN_GRATIS_OPTIONS = [
   'Kontrol Pasca Tindakan',
